@@ -97,17 +97,22 @@ conectar a la base durante el build.
 ## Errores, logs y observabilidad
 
 El dominio usa errores tipados (`ValidationError`, `ConflictError`,
-`NotFoundError`). El borde HTTP los traduce sin filtrar stack traces ni secretos.
-El logger emite JSON con `requestId`, módulo, acción y actor cuando aplica. No se
-registran contraseñas, tokens, cookies ni payloads completos de pagos.
+`NotFoundError`). En Fase 1 el borde HTTP traduce los errores esperables del login;
+el mapeo centralizado debe completarse antes de exponer nuevas APIs mutables. El
+logger estructurado acepta contexto como `requestId`, módulo, acción y actor cuando
+el llamador lo provee. No se registran contraseñas, tokens, cookies ni payloads
+completos de pagos.
 
-El endpoint `/api/health` comprueba proceso y, opcionalmente, conectividad con la
-base. En producción se usarán logs de stdout/stderr, health checks de Render y un
-servicio externo de captura de errores.
+El endpoint `/api/health` comprueba proceso y, opcionalmente, conectividad mediante
+un servicio de infraestructura; el Route Handler no accede a Prisma. En producción
+se usarán logs de stdout/stderr, health checks de Render y un servicio externo de
+captura de errores.
 
 ## Autenticación
 
-Sesiones opacas almacenadas en base. El navegador conserva un token aleatorio en
+Sesiones opacas almacenadas en base. `AuthService` depende de `AuthRepository` y el
+adaptador `PrismaAuthRepository` concentra las consultas y la transacción de login.
+El navegador conserva un token aleatorio en
 cookie `HttpOnly`, `Secure` en producción y `SameSite=Lax`; la base guarda solo su
 hash SHA-256. Las contraseñas se almacenan con bcrypt y factor configurable. La
 autorización consulta permisos efectivos de los roles.
@@ -135,6 +140,8 @@ endurecer el despliegue; Compose en desarrollo solo levanta PostgreSQL.
 - Monolito modular, no microservicios ni multi-tenancy preventivo.
 - Identificadores UUID y nombres SQL `snake_case` mediante `@map`/`@@map`.
 - Importes enteros en unidad mínima, nunca `number` decimal para cálculos.
+- SKU normalizado en mayúsculas y slug normalizado en minúsculas, con validación
+  tanto en dominio como en PostgreSQL.
 - Stock por variante con una variante por defecto obligatoria a nivel de caso de
   uso; no hay stock duplicado en `Product`.
 - Estados y archivo lógico para registros históricos.

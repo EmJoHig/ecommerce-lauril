@@ -18,7 +18,8 @@ administración. El alcance y las fases siguientes están en
 
 1. Copiar `.env.example` como `.env` y reemplazar los valores de desarrollo.
 2. Definir una contraseña local de PostgreSQL y, si se desea acceder al panel,
-   `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` (mínimo 12 caracteres).
+   `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` (mínimo 12 caracteres y máximo 72
+   bytes UTF-8).
 3. Ejecutar:
 
 ```bash
@@ -39,6 +40,7 @@ la administración. El health check superficial está en `/api/health`; agregar
 npm run db:generate
 npm run db:migrate -- --name nombre_del_cambio
 npm run db:seed
+npm run db:verify
 npm run db:studio
 ```
 
@@ -56,7 +58,7 @@ npm run build
 ## Variables de entorno
 
 - `DATABASE_URL`: conexión PostgreSQL; obligatoria al ejecutar la aplicación,
-  migraciones o seed.
+  instalar dependencias, generar Prisma, migrar, ejecutar el seed o iniciar la app.
 - `APP_URL`: origen público de la tienda.
 - `SESSION_COOKIE_NAME`, `SESSION_TTL_DAYS`: configuración de sesión.
 - `BCRYPT_COST`: costo bcrypt entre 10 y 15.

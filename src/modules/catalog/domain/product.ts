@@ -44,6 +44,20 @@ export function normalizeSlug(value: string): string {
   return slug;
 }
 
+export function normalizeSku(value: string): string {
+  const sku = value.trim().toUpperCase();
+  if (
+    sku.length === 0 ||
+    sku.length > 100 ||
+    !/^[A-Z0-9][A-Z0-9._-]*$/.test(sku)
+  ) {
+    throw new ValidationError(
+      "El SKU debe usar letras A-Z, números, punto, guion o guion bajo.",
+    );
+  }
+  return sku;
+}
+
 export function getLowestProductPrice(product: CatalogProduct): bigint {
   const prices = product.variants.map((variant) =>
     effectivePrice(variant.priceInCents, variant.promotionalPriceInCents),

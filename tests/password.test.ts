@@ -14,4 +14,23 @@ describe("password security", () => {
   it("rechaza contraseñas cortas", async () => {
     await expect(hashPassword("corta", 10)).rejects.toBeInstanceOf(ValidationError);
   });
+
+  it("rechaza entradas que bcrypt truncaría después de 72 bytes", async () => {
+    const tooLongInUtf8 = "á".repeat(37);
+    await expect(hashPassword(tooLongInUtf8, 10)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    await expect(
+      verifyPassword(tooLongInUtf8, "$2b$10$invalid.invalid.invalid.invalid.invalid.invalid.invalid"),
+    ).resolves.toBe(false);
+  });
+
+  it("valida el costo criptográfico", async () => {
+    await expect(hashPassword("Una-clave-segura", 9)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+    await expect(hashPassword("Una-clave-segura", 12.5)).rejects.toBeInstanceOf(
+      ValidationError,
+    );
+  });
 });

@@ -1,12 +1,5 @@
 import "dotenv/config";
-import { defineConfig } from "prisma/config";
-
-// `prisma generate` does not connect to PostgreSQL, but Prisma still evaluates
-// this config during `postinstall`. The local placeholder keeps installs and
-// builds independent from a running database; migrate/seed commands must receive
-// the real DATABASE_URL from the environment.
-const databaseUrl =
-  process.env.DATABASE_URL ?? "postgresql://localhost:5432/lauril";
+import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -15,6 +8,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: databaseUrl,
+    url: env("DATABASE_URL"),
   },
 });

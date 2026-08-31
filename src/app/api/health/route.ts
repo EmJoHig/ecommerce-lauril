@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getPrisma } from "@/shared/infrastructure/prisma";
+import { isDatabaseReachable } from "@/shared/infrastructure/database-health";
 
 export const dynamic = "force-dynamic";
 
@@ -9,10 +9,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ status: "ok", timestamp: new Date().toISOString() });
   }
 
-  try {
-    await getPrisma().$queryRaw`SELECT 1`;
+  if (await isDatabaseReachable()) {
     return NextResponse.json({ status: "ok", database: "reachable", timestamp: new Date().toISOString() });
-  } catch {
-    return NextResponse.json({ status: "degraded", database: "unreachable", timestamp: new Date().toISOString() }, { status: 503 });
   }
+
+  return NextResponse.json({ status: "degraded", database: "unreachable", timestamp: new Date().toISOString() }, { status: 503 });
 }

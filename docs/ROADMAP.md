@@ -15,7 +15,7 @@ Estado: alcance de esta entrega.
 - Productos, categorías, imágenes, variantes e inventario con movimientos.
 - Layout responsive de tienda, catálogo inicial y panel administrativo base.
 - Health check y páginas de productos/stock para verificar integración.
-- Pruebas unitarias de dinero, stock y validaciones del catálogo.
+- Pruebas unitarias de dinero, autenticación, stock y validaciones del catálogo.
 
 No incluye carrito, pedidos, Mercado Pago, cotización real de envíos ni ABM completo.
 

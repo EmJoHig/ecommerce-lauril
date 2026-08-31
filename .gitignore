@@ -9,6 +9,13 @@
 /src/generated/prisma
 /coverage
 *.tsbuildinfo
+/.turbo
+/dist
+/tmp
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
 # environment and secrets
 .env

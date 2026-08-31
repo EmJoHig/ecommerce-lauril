@@ -24,16 +24,32 @@ export type StockTransition = Readonly<{
   availableAfter: number;
 }>;
 
+export function calculateAvailableStock(
+  stockOnHand: number,
+  stockReserved: number,
+): number {
+  assertStockValues(stockOnHand, stockReserved);
+  return stockOnHand - stockReserved;
+}
+
+export function isLowStock(
+  stockOnHand: number,
+  stockReserved: number,
+  minimumStock: number,
+): boolean {
+  assertInteger(minimumStock, "stock mínimo");
+  if (minimumStock < 0) {
+    throw new ValidationError("El stock mínimo no puede ser negativo.");
+  }
+  return calculateAvailableStock(stockOnHand, stockReserved) <= minimumStock;
+}
+
 export function calculateStockTransition(
   input: StockTransitionInput,
 ): StockTransition {
-  assertInteger(input.stockOnHand, "stock actual");
-  assertInteger(input.stockReserved, "stock reservado");
   assertInteger(input.quantity, "cantidad");
 
-  if (input.stockOnHand < 0 || input.stockReserved < 0) {
-    throw new ValidationError("El stock no puede ser negativo.");
-  }
+  assertStockValues(input.stockOnHand, input.stockReserved);
   if (input.quantity === 0) {
     throw new ValidationError("Un movimiento debe cambiar el stock.");
   }
@@ -59,8 +75,21 @@ export function calculateStockTransition(
   return {
     stockBefore: input.stockOnHand,
     stockAfter,
-    availableAfter: stockAfter - input.stockReserved,
+    availableAfter: calculateAvailableStock(stockAfter, input.stockReserved),
   };
+}
+
+function assertStockValues(stockOnHand: number, stockReserved: number): void {
+  assertInteger(stockOnHand, "stock actual");
+  assertInteger(stockReserved, "stock reservado");
+  if (stockOnHand < 0 || stockReserved < 0) {
+    throw new ValidationError("El stock no puede ser negativo.");
+  }
+  if (stockReserved > stockOnHand) {
+    throw new ValidationError(
+      "El stock reservado no puede superar el stock físico.",
+    );
+  }
 }
 
 function assertInteger(value: number, field: string): void {

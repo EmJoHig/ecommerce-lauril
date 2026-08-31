@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { ConflictError, ValidationError } from "@/shared/domain/errors";
-import { calculateStockTransition } from "@/modules/inventory/domain/inventory";
+import {
+  calculateAvailableStock,
+  calculateStockTransition,
+  isLowStock,
+} from "@/modules/inventory/domain/inventory";
 import {
   RecordInventoryMovement,
   type InventoryMovementTransaction,
@@ -8,6 +12,12 @@ import {
 } from "@/modules/inventory/application/record-inventory-movement";
 
 describe("inventory domain", () => {
+  it("calcula disponibilidad y stock bajo descontando reservas", () => {
+    expect(calculateAvailableStock(10, 4)).toBe(6);
+    expect(isLowStock(10, 4, 6)).toBe(true);
+    expect(isLowStock(10, 3, 6)).toBe(false);
+  });
+
   it("calcula una venta sin perder trazabilidad del antes y después", () => {
     expect(
       calculateStockTransition({

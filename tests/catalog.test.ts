@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { getLowestProductPrice, normalizeSlug } from "@/modules/catalog/domain/product";
+import {
+  getLowestProductPrice,
+  normalizeSku,
+  normalizeSlug,
+} from "@/modules/catalog/domain/product";
+import { ValidationError } from "@/shared/domain/errors";
 
 describe("catalog domain", () => {
   it("normaliza slugs amigables y estables", () => {
     expect(normalizeSlug("  Jarra Ámbar & Té  ")).toBe("jarra-ambar-te");
+  });
+
+  it("normaliza SKU y rechaza caracteres ambiguos", () => {
+    expect(normalizeSku("  lau-mat.001_a ")).toBe("LAU-MAT.001_A");
+    expect(() => normalizeSku("sku con espacios")).toThrow(ValidationError);
   });
 
   it("obtiene el menor precio efectivo entre variantes", () => {

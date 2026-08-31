@@ -136,7 +136,7 @@ model PasswordResetToken {
 model Product {
   id               String            @id @default(uuid()) @db.Uuid
   name             String            @db.VarChar(200)
-  slug             String            @unique @db.VarChar(220)
+  slug             String            @unique @db.VarChar(180)
   shortDescription String?           @map("short_description") @db.VarChar(500)
   description      String?           @db.Text
   status           ProductStatus     @default(DRAFT)
@@ -231,11 +231,11 @@ model Inventory {
   stockReserved Int                 @default(0) @map("stock_reserved")
   minimumStock  Int                 @default(0) @map("minimum_stock")
   version       Int                 @default(0)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   variant       ProductVariant      @relation(fields: [variantId], references: [id], onDelete: Restrict)
   movements     InventoryMovement[]
 
-  @@index([stockOnHand, minimumStock])
   @@map("inventory")
 }
 

@@ -1,8 +1,10 @@
-import type { PrismaClient } from "@/generated/prisma/client";
 import { UnauthorizedError } from "@/shared/domain/errors";
 import { verifyPassword } from "../domain/password";
 import { createSessionToken, hashSessionToken } from "../domain/session-token";
+import type { AuthRepository, AuthUserRecord } from "./auth-repository";
 
+// Hash fijo de una contraseña aleatoria, usado solo para igualar el trabajo de
+// bcrypt cuando el email no existe. No es una credencial de la aplicación.
 const DUMMY_PASSWORD_HASH =
   "$2b$12$3BwY68uXPaW4QioumAcX9es7JqrIYSWYXjJicejALkmQxOplUHvB6";
 
@@ -18,7 +20,7 @@ export type AuthenticatedSession = Readonly<{
 }>;
 
 export class AuthService {
-  constructor(private readonly prisma: PrismaClient) {}
+  constructor(private readonly repository: AuthRepository) {}
 
   async login(input: {
     email: string;
@@ -28,20 +30,7 @@ export class AuthService {
     ttlDays: number;
   }): Promise<AuthenticatedSession> {
     const email = input.email.trim().toLowerCase();
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      include: {
-        roles: {
-          include: {
-            role: {
-              include: {
-                permissions: { include: { permission: true } },
-              },
-            },
-          },
-        },
-      },
-    });
+    const user = await this.repository.findUserByEmail(email);
 
     const matches = await verifyPassword(
       input.password,
@@ -51,13 +40,7 @@ export class AuthService {
       throw new UnauthorizedError("Email o contraseña incorrectos.");
     }
 
-    const permissions = [
-      ...new Set(
-        user.roles.flatMap(({ role }) =>
-          role.permissions.map(({ permission }) => permission.code),
-        ),
-      ),
-    ];
+    const permissions = uniquePermissions(user);
     if (!permissions.includes("admin.access")) {
       throw new UnauthorizedError("La cuenta no posee acceso administrativo.");
     }
@@ -66,30 +49,14 @@ export class AuthService {
     const expiresAt = new Date(
       Date.now() + input.ttlDays * 24 * 60 * 60 * 1000,
     );
-    await this.prisma.$transaction([
-      this.prisma.session.create({
-        data: {
-          userId: user.id,
-          tokenHash: hashSessionToken(token),
-          expiresAt,
-          ipAddress: input.ipAddress,
-          userAgent: input.userAgent,
-        },
-      }),
-      this.prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
-      }),
-      this.prisma.auditLog.create({
-        data: {
-          actorUserId: user.id,
-          action: "auth.login",
-          entityType: "User",
-          entityId: user.id,
-          ipAddress: input.ipAddress,
-        },
-      }),
-    ]);
+    await this.repository.createLoginSession({
+      userId: user.id,
+      tokenHash: hashSessionToken(token),
+      expiresAt,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+      occurredAt: new Date(),
+    });
 
     return {
       token,
@@ -104,24 +71,9 @@ export class AuthService {
   }
 
   async findSession(token: string): Promise<AuthenticatedSession["user"] | null> {
-    const session = await this.prisma.session.findUnique({
-      where: { tokenHash: hashSessionToken(token) },
-      include: {
-        user: {
-          include: {
-            roles: {
-              include: {
-                role: {
-                  include: {
-                    permissions: { include: { permission: true } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    const session = await this.repository.findSessionByTokenHash(
+      hashSessionToken(token),
+    );
 
     if (
       !session ||
@@ -136,20 +88,15 @@ export class AuthService {
       id: session.user.id,
       email: session.user.email,
       name: `${session.user.firstName} ${session.user.lastName}`.trim(),
-      permissions: [
-        ...new Set(
-          session.user.roles.flatMap(({ role }) =>
-            role.permissions.map(({ permission }) => permission.code),
-          ),
-        ),
-      ],
+      permissions: uniquePermissions(session.user),
     };
   }
 
   async logout(token: string): Promise<void> {
-    await this.prisma.session.updateMany({
-      where: { tokenHash: hashSessionToken(token), revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    await this.repository.revokeSession(hashSessionToken(token), new Date());
   }
+}
+
+function uniquePermissions(user: AuthUserRecord): string[] {
+  return [...new Set(user.permissions)];
 }

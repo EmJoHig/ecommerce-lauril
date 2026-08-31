@@ -153,21 +153,21 @@ async function seedAuthorization(): Promise<string | null> {
     );
   }
 
-  const passwordHash = await hashPassword(
-    password,
-    Number(process.env.BCRYPT_COST ?? 12),
-  );
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: { passwordHash, status: "ACTIVE" },
-    create: {
-      email,
-      passwordHash,
-      firstName: "Administrador",
-      lastName: "Lauril",
-      status: "ACTIVE",
-    },
-  });
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  const user =
+    existingUser ??
+    (await prisma.user.create({
+      data: {
+        email,
+        passwordHash: await hashPassword(
+          password,
+          Number(process.env.BCRYPT_COST ?? 12),
+        ),
+        firstName: "Administrador",
+        lastName: "Lauril",
+        status: "ACTIVE",
+      },
+    }));
   await prisma.userRole.upsert({
     where: { userId_roleId: { userId: user.id, roleId: adminRole.id } },
     update: {},

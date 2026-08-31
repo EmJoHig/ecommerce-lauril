@@ -14,8 +14,7 @@ export default async function AdminProductsPage() {
           <thead><tr><th>Producto</th><th>Estado</th><th>Variantes</th><th>Precio base</th><th>Stock disponible</th><th /></tr></thead>
           <tbody>{products.map((product) => {
             const base = product.variants[0];
-            const available = product.variants.reduce((total, variant) => total + variant.stockOnHand - variant.stockReserved, 0);
-            return <tr key={product.id}><td><strong>{product.name}</strong><small>{product.categoryNames.join(" · ") || "Sin categoría"}</small></td><td><span className={`status-badge status-badge--${product.status.toLowerCase()}`}>{product.status}</span></td><td>{product.variants.length}</td><td>{base ? formatMoney(base.priceInCents) : "—"}</td><td>{available}</td><td><Link href={`/productos/${product.slug}`}>Ver ↗</Link></td></tr>;
+            return <tr key={product.id}><td><strong>{product.name}</strong><small>{product.categoryNames.join(" · ") || "Sin categoría"}</small></td><td><span className={`status-badge status-badge--${product.status.toLowerCase()}`}>{product.status}</span></td><td>{product.variants.length}</td><td>{base ? formatMoney(base.priceInCents) : "—"}</td><td>{product.availableStock}</td><td><Link href={`/productos/${product.slug}`}>Ver ↗</Link></td></tr>;
           })}</tbody>
         </table>
       </section>

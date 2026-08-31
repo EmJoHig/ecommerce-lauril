@@ -5,7 +5,8 @@
 - PostgreSQL es la fuente de verdad; Prisma gestiona esquema y migraciones.
 - UUID para claves primarias expuestas. Fechas `timestamptz` en UTC.
 - Importes como `bigint` en centavos (`priceInCents`). El código usa `bigint`.
-- Email y slugs se normalizan a minúsculas antes de persistir.
+- Email y slugs se normalizan a minúsculas; SKU se normaliza a mayúsculas antes de
+  persistir. PostgreSQL también rechaza valores fuera de ese formato.
 - Restricciones SQL protegen invariantes además de la validación de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
@@ -24,8 +25,9 @@
 ### Catálogo
 
 - `Product`: contenido común, slug único, estado, destacado, SEO y publicación.
-- `ProductVariant`: unidad vendible. Contiene SKU único, atributos JSON, precios,
-  estado y marca de variante por defecto.
+- `ProductVariant`: unidad vendible. Contiene SKU único y normalizado (`A-Z`,
+  números, `.`, `_`, `-`), atributos JSON, precios, estado y marca de variante por
+  defecto.
 - `ProductImage`: varias imágenes ordenadas y con texto alternativo.
 - `Category`: árbol opcional por `parentId`, slug único y orden.
 - `ProductCategory`: relación N:M explícita para permitir orden y metadatos futuros.
@@ -36,8 +38,8 @@ eliminación física de una variante con referencias históricas no estará perm
 
 ### Inventario
 
-- `Inventory`: una fila por variante, existencias físicas, reservadas, mínimo y
-  versión para concurrencia optimista.
+- `Inventory`: una fila por variante, existencias físicas, reservadas, mínimo,
+  versión para concurrencia optimista y timestamps de creación/actualización.
 - `InventoryMovement`: delta firmado, stock anterior/posterior, tipo, motivo,
   referencia y administrador.
 
@@ -113,7 +115,8 @@ se deriva de pagos, no de un único campo mutable sin historial.
 
 - catálogo: producto por `(status, publishedAt)`, destacado, categoría/producto,
   SKU y slug únicos; búsqueda textual se evaluará con `pg_trgm` o `tsvector`.
-- inventario: variante única, bajo stock y movimientos por `(inventoryId,
+- inventario: variante única, índice parcial para el predicado de bajo stock
+  `stockOnHand - stockReserved <= minimumStock`, movimientos por `(inventoryId,
   createdAt)` y `(referenceType, referenceId)`.
 - pedidos: número único, `(customerId, createdAt)`, `(status, createdAt)`.
 - pagos/eventos: referencias externas e idempotencia únicas.
@@ -123,6 +126,7 @@ se deriva de pagos, no de un único campo mutable sin historial.
 
 - Desarrollo: `npm run db:migrate -- --name <cambio>`.
 - Producción: `npm run db:migrate:deploy`.
-- El seed crea permisos/rol base y catálogo demostrativo de forma idempotente.
+- El seed crea permisos/rol base y catálogo demostrativo de forma idempotente. Si
+  el administrador ya existe, no reemplaza su contraseña ni reactiva su cuenta.
 - El administrador inicial solo se crea si se proveen `SEED_ADMIN_EMAIL` y
   `SEED_ADMIN_PASSWORD`; nunca existe una credencial predeterminada en Git.

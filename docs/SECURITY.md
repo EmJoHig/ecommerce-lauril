@@ -8,7 +8,9 @@ servidor/proveedores y aplicación/base de datos.
 
 ## Identidad y sesiones
 
-- Contraseñas con bcrypt y costo 12 (configurable y migrable).
+- Contraseñas con bcrypt y costo configurable entre 10 y 15. Se exige un mínimo de
+  12 caracteres y un máximo real de 72 bytes UTF-8 para evitar la truncación de
+  bcrypt.
 - Tokens de sesión y recuperación generados con CSPRNG; solo se persiste SHA-256.
 - Cookie `HttpOnly`, `SameSite=Lax`, `Secure` en producción, `Path=/` y expiración.
 - Rotar sesión al autenticar y revocar en logout/cambio de contraseña.
@@ -16,7 +18,8 @@ servidor/proveedores y aplicación/base de datos.
 - Rate limiting por IP e identidad para login, recuperación, checkout y webhooks.
 
 El seed exige una contraseña administrativa provista por entorno de al menos 12
-caracteres. No contiene contraseña por defecto.
+caracteres y como máximo 72 bytes UTF-8. No contiene contraseña por defecto y una
+segunda ejecución no reemplaza las credenciales de una cuenta existente.
 
 ## Autorización
 
