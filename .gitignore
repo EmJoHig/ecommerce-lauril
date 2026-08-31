@@ -1,0 +1,27 @@
+# dependencies
+/node_modules
+
+# Next.js
+/.next
+/out
+
+# generated and test output
+/src/generated/prisma
+/coverage
+*.tsbuildinfo
+
+# environment and secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# logs and editors
+*.log
+.DS_Store
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# Render/Prisma temporary files
+/.prisma
