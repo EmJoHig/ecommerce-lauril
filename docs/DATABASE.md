@@ -39,9 +39,10 @@ El caso de uso exige además que esa variante sea activa. Productos operativos s
 retiran del catálogo mediante `INACTIVE` o `ARCHIVED`, no por borrado físico.
 
 La jerarquía de categorías se protege en una transacción serializable con advisory
-lock y recorrido recursivo de ancestros. `parentId` usa `ON DELETE SET NULL`. La
+lock y recorrido recursivo de ancestros. `parentId` usa `ON DELETE RESTRICT`: las
+categorías se desactivan y no se eliminan físicamente desde la administración. La
 imagen principal es la primera por `sortOrder`; los binarios viven fuera de
-PostgreSQL.
+PostgreSQL. Un producto admite hasta 30 referencias de imagen en total.
 
 ### Inventario
 
@@ -140,3 +141,5 @@ se deriva de pagos, no de un único campo mutable sin historial.
   `SEED_ADMIN_PASSWORD`; nunca existe una credencial predeterminada en Git.
 - La migración `20260831203000_phase2_catalog_management` agrega el índice de la
   consulta administrativa `(status, updated_at)` sin modificar migraciones previas.
+- `npm run db:verify` comprueba invariantes y mínimos del seed sin exigir cantidades
+  exactas, por lo que sigue siendo válido después de operar el catálogo.

@@ -4,9 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { DomainError } from "@/shared/domain/errors";
 import { requireAdmin } from "@/modules/auth/presentation/session";
-import { RecordInventoryMovement } from "../application/record-inventory-movement";
-import { PrismaInventoryUnitOfWork } from "../infrastructure/prisma-inventory-unit-of-work";
-import { getPrisma } from "@/shared/infrastructure/prisma";
+import { getInventoryMovementRecorder } from "../infrastructure/inventory-composition";
 import type { InventoryActionState } from "./inventory-action-state";
 
 export async function adjustInventoryAction(
@@ -27,7 +25,7 @@ export async function adjustInventoryAction(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
   try {
-    await new RecordInventoryMovement(new PrismaInventoryUnitOfWork(getPrisma())).execute({
+    await getInventoryMovementRecorder().execute({
       inventoryId: parsed.data.inventoryId,
       type: "ADJUSTMENT",
       quantity: parsed.data.quantity,

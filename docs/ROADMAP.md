@@ -21,7 +21,7 @@ No incluye carrito, pedidos, Mercado Pago, cotización real de envíos ni ABM co
 
 ## Fase 2 — Catálogo y gestión de productos
 
-Estado: implementada; pendiente de aprobación de cierre.
+Estado: completada y auditada técnicamente.
 
 - ABM administrativo completo de productos, categorías, variantes e imágenes.
 - `ObjectStorage` con adaptador local de desarrollo y límite de archivos; S3 queda

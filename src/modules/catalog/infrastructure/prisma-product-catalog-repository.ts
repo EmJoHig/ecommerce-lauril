@@ -27,7 +27,7 @@ export class PrismaProductCatalogRepository
       where: {
         slug,
         status: "ACTIVE",
-        variants: { some: { isActive: true } },
+        variants: { some: { isActive: true, isDefault: true } },
       },
       include: productInclude,
     });
@@ -79,6 +79,7 @@ export class PrismaProductCatalogRepository
 const productInclude = {
   images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
   categories: {
+    where: { category: { isActive: true } },
     orderBy: { sortOrder: "asc" },
     include: { category: { select: { name: true, slug: true } } },
   },
@@ -127,7 +128,7 @@ function mapProduct(row: ProductRow): CatalogProduct {
 function publicProductWhere(input: ListCatalogProductsInput): Prisma.ProductWhereInput {
   return {
     status: "ACTIVE",
-    variants: { some: { isActive: true } },
+    variants: { some: { isActive: true, isDefault: true } },
     ...(input.featured === undefined ? {} : { featured: input.featured }),
     ...(input.categorySlug
       ? {
@@ -151,10 +152,10 @@ function publicProductWhere(input: ListCatalogProductsInput): Prisma.ProductWher
 function publicProductOrder(
   sort: ListCatalogProductsInput["sort"],
 ): Prisma.ProductOrderByWithRelationInput[] {
-  if (sort === "name-asc") return [{ name: "asc" }];
-  if (sort === "name-desc") return [{ name: "desc" }];
-  if (sort === "newest") return [{ publishedAt: "desc" }, { name: "asc" }];
-  return [{ featured: "desc" }, { publishedAt: "desc" }, { name: "asc" }];
+  if (sort === "name-asc") return [{ name: "asc" }, { id: "asc" }];
+  if (sort === "name-desc") return [{ name: "desc" }, { id: "asc" }];
+  if (sort === "newest") return [{ publishedAt: "desc" }, { name: "asc" }, { id: "asc" }];
+  return [{ featured: "desc" }, { publishedAt: "desc" }, { name: "asc" }, { id: "asc" }];
 }
 
 function toStringRecord(value: unknown): Readonly<Record<string, string>> {

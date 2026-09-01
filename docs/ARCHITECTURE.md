@@ -135,7 +135,8 @@ Las páginas y Server Actions dependen de casos de uso de `catalog` e `inventory
 no importan Prisma. `PrismaCatalogAdminRepository` concentra consultas y
 transacciones. La creación de producto, variante predeterminada, inventario,
 movimiento inicial y auditoría es atómica. Los ajustes de stock usan el caso de uso
-de inventario y registran movimiento y auditoría en la misma transacción.
+de inventario, compuesto desde infraestructura, y registran movimiento y auditoría
+en la misma transacción.
 
 Las categorías serializan cambios jerárquicos con un advisory lock transaccional y
 validan ancestros mediante una consulta recursiva, evitando ciclos incluso ante

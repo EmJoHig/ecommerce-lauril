@@ -133,6 +133,12 @@ export class CatalogAdminService {
     actorUserId: string,
   ): Promise<{ id: string }> {
     const input = productFormSchema.parse(rawInput);
+    if (new Set(input.existingImages.map(({ id }) => id)).size !== input.existingImages.length) {
+      throw new ValidationError("No puede repetirse una imagen existente.");
+    }
+    if (input.existingImages.length + uploads.length > 30) {
+      throw new ValidationError("Un producto puede tener hasta 30 imágenes.");
+    }
     const variants = input.variants.map((variant) => ({
       ...(variant.id ? { id: variant.id } : {}),
       sku: normalizeSku(variant.sku),

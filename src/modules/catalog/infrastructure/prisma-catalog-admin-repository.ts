@@ -29,14 +29,14 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
         ? { categories: { some: { categoryId: query.categoryId } } }
         : {}),
     };
-    const orderBy: Prisma.ProductOrderByWithRelationInput =
+    const orderBy: Prisma.ProductOrderByWithRelationInput[] =
       query.sort === "updated-asc"
-        ? { updatedAt: "asc" }
+        ? [{ updatedAt: "asc" }, { id: "asc" }]
         : query.sort === "name-asc"
-          ? { name: "asc" }
+          ? [{ name: "asc" }, { id: "asc" }]
           : query.sort === "name-desc"
-            ? { name: "desc" }
-            : { updatedAt: "desc" };
+            ? [{ name: "desc" }, { id: "asc" }]
+            : [{ updatedAt: "desc" }, { id: "asc" }];
     const total = await this.prisma.product.count({ where });
     const pageCount = Math.max(1, Math.ceil(total / query.pageSize));
     const effectivePage = Math.min(query.page, pageCount);
@@ -339,34 +339,48 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
     status: "ACTIVE" | "INACTIVE",
     actorUserId: string,
   ): Promise<void> {
-    await this.prisma.$transaction(async (transaction) => {
-      const product = await transaction.product.findUnique({
-        where: { id },
-        include: { variants: true },
-      });
-      if (!product || product.status === "ARCHIVED") throw new NotFoundError("Producto inexistente.");
-      if (
-        status === "ACTIVE" &&
-        !product.variants.some((variant) => variant.isDefault && variant.isActive)
-      ) {
-        throw new ValidationError("No se puede activar sin una variante predeterminada activa.");
-      }
-      await transaction.product.update({
-        where: { id },
-        data: {
-          status,
-          ...(status === "ACTIVE" && !product.publishedAt ? { publishedAt: new Date() } : {}),
+    try {
+      await this.prisma.$transaction(
+        async (transaction) => {
+          const product = await transaction.product.findUnique({
+            where: { id },
+            include: { variants: true },
+          });
+          if (!product || product.status === "ARCHIVED") {
+            throw new NotFoundError("Producto inexistente.");
+          }
+          if (
+            status === "ACTIVE" &&
+            !product.variants.some((variant) => variant.isDefault && variant.isActive)
+          ) {
+            throw new ValidationError("No se puede activar sin una variante predeterminada activa.");
+          }
+          await transaction.product.update({
+            where: { id },
+            data: {
+              status,
+              ...(status === "ACTIVE" && !product.publishedAt
+                ? { publishedAt: new Date() }
+                : {}),
+            },
+          });
+          await transaction.auditLog.create({
+            data: {
+              actorUserId,
+              action:
+                status === "ACTIVE"
+                  ? "catalog.product.activate"
+                  : "catalog.product.deactivate",
+              entityType: "Product",
+              entityId: id,
+            },
+          });
         },
-      });
-      await transaction.auditLog.create({
-        data: {
-          actorUserId,
-          action: status === "ACTIVE" ? "catalog.product.activate" : "catalog.product.deactivate",
-          entityType: "Product",
-          entityId: id,
-        },
-      });
-    });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      throw mapPersistenceError(error);
+    }
   }
 
   async listCategories(): Promise<AdminCategory[]> {
@@ -543,6 +557,11 @@ function assertSameIds(expected: string[], received: string[], label: string): v
 }
 
 function mapPersistenceError(error: unknown): Error {
+  if (error instanceof Error && "code" in error && error.code === "P2034") {
+    return new ConflictError(
+      "El catálogo cambió al mismo tiempo; recargá la página y volvé a intentar.",
+    );
+  }
   if (error instanceof Error && "code" in error && error.code === "P2002") {
     const target = String((error as { meta?: { target?: unknown } }).meta?.target ?? "");
     if (target.includes("slug")) return new ConflictError("El slug ya está en uso.");

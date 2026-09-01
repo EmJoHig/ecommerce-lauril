@@ -80,6 +80,8 @@ describe("catalog administration", () => {
     const objectStorage: ObjectStorage = { store: async () => ({ objectKey: "local/catalog/new.png", url: "/uploads/catalog/new.png" }), delete: async () => { deleted = true; } };
     await expect(new CatalogAdminService(repository, objectStorage).saveProduct(validProduct(), [{ bytes: new Uint8Array([1]), fileName: "test.png", contentType: "image/png" }], actorId)).rejects.toThrow("El slug ya está en uso");
     expect(deleted).toBe(true);
+    const existingImages = Array.from({ length: 30 }, (_, sortOrder) => ({ id: crypto.randomUUID(), altText: `Imagen ${sortOrder + 1}`, sortOrder }));
+    await expect(new CatalogAdminService(repository, objectStorage).saveProduct(validProduct({ existingImages }), [{ bytes: new Uint8Array([1]), fileName: "extra.png", contentType: "image/png" }], actorId)).rejects.toThrow("hasta 30 imágenes");
   });
 
   it("valida categoría propia y propaga la prevención transaccional de ciclos profundos", async () => {
