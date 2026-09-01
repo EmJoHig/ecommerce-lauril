@@ -7,6 +7,8 @@ import { PrismaShippingRepository } from "@/modules/shipping/infrastructure/pris
 import { CheckoutService } from "../application/checkout-service";
 import { OrderQueryService } from "../application/order-query-service";
 import { PrismaOrderRepository } from "./prisma-order-repository";
+import { OrderAdminService } from "../application/order-admin-service";
+import { PrismaOrderAdminRepository } from "./prisma-order-admin-repository";
 
 export function getOrderRepository() {
   return new PrismaOrderRepository(getPrisma());
@@ -24,4 +26,8 @@ export function getCheckoutService() {
 
 export function getOrderQueryService() {
   return new OrderQueryService(new PrismaOrderRepository(getPrisma()));
+}
+
+export function getOrderAdminService() {
+  return new OrderAdminService(new PrismaOrderAdminRepository(getPrisma()));
 }

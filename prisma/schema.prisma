@@ -90,6 +90,7 @@ model User {
   inventoryMovements  InventoryMovement[]  @relation("InventoryMovementAdmin")
   auditLogs           AuditLog[]
   orderStatusChanges  OrderStatusHistory[] @relation("OrderStatusActor")
+  orderNotes          OrderNote[]          @relation("OrderNoteActor")
   customer            Customer?
 
   @@index([status])
@@ -440,9 +441,12 @@ model Order {
   shippingMethod             ShippingMethod       @relation(fields: [shippingMethodId], references: [id], onDelete: Restrict)
   items                      OrderItem[]
   statusHistory              OrderStatusHistory[]
+  notes                      OrderNote[]
 
   @@index([customerId, createdAt])
   @@index([status, paymentExpiresAt])
+  @@index([status, createdAt])
+  @@index([shippingMethodId, createdAt])
   @@index([createdAt])
   @@map("orders")
 }
@@ -482,6 +486,20 @@ model OrderStatusHistory {
   @@index([orderId, createdAt])
   @@index([toStatus, createdAt])
   @@map("order_status_history")
+}
+
+model OrderNote {
+  id          String   @id @default(uuid()) @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  content     String   @db.VarChar(2000)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actor       User     @relation("OrderNoteActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([orderId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("order_notes")
 }
 
 model AuditLog {

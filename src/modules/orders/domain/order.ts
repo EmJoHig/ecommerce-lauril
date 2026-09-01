@@ -3,12 +3,88 @@ import { calculateLineSubtotal } from "@/modules/cart/domain/cart";
 import { normalizeCustomerAddress, normalizeEmail, type CustomerAddressInput } from "@/modules/customers/domain/customer";
 import { ValidationError } from "@/shared/domain/errors";
 import { money } from "@/shared/domain/money";
+import type { ShippingMethodType } from "@/modules/shipping/domain/shipping";
 
 export const orderStatuses = [
   "PENDING_PAYMENT", "PAID", "PREPARING", "READY_TO_SHIP", "SHIPPED",
   "DELIVERED", "CANCELLED", "PAYMENT_REJECTED", "REFUNDED", "PARTIALLY_REFUNDED",
 ] as const;
 export type OrderStatusValue = (typeof orderStatuses)[number];
+
+export type OrderTransitionSource = "ADMIN" | "PAYMENT" | "SYSTEM";
+
+export type OrderTransitionInput =
+  | Readonly<{
+      from: OrderStatusValue;
+      to: OrderStatusValue;
+      shippingMethodType: ShippingMethodType;
+      source: "ADMIN";
+    }>
+  | Readonly<{
+      from: OrderStatusValue;
+      to: OrderStatusValue;
+      source: Exclude<OrderTransitionSource, "ADMIN">;
+    }>;
+
+const administrativeFlow: Readonly<Record<OrderStatusValue, ReadonlyArray<OrderStatusValue>>> = {
+  PENDING_PAYMENT: ["CANCELLED"],
+  PAID: ["PREPARING"],
+  PREPARING: ["READY_TO_SHIP"],
+  READY_TO_SHIP: ["SHIPPED"],
+  SHIPPED: ["DELIVERED"],
+  DELIVERED: [],
+  CANCELLED: [],
+  PAYMENT_REJECTED: [],
+  REFUNDED: [],
+  PARTIALLY_REFUNDED: [],
+};
+
+export function allowedAdministrativeTransitions(
+  status: OrderStatusValue,
+  shippingMethodType: ShippingMethodType,
+): ReadonlyArray<OrderStatusValue> {
+  if (status === "READY_TO_SHIP" && shippingMethodType === "PICKUP") {
+    return ["DELIVERED"];
+  }
+  return administrativeFlow[status];
+}
+
+export function assertOrderTransition(input: OrderTransitionInput): void {
+  const allowed = input.source === "ADMIN"
+    ? allowedAdministrativeTransitions(input.from, input.shippingMethodType)
+    : input.source === "PAYMENT"
+      ? paymentTransitions(input.from)
+      : systemTransitions(input.from);
+  if (!allowed.includes(input.to)) {
+    throw new ValidationError(
+      `No se permite cambiar un pedido de ${input.from} a ${input.to} mediante ${input.source}.`,
+    );
+  }
+}
+
+export function normalizeOrderTransitionReason(value: string | undefined, fallback: string): string {
+  const normalized = value?.trim().replace(/\s+/g, " ") || fallback;
+  if (normalized.length < 3 || normalized.length > 500) {
+    throw new ValidationError("El motivo debe contener entre 3 y 500 caracteres.");
+  }
+  return normalized;
+}
+
+export function normalizeOrderNote(value: string): string {
+  const normalized = value.trim().replace(/\r\n/g, "\n");
+  if (normalized.length < 1 || normalized.length > 2000) {
+    throw new ValidationError("La nota debe contener entre 1 y 2000 caracteres.");
+  }
+  return normalized;
+}
+
+function paymentTransitions(status: OrderStatusValue): ReadonlyArray<OrderStatusValue> {
+  return status === "PENDING_PAYMENT" ? ["PAID", "PAYMENT_REJECTED"] : [];
+}
+
+function systemTransitions(status: OrderStatusValue): ReadonlyArray<OrderStatusValue> {
+  return status === "PENDING_PAYMENT" ? ["CANCELLED"] : [];
+}
 
 export type BuyerSnapshotInput = Readonly<{
   firstName: string;

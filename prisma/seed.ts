@@ -24,6 +24,7 @@ const permissions = [
   ["shipping.read", "Consultar métodos de entrega"],
   ["shipping.write", "Gestionar métodos de entrega"],
   ["orders.read", "Consultar pedidos"],
+  ["orders.write", "Gestionar pedidos"],
 ] as const;
 
 const shippingMethods = [

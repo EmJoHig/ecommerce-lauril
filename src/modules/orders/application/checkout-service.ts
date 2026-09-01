@@ -5,7 +5,7 @@ import { calculateReservation, calculateReservationRelease } from "@/modules/inv
 import { quoteShippingMethod, type ShippingQuote } from "@/modules/shipping/domain/shipping";
 import type { ShippingProvider } from "@/modules/shipping/application/shipping-provider";
 import { ConflictError, NotFoundError, ValidationError } from "@/shared/domain/errors";
-import { calculateOrderLine, calculateOrderTotals, normalizeBuyerSnapshot, normalizeOrderAddress, validateId } from "../domain/order";
+import { assertOrderTransition, calculateOrderLine, calculateOrderTotals, normalizeBuyerSnapshot, normalizeOrderAddress, validateId } from "../domain/order";
 import { hashCheckoutKey } from "../domain/checkout-key";
 import type { CheckoutAddressRecord, CheckoutCartRecord, CheckoutOwner, OrderItemView, OrderRepository, OrderView } from "./order-repository";
 
@@ -176,6 +176,7 @@ export class CheckoutService {
           const order = await transaction.findPendingOrder(id);
           if (!order || order.status !== "PENDING_PAYMENT" || order.reservationReleasedAt) return false;
           if (order.paymentExpiresAt > now) return false;
+          assertOrderTransition({ from: order.status, to: "CANCELLED", source: "SYSTEM" });
           for (const reservation of order.reservations) {
             if (!reservation.inventory) throw new ConflictError("No se encontró el inventario reservado.");
             const stockReserved = calculateReservationRelease(

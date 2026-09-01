@@ -72,6 +72,7 @@ async function main(): Promise<void> {
       ,'orders_expiration_check'
       ,'order_items_snapshot_check'
       ,'order_status_history_transition_check'
+      ,'order_notes_content_not_blank_check'
     )
   `;
   const defaultVariantIndex = await prisma.$queryRaw<Array<{ count: bigint }>>`
@@ -113,6 +114,12 @@ async function main(): Promise<void> {
       'shipping_methods_code_key', 'orders_order_number_key', 'orders_cart_id_key',
       'orders_checkout_key_hash_key', 'orders_guest_access_token_hash_key',
       'orders_status_payment_expires_at_idx'
+    )
+  `;
+  const orderAdminIndexes = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count FROM pg_indexes WHERE indexname IN (
+      'orders_status_created_at_idx', 'orders_shipping_method_id_created_at_idx',
+      'order_notes_order_id_created_at_idx', 'order_notes_actor_user_id_created_at_idx'
     )
   `;
   const invalidCustomerCarts = await prisma.$queryRaw<Array<{ count: bigint }>>`
@@ -255,6 +262,7 @@ async function main(): Promise<void> {
     cartIndexes: Number(cartIndexes[0]?.count ?? 0n),
     customerIndexes: Number(customerIndexes[0]?.count ?? 0n),
     checkoutIndexes: Number(checkoutIndexes[0]?.count ?? 0n),
+    orderAdminIndexes: Number(orderAdminIndexes[0]?.count ?? 0n),
     invalidCustomerCarts: Number(invalidCustomerCarts[0]?.count ?? 0n),
     invalidDefaultAddresses: Number(invalidDefaultAddresses[0]?.count ?? 0n),
     variantsWithoutInventory: Number(variantsWithoutInventory[0]?.count ?? 0n),
@@ -277,13 +285,14 @@ async function main(): Promise<void> {
     inventories !== variants ||
     movements < 4 ||
     (expectedAdminEmail ? admins < 1 : false) ||
-    constraints.length !== 32 ||
+    constraints.length !== 33 ||
     defaultVariantIndex[0]?.count !== 1n ||
     lowStockIndex[0]?.count !== 1n ||
     adminCatalogIndex[0]?.count !== 1n ||
     cartIndexes[0]?.count !== 4n ||
     customerIndexes[0]?.count !== 3n ||
     checkoutIndexes[0]?.count !== 6n ||
+    orderAdminIndexes[0]?.count !== 4n ||
     invalidCustomerCarts[0]?.count !== 0n ||
     invalidDefaultAddresses[0]?.count !== 0n ||
     variantsWithoutInventory[0]?.count !== 0n ||
