@@ -71,6 +71,20 @@ autorización. Toda acción relevante registra actor en `AuditLog`.
   actual. Antes de escalar horizontalmente debe reemplazarse por un backend
   compartido.
 
+## Checkout y pedidos
+
+- Checkout recalcula precio, stock y envío desde PostgreSQL y acepta únicamente
+  IDs, cantidades indirectas del carrito y datos de contacto/dirección validados.
+- Una clave CSPRNG se persiste sólo como SHA-256; `cartId` y clave son únicos. La
+  transacción serializable y `Inventory.version` evitan doble reserva y sobreventa.
+- El pedido autenticado exige `customerId` derivado de sesión. El invitado exige
+  una cookie opaca `HttpOnly`, `SameSite=Lax`, `Secure` en producción y restringida
+  a su ruta; conocer el número de pedido no concede acceso.
+- La reserva sólo cambia `stockReserved`. La liberación por vencimiento es
+  idempotente y no escribe movimientos físicos falsos.
+- `ORDER_RESERVATION_MINUTES` admite de 5 a 120 minutos. El comando de expiración
+  no registra tokens ni datos personales completos.
+
 ## Secretos y datos
 
 - `.env` está ignorado; `.env.example` contiene nombres y ejemplos no sensibles.

@@ -22,6 +22,8 @@
     "db:verify:phase2": "tsx scripts/verify-phase2-flow.ts",
     "db:verify:phase3": "tsx scripts/verify-phase3-flow.ts",
     "db:verify:phase4": "tsx scripts/verify-phase4-flow.ts",
+    "db:verify:phase5": "tsx scripts/verify-phase5-flow.ts",
+    "db:expire-orders": "tsx scripts/expire-pending-orders.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },

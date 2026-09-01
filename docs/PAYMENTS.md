@@ -20,9 +20,9 @@ de props, HTML, logs ni respuestas públicas.
 
 ## Flujo Checkout Pro
 
-1. El servidor valida carrito, identidad/dirección, promociones, envío y stock.
-2. En una transacción crea `Order`/`OrderItem` con snapshots y el intento `Payment`
-   pendiente; reserva inventario y registra movimientos.
+1. Fase 5 ya valida carrito, identidad/dirección, envío y stock, crea
+   `Order`/`OrderItem` `PENDING_PAYMENT` y reserva `stockReserved` sin movimientos.
+2. Fase 6 creará el intento `Payment` pendiente para ese pedido local.
 3. Fuera de la transacción crea la preferencia usando una idempotency key estable.
 4. Guarda identificadores de preferencia y entrega al navegador solo la URL
    pública de checkout.
@@ -35,7 +35,7 @@ de props, HTML, logs ni respuestas públicas.
 
 ## Idempotencia
 
-- `Order.checkoutKey` evita crear dos pedidos por doble submit.
+- `Order.checkoutKeyHash` y `Order.cartId` únicos evitan pedidos por doble submit.
 - `Payment.idempotencyKey` evita preferencias/intentos duplicados.
 - `PaymentEvent(provider, providerEventId)` es único.
 - El cambio de estado usa compare-and-set y una tabla de historial.

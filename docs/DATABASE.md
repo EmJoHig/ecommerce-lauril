@@ -10,7 +10,7 @@
 - Restricciones SQL protegen invariantes además de la validación de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
-## Modelo implementado hasta Fase 4
+## Modelo implementado hasta Fase 5
 
 ### Identidad y autorización
 
@@ -96,22 +96,40 @@ como credencial pública. Una constraint XOR exige exactamente un propietario. U
 adopción se elimina el token invitado; durante un merge el origen queda
 `ABANDONED` y el destino conserva las líneas consolidadas.
 
-## Modelo objetivo por fases
-
 ### Pedidos
 
-- `Order`: número público único, cliente opcional, email/teléfono snapshot, estado,
-  moneda, subtotal, descuento, envío, impuestos y total en centavos, direcciones
-  snapshot JSON y timestamps operativos.
+- `Order`: UUID interno, número `bigserial` público desde 10001, carrito único,
+  cliente opcional o hash de acceso invitado (XOR), clave de checkout hasheada,
+  comprador/dirección/método snapshot, estado, importes y vencimiento UTC.
 - `OrderItem`: referencia opcional a variante más snapshot obligatorio de nombre,
-  SKU, variante/atributos, precio unitario, cantidad y subtotal.
+  SKU, variante, precio unitario, cantidad y subtotal exacto.
 - `OrderStatusHistory`: estado anterior/nuevo, actor, motivo y fecha. Índices por
   pedido/fecha y estado/fecha.
 
-La máquina de estados comienza con `CREATED`, `PENDING_PAYMENT`, `PAID`,
+La máquina de estados comienza en `PENDING_PAYMENT` y contempla `PAID`,
 `PREPARING`, `READY_TO_SHIP`, `SHIPPED`, `DELIVERED`, `CANCELLED`,
-`PAYMENT_REJECTED`, `REFUNDED` y `PARTIALLY_REFUNDED`. Solo el caso de uso puede
-transicionar y registra historial en la misma transacción.
+`PAYMENT_REJECTED`, `REFUNDED` y `PARTIALLY_REFUNDED`. Fase 5 sólo crea el primer
+estado y cancela por expiración; pagos incorporará transiciones posteriores.
+
+`checkoutKeyHash` y `cartId` únicos aportan idempotencia. Una constraint verifica
+`total = itemsSubtotal + shipping - discount`; descuento es cero en esta fase.
+Los pedidos invitados exigen hash de acceso y los de cliente no lo guardan.
+
+### Reservas
+
+La creación aumenta `Inventory.stockReserved` con control de versión sin alterar
+`stockOnHand`. No se inserta `InventoryMovement` porque los movimientos representan
+existencias físicas. Al vencer, liberación y transición a `CANCELLED` son atómicas
+e idempotentes mediante `reservationReleasedAt`.
+
+### Entrega implementada
+
+- `ShippingMethod`: código único normalizado, nombre, descripción, tipo, costo,
+  política de dirección, compra mínima, umbral gratuito, estado y orden.
+- `PICKUP`, `FLAT_RATE`, `LOCAL_DELIVERY` y `TO_COORDINATE` están disponibles.
+- El pedido conserva un snapshot; editar o desactivar el método no altera historia.
+
+## Modelo objetivo por fases
 
 ### Pagos
 
@@ -124,7 +142,7 @@ transicionar y registra historial en la misma transacción.
 Un pedido puede tener varios intentos de pago, pero el total aprobado/reembolsado
 se deriva de pagos, no de un único campo mutable sin historial.
 
-### Envíos
+### Evolución de envíos
 
 - `ShippingMethod`: tipo, nombre, descripción, límites de compra, tarifa, umbral de
   gratuidad y estado.
@@ -169,3 +187,5 @@ se deriva de pagos, no de un único campo mutable sin historial.
   exactas, por lo que sigue siendo válido después de operar el catálogo.
 - La migración `20260901023000_phase4_customers` crea clientes y direcciones,
   vincula carritos y agrega constraints/índices parciales sin modificar historial.
+- La migración `20260901110000_phase5_checkout_orders_shipping` agrega métodos de
+  entrega, pedidos, snapshots, historial, idempotencia y constraints monetarias.

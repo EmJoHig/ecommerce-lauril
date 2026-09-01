@@ -10,6 +10,7 @@ const serverEnvSchema = z.object({
   PASSWORD_RESET_TTL_MINUTES: z.coerce.number().int().min(5).max(1440).default(30),
   CART_COOKIE_NAME: z.string().min(1).default("lauril_cart"),
   CART_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  ORDER_RESERVATION_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
   BCRYPT_COST: z.coerce.number().int().min(10).max(15).default(12),
   NODE_ENV: z
     .enum(["development", "test", "production"])

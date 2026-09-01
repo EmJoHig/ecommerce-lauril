@@ -3,9 +3,9 @@
 Ecommerce propio, single-store y construido como monolito modular con Next.js,
 TypeScript, PostgreSQL, Prisma y Tailwind CSS.
 
-La Fase 4 incluye catálogo e inventario, carrito invitado/autenticado y cuentas de
-cliente con perfil, direcciones y recuperación. No incluye checkout, pedidos,
-reservas, descuentos, envíos comerciales ni pagos. El alcance está en
+La Fase 5 incluye catálogo, carrito, cuentas, checkout invitado/cliente, métodos
+propios de entrega, pedidos y reserva temporal. No incluye Mercado Pago, pagos,
+descuentos, transportistas externos ni facturación. El alcance está en
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Requisitos
@@ -34,13 +34,15 @@ Abrir `http://localhost:3000` para la tienda y `http://localhost:3000/admin` par
 la administración. El health check superficial está en `/api/health`; agregar
 `?deep=1` también verifica PostgreSQL.
 
-Rutas principales de Fases 2 a 4:
+Rutas principales de Fases 2 a 5:
 
 - `/admin/productos`, `/admin/categorias` y `/admin/stock` para la operación.
 - `/productos`, `/categorias/[slug]` y `/producto/[slug]` para la tienda.
 - `/carrito` para consultar y modificar el carrito persistente.
 - `/registro`, `/login` y `/recuperar-clave` para identidad de clientes.
 - `/mi-cuenta`, `/mi-cuenta/datos` y `/mi-cuenta/direcciones` para la cuenta.
+- `/checkout` y `/pedido/[número]` para confirmar y consultar un pedido.
+- `/admin/envios` y `/admin/pedidos` para la comprobación administrativa.
 
 Las imágenes subidas en desarrollo se guardan en `public/uploads/catalog`, que
 está ignorado por Git. No usar ese adaptador en Render porque su filesystem es
@@ -56,6 +58,8 @@ npm run db:verify
 npm run db:verify:phase2
 npm run db:verify:phase3
 npm run db:verify:phase4
+npm run db:verify:phase5
+npm run db:expire-orders
 npm run db:studio
 ```
 
@@ -80,6 +84,7 @@ npm run build
 - `PASSWORD_RESET_TTL_MINUTES`: vigencia del enlace de recuperación.
 - `CART_COOKIE_NAME`, `CART_TTL_DAYS`: cookie opaca y expiración deslizante del
   carrito anónimo; los valores predeterminados son `lauril_cart` y 30 días.
+- `ORDER_RESERVATION_MINUTES`: vigencia de la reserva pendiente; 15 por defecto.
 - `BCRYPT_COST`: costo bcrypt entre 10 y 15.
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: administrador inicial opcional.
 - `S3_*`: reservadas para el futuro adaptador S3 compatible; el adaptador local no

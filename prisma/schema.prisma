@@ -50,6 +50,30 @@ enum CustomerStatus {
   @@map("customer_status")
 }
 
+enum ShippingMethodType {
+  PICKUP
+  FLAT_RATE
+  LOCAL_DELIVERY
+  TO_COORDINATE
+
+  @@map("shipping_method_type")
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PREPARING
+  READY_TO_SHIP
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  PAYMENT_REJECTED
+  REFUNDED
+  PARTIALLY_REFUNDED
+
+  @@map("order_status")
+}
+
 model User {
   id                  String               @id @default(uuid()) @db.Uuid
   email               String               @unique @db.VarChar(320)
@@ -65,6 +89,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   inventoryMovements  InventoryMovement[]  @relation("InventoryMovementAdmin")
   auditLogs           AuditLog[]
+  orderStatusChanges  OrderStatusHistory[] @relation("OrderStatusActor")
   customer            Customer?
 
   @@index([status])
@@ -82,6 +107,7 @@ model Customer {
   user      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   addresses CustomerAddress[]
   carts     Cart[]
+  orders    Order[]
 
   @@index([status, createdAt])
   @@map("customers")
@@ -204,6 +230,7 @@ model Product {
   variants         ProductVariant[]
   images           ProductImage[]
   categories       ProductCategory[]
+  orderItems       OrderItem[]
 
   @@index([status, publishedAt])
   @@index([status, updatedAt])
@@ -212,22 +239,23 @@ model Product {
 }
 
 model ProductVariant {
-  id                      String     @id @default(uuid()) @db.Uuid
-  productId               String     @map("product_id") @db.Uuid
-  sku                     String     @unique @db.VarChar(100)
-  name                    String     @db.VarChar(160)
-  attributes              Json       @default("{}")
-  priceInCents            BigInt     @map("price_in_cents")
-  promotionalPriceInCents BigInt?    @map("promotional_price_in_cents")
-  costInCents             BigInt?    @map("cost_in_cents")
-  isDefault               Boolean    @default(false) @map("is_default")
-  isActive                Boolean    @default(true) @map("is_active")
-  sortOrder               Int        @default(0) @map("sort_order")
-  createdAt               DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt               DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  product                 Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  id                      String      @id @default(uuid()) @db.Uuid
+  productId               String      @map("product_id") @db.Uuid
+  sku                     String      @unique @db.VarChar(100)
+  name                    String      @db.VarChar(160)
+  attributes              Json        @default("{}")
+  priceInCents            BigInt      @map("price_in_cents")
+  promotionalPriceInCents BigInt?     @map("promotional_price_in_cents")
+  costInCents             BigInt?     @map("cost_in_cents")
+  isDefault               Boolean     @default(false) @map("is_default")
+  isActive                Boolean     @default(true) @map("is_active")
+  sortOrder               Int         @default(0) @map("sort_order")
+  createdAt               DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  product                 Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
   inventory               Inventory?
   cartItems               CartItem[]
+  orderItems              OrderItem[]
 
   @@index([productId, isActive, sortOrder])
   @@map("product_variants")
@@ -328,6 +356,7 @@ model Cart {
   updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
   items          CartItem[]
   customer       Customer?  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  order          Order?
 
   @@index([status, expiresAt])
   @@index([customerId, status, updatedAt])
@@ -349,6 +378,110 @@ model CartItem {
   @@unique([cartId, variantId])
   @@index([variantId])
   @@map("cart_items")
+}
+
+model ShippingMethod {
+  id                      String             @id @default(uuid()) @db.Uuid
+  code                    String             @unique @db.VarChar(80)
+  name                    String             @db.VarChar(120)
+  description             String?            @db.VarChar(500)
+  type                    ShippingMethodType
+  costInCents             BigInt             @default(0) @map("cost_in_cents")
+  requiresAddress         Boolean            @default(true) @map("requires_address")
+  minimumSubtotalInCents  BigInt?            @map("minimum_subtotal_in_cents")
+  freeShippingFromInCents BigInt?            @map("free_shipping_from_in_cents")
+  isActive                Boolean            @default(true) @map("is_active")
+  sortOrder               Int                @default(0) @map("sort_order")
+  createdAt               DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orders                  Order[]
+
+  @@index([isActive, sortOrder, name])
+  @@map("shipping_methods")
+}
+
+model Order {
+  id                         String               @id @default(uuid()) @db.Uuid
+  number                     BigInt               @unique @default(autoincrement()) @map("order_number")
+  cartId                     String               @unique @map("cart_id") @db.Uuid
+  customerId                 String?              @map("customer_id") @db.Uuid
+  shippingMethodId           String               @map("shipping_method_id") @db.Uuid
+  checkoutKeyHash            String               @unique @map("checkout_key_hash") @db.Char(64)
+  guestAccessTokenHash       String?              @unique @map("guest_access_token_hash") @db.Char(64)
+  status                     OrderStatus          @default(PENDING_PAYMENT)
+  currency                   String               @default("ARS") @db.Char(3)
+  buyerFirstName             String               @map("buyer_first_name") @db.VarChar(100)
+  buyerLastName              String               @map("buyer_last_name") @db.VarChar(100)
+  buyerEmail                 String               @map("buyer_email") @db.VarChar(320)
+  buyerPhone                 String               @map("buyer_phone") @db.VarChar(30)
+  shippingMethodName         String               @map("shipping_method_name") @db.VarChar(120)
+  shippingMethodType         ShippingMethodType   @map("shipping_method_type")
+  shippingRequiresAddress    Boolean              @map("shipping_requires_address")
+  shippingRecipientFirstName String?              @map("shipping_recipient_first_name") @db.VarChar(100)
+  shippingRecipientLastName  String?              @map("shipping_recipient_last_name") @db.VarChar(100)
+  shippingPhone              String?              @map("shipping_phone") @db.VarChar(30)
+  shippingStreet             String?              @map("shipping_street") @db.VarChar(160)
+  shippingStreetNumber       String?              @map("shipping_street_number") @db.VarChar(30)
+  shippingFloorApartment     String?              @map("shipping_floor_apartment") @db.VarChar(80)
+  shippingCity               String?              @map("shipping_city") @db.VarChar(120)
+  shippingProvince           String?              @map("shipping_province") @db.VarChar(120)
+  shippingPostalCode         String?              @map("shipping_postal_code") @db.VarChar(20)
+  shippingReferences         String?              @map("shipping_references") @db.VarChar(500)
+  itemsSubtotalInCents       BigInt               @map("items_subtotal_in_cents")
+  shippingAmountInCents      BigInt               @map("shipping_amount_in_cents")
+  discountAmountInCents      BigInt               @default(0) @map("discount_amount_in_cents")
+  totalInCents               BigInt               @map("total_in_cents")
+  paymentExpiresAt           DateTime             @map("payment_expires_at") @db.Timestamptz(3)
+  reservationReleasedAt      DateTime?            @map("reservation_released_at") @db.Timestamptz(3)
+  createdAt                  DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  cart                       Cart                 @relation(fields: [cartId], references: [id], onDelete: Restrict)
+  customer                   Customer?            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  shippingMethod             ShippingMethod       @relation(fields: [shippingMethodId], references: [id], onDelete: Restrict)
+  items                      OrderItem[]
+  statusHistory              OrderStatusHistory[]
+
+  @@index([customerId, createdAt])
+  @@index([status, paymentExpiresAt])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id               String          @id @default(uuid()) @db.Uuid
+  orderId          String          @map("order_id") @db.Uuid
+  productId        String?         @map("product_id") @db.Uuid
+  productVariantId String?         @map("product_variant_id") @db.Uuid
+  productName      String          @map("product_name") @db.VarChar(200)
+  variantName      String          @map("variant_name") @db.VarChar(160)
+  sku              String          @db.VarChar(100)
+  unitPriceInCents BigInt          @map("unit_price_in_cents")
+  quantity         Int
+  subtotalInCents  BigInt          @map("subtotal_in_cents")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productVariant   ProductVariant? @relation(fields: [productVariantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@index([productVariantId])
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id          String       @id @default(uuid()) @db.Uuid
+  orderId     String       @map("order_id") @db.Uuid
+  fromStatus  OrderStatus? @map("from_status")
+  toStatus    OrderStatus  @map("to_status")
+  reason      String       @db.VarChar(500)
+  actorUserId String?      @map("actor_user_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actor       User?        @relation("OrderStatusActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@index([toStatus, createdAt])
+  @@map("order_status_history")
 }
 
 model AuditLog {

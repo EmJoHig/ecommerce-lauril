@@ -55,14 +55,15 @@ roles y permisos.
 
 ## Alcance actual
 
-Las Fases 1 a 3 entregan la fundación, catálogo, inventario trazable, publicación
-pública y carrito anónimo. La Fase 4 incorpora cuentas de cliente, perfil,
-direcciones, recuperación de contraseña y carrito persistente asociado al cliente
-con fusión transaccional del carrito invitado.
+Las Fases 1 a 4 entregan la fundación, catálogo, inventario, carrito y cuentas de
+cliente. La Fase 5 incorpora checkout cliente/invitado, métodos propios de entrega,
+pedidos con snapshots, reserva temporal de stock, expiración e idempotencia.
 
-El carrito continúa sin reservar stock ni crear movimientos. Checkout, pedidos,
-pagos, promociones, cupones, cálculo de envíos y facturación permanecen fuera del
-alcance. La interfaz no presenta operaciones comerciales ficticias.
+El carrito continúa sin reservar stock. La reserva comienza únicamente al crear
+un pedido `PENDING_PAYMENT`, incrementa `stockReserved` durante 15 minutos por
+defecto y no representa una venta ni genera `InventoryMovement`. Mercado Pago,
+pagos, promociones, cupones, facturación y transportistas externos permanecen
+fuera del alcance actual.
 
 ## Criterios no funcionales
 

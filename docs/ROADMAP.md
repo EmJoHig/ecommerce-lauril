@@ -58,14 +58,20 @@ Estado: completada y validada.
 - Política de suma, límite a stock y omisión de líneas no disponibles.
 - Sin checkout, pedidos, reservas, envíos, descuentos ni pagos.
 
-## Fase 5 — Checkout, pedidos, descuentos y envíos propios
+## Fase 5 — Checkout, pedidos y envíos propios
 
-- Motor extensible de descuentos/cupones y trazabilidad de usos.
-- `CustomShippingProvider`, zonas, códigos postales y administración de métodos.
-- Checkout server-side, snapshots, reservas y expiración de stock.
-- Pedidos, items, máquina de estados, historial y vistas de cliente/administración.
-- Emails transaccionales con outbox e idempotencia.
-- Tests de totales, promociones, pedido, transiciones y sobreventa.
+Estado: completada y validada.
+
+- Checkout invitado/cliente con revalidación completa server-side.
+- `CustomShippingProvider` y administración de retiro, tarifa fija, entrega local
+  y envío a coordinar; zonas y códigos postales quedan posteriores.
+- Pedidos e items con snapshots, número humano, historial y acceso seguro.
+- Reserva temporal, expiración/liberación idempotente y carrito convertido.
+- Clave de checkout y carrito únicos para doble submit/concurrencia.
+- Vistas pública pendiente y administrativas mínimas de pedidos/envíos.
+
+No incluye pagos, Mercado Pago, cupones, promociones, transportistas externos,
+facturación ni emails transaccionales reales.
 
 ## Fase 6 — Mercado Pago y reembolsos
 
@@ -82,6 +88,7 @@ Estado: completada y validada.
 - Gestión operativa de envíos, preparación y reembolsos.
 - Banners, páginas, colores, logo, contenido y configuración SEO.
 - Promociones avanzadas (2x1, 3x2, segunda unidad y combinabilidad).
+- Cupones porcentuales/fijos, envío gratis y promociones por producto/categoría.
 - Auditoría consultable y permisos granulares de administradores.
 
 ## Fase 8 — Escala y producción

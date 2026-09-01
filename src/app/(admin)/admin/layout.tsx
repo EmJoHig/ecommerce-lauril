@@ -7,7 +7,7 @@ const navigation: Array<{
   items: Array<{ name: string; href?: string }>;
 }> = [
   { label: "General", items: [{ name: "Dashboard", href: "/admin" }] },
-  { label: "Ventas", items: [{ name: "Pedidos" }, { name: "Pagos" }, { name: "Envíos" }, { name: "Reembolsos" }] },
+  { label: "Ventas", items: [{ name: "Pedidos", href: "/admin/pedidos" }, { name: "Pagos" }, { name: "Envíos", href: "/admin/envios" }, { name: "Reembolsos" }] },
   { label: "Productos", items: [{ name: "Productos", href: "/admin/productos" }, { name: "Categorías", href: "/admin/categorias" }, { name: "Stock y movimientos", href: "/admin/stock" }] },
   { label: "Relaciones", items: [{ name: "Clientes" }, { name: "Marketing" }] },
   { label: "Tienda", items: [{ name: "Diseño" }, { name: "Reportes" }, { name: "Configuración" }] },
@@ -42,6 +42,8 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
           <Link href="/admin/productos">Productos</Link>
           <Link href="/admin/categorias">Categorías</Link>
           <Link href="/admin/stock">Stock</Link>
+          <Link href="/admin/pedidos">Pedidos</Link>
+          <Link href="/admin/envios">Envíos</Link>
         </nav>
         <main className="admin-content">{children}</main>
       </div>

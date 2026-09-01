@@ -44,6 +44,33 @@ export function isLowStock(
   return calculateAvailableStock(stockOnHand, stockReserved) <= minimumStock;
 }
 
+export function calculateReservation(
+  stockOnHand: number,
+  stockReserved: number,
+  quantity: number,
+): number {
+  assertStockValues(stockOnHand, stockReserved);
+  assertInteger(quantity, "cantidad a reservar");
+  if (quantity < 1) throw new ValidationError("La reserva debe ser positiva.");
+  if (calculateAvailableStock(stockOnHand, stockReserved) < quantity) {
+    throw new ValidationError("No hay stock suficiente para reservar el pedido.");
+  }
+  return stockReserved + quantity;
+}
+
+export function calculateReservationRelease(
+  stockOnHand: number,
+  stockReserved: number,
+  quantity: number,
+): number {
+  assertStockValues(stockOnHand, stockReserved);
+  assertInteger(quantity, "cantidad a liberar");
+  if (quantity < 1 || quantity > stockReserved) {
+    throw new ValidationError("La reserva a liberar es inválida.");
+  }
+  return stockReserved - quantity;
+}
+
 export function calculateStockTransition(
   input: StockTransitionInput,
 ): StockTransition {

@@ -21,6 +21,16 @@ const permissions = [
   ["catalog.write", "Gestionar catálogo"],
   ["inventory.read", "Consultar inventario"],
   ["inventory.write", "Gestionar inventario"],
+  ["shipping.read", "Consultar métodos de entrega"],
+  ["shipping.write", "Gestionar métodos de entrega"],
+  ["orders.read", "Consultar pedidos"],
+] as const;
+
+const shippingMethods = [
+  { code: "RETIRO_LOCAL", name: "Retiro en local", description: "Retirá tu compra sin costo cuando esté preparada.", type: "PICKUP" as const, costInCents: 0n, requiresAddress: false, minimumSubtotalInCents: null, freeShippingFromInCents: null, isActive: true, sortOrder: 1 },
+  { code: "ENVIO_FIJO", name: "Envío a domicilio", description: "Tarifa fija para entregas nacionales.", type: "FLAT_RATE" as const, costInCents: 450000n, requiresAddress: true, minimumSubtotalInCents: null, freeShippingFromInCents: 8000000n, isActive: true, sortOrder: 2 },
+  { code: "ENTREGA_LOCAL", name: "Entrega local", description: "Entrega coordinada dentro de la zona local.", type: "LOCAL_DELIVERY" as const, costInCents: 300000n, requiresAddress: true, minimumSubtotalInCents: null, freeShippingFromInCents: 6000000n, isActive: true, sortOrder: 3 },
+  { code: "A_COORDINAR", name: "Envío a coordinar", description: "Coordinaremos la entrega después de confirmar el pago.", type: "TO_COORDINATE" as const, costInCents: 0n, requiresAddress: false, minimumSubtotalInCents: null, freeShippingFromInCents: null, isActive: true, sortOrder: 4 },
 ] as const;
 
 const categories = [
@@ -294,9 +304,16 @@ async function seedCatalog(adminUserId: string | null): Promise<void> {
   }
 }
 
+async function seedShipping(): Promise<void> {
+  for (const method of shippingMethods) {
+    await prisma.shippingMethod.upsert({ where: { code: method.code }, update: {}, create: method });
+  }
+}
+
 async function main(): Promise<void> {
   const adminUserId = await seedAuthorization();
   await seedCatalog(adminUserId);
+  await seedShipping();
   console.info(
     adminUserId
       ? "Seed completado con catálogo y administrador."

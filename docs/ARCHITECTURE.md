@@ -85,8 +85,8 @@ conectar a la base durante el build.
 
 - Prisma es un detalle de infraestructura. Los tipos Prisma no atraviesan el
   límite del módulo hacia componentes o reglas puras.
-- Una transacción crea pedidos, reserva stock y registra los movimientos
-  correspondientes.
+- Una transacción serializable crea el pedido, sus snapshots e historial, reserva
+  `stockReserved` y convierte el carrito. La reserva no es movimiento físico.
 - Se usa concurrencia optimista (`Inventory.version`) y actualizaciones
   condicionales para evitar sobreventa.
 - Los eventos externos se persisten antes de producir efectos. Un identificador
@@ -204,6 +204,34 @@ cantidades ajustadas u omitidas.
 La fusión no reserva stock ni genera `InventoryMovement`. El carrito cliente se
 resuelve por sesión y permanece en PostgreSQL después de logout, reinicio o una
 sesión posterior.
+
+## Checkout, envíos y pedidos en Fase 5
+
+`CheckoutService` coordina `orders`, `cart`, `shipping`, `customers` e `inventory`
+a través de puertos. La presentación entrega identidad, clave de idempotencia,
+método y datos de comprador/dirección; el caso de uso vuelve a leer carrito,
+producto, variante, precio e inventario dentro de una transacción serializable.
+`PrismaOrderRepository` concentra las consultas y escrituras Prisma.
+
+`CustomShippingProvider` cotiza `ShippingMethod` activos. `PICKUP` y
+`TO_COORDINATE` no solicitan dirección; `LOCAL_DELIVERY` siempre la exige y
+`FLAT_RATE` permite configurarlo. Compra mínima y gratuidad se evalúan en dominio.
+El nombre, tipo, política y costo elegidos se copian al pedido.
+
+La confirmación usa una clave CSPRNG cuyo SHA-256 es único. `cartId` también es
+único en `Order`: el mismo submit devuelve el pedido existente y claves distintas
+no convierten dos veces el carrito. Se incrementa `Inventory.stockReserved` con
+versión optimista; `stockOnHand` y `InventoryMovement` no cambian. El carrito queda
+`CONVERTED` en la misma transacción.
+
+Todo pedido nace `PENDING_PAYMENT`, con historial y vencimiento configurable por
+`ORDER_RESERVATION_MINUTES` (15 por defecto). `expirePendingOrders` libera cada
+reserva una sola vez, marca `CANCELLED` y agrega historial. Puede ejecutarse con
+`npm run db:expire-orders`; producción deberá programarlo periódicamente.
+
+Los clientes acceden sólo a pedidos vinculados a su sesión. Un invitado recibe una
+cookie `HttpOnly` restringida a `/pedido/<número>` con el token opaco del carrito;
+PostgreSQL conserva únicamente su hash. El número humano no autoriza por sí solo.
 
 ## Despliegue
 

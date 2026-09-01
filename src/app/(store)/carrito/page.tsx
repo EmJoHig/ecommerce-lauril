@@ -67,7 +67,7 @@ export default async function CartPage() {
           <div><span>Unidades</span><strong>{cart.itemCount}</strong></div>
           <div className="cart-summary__total"><span>Subtotal</span><strong>{formatMoney(cart.subtotalInCents)}</strong></div>
           <p>Los precios y el stock se validan nuevamente en el servidor. El carrito no reserva unidades.</p>
-          <button className="button button--primary button--wide" disabled type="button">Checkout disponible en una próxima fase</button>
+          <Link className="button button--primary button--wide" href="/checkout">Continuar al checkout</Link>
           <ClearCartButton />
         </aside>
       </div>
