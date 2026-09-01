@@ -7,16 +7,7 @@ import { requireAdmin } from "@/modules/auth/presentation/session";
 import { RecordInventoryMovement } from "../application/record-inventory-movement";
 import { PrismaInventoryUnitOfWork } from "../infrastructure/prisma-inventory-unit-of-work";
 import { getPrisma } from "@/shared/infrastructure/prisma";
-
-export type InventoryActionState = Readonly<{
-  status: "idle" | "success" | "error";
-  message: string;
-}>;
-
-export const initialInventoryActionState: InventoryActionState = {
-  status: "idle",
-  message: "",
-};
+import type { InventoryActionState } from "./inventory-action-state";
 
 export async function adjustInventoryAction(
   _previous: InventoryActionState,

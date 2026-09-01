@@ -157,7 +157,7 @@ export function ProductForm({
   }
 
   return (
-    <form action={action} className="admin-form" encType="multipart/form-data">
+    <form action={action} className="admin-form">
       <input name="payload" readOnly type="hidden" value={payload} />
       {state.status === "error" ? <div className="form-error" role="alert">{state.message}</div> : null}
 

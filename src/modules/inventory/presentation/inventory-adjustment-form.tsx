@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { adjustInventoryAction, initialInventoryActionState } from "./inventory-actions";
+import { initialInventoryActionState } from "./inventory-action-state";
+import { adjustInventoryAction } from "./inventory-actions";
 import { PendingButton } from "@/modules/catalog/presentation/pending-button";
 
 export function InventoryAdjustmentForm({ inventoryId }: { inventoryId: string }) {

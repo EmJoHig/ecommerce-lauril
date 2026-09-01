@@ -17,6 +17,7 @@ export async function saveProductAction(
   formData: FormData,
 ): Promise<CatalogActionState> {
   const user = await requireAdmin("catalog.write");
+  let productId: string;
   try {
     const raw = parseJsonFormField<ProductFormInput>(formData, "payload");
     const files = formData
@@ -33,16 +34,15 @@ export async function saveProductAction(
         contentType: file.type,
       })),
     );
-    const result = await getCatalogAdminService().saveProduct(raw, uploads, user.id);
-    revalidatePath("/");
-    revalidatePath("/productos");
-    revalidatePath("/admin");
-    revalidatePath("/admin/productos");
-    redirect(`/admin/productos/${result.id}/editar?guardado=1`);
+    productId = (await getCatalogAdminService().saveProduct(raw, uploads, user.id)).id;
   } catch (error) {
-    if (isNextRedirect(error)) throw error;
     return actionError(toActionMessage(error));
   }
+  revalidatePath("/");
+  revalidatePath("/productos");
+  revalidatePath("/admin");
+  revalidatePath("/admin/productos");
+  redirect(`/admin/productos/${productId}/editar?guardado=1`);
 }
 
 export async function setProductStatusAction(formData: FormData): Promise<void> {
@@ -69,17 +69,17 @@ export async function saveCategoryAction(
   formData: FormData,
 ): Promise<CatalogActionState> {
   const user = await requireAdmin("catalog.write");
+  let categoryId: string;
   try {
     const raw = parseJsonFormField<CategoryFormInput>(formData, "payload");
-    const result = await getCatalogAdminService().saveCategory(raw, user.id);
-    revalidatePath("/");
-    revalidatePath("/productos");
-    revalidatePath("/admin/categorias");
-    redirect(`/admin/categorias/${result.id}/editar?guardado=1`);
+    categoryId = (await getCatalogAdminService().saveCategory(raw, user.id)).id;
   } catch (error) {
-    if (isNextRedirect(error)) throw error;
     return actionError(toActionMessage(error));
   }
+  revalidatePath("/");
+  revalidatePath("/productos");
+  revalidatePath("/admin/categorias");
+  redirect(`/admin/categorias/${categoryId}/editar?guardado=1`);
 }
 
 export async function setCategoryActiveAction(formData: FormData): Promise<void> {
@@ -125,14 +125,4 @@ function toActionMessage(error: unknown): string {
 
 function actionError(message: string): CatalogActionState {
   return { status: "error", message };
-}
-
-function isNextRedirect(error: unknown): boolean {
-  return Boolean(
-    error &&
-      typeof error === "object" &&
-      "digest" in error &&
-      typeof error.digest === "string" &&
-      error.digest.startsWith("NEXT_REDIRECT"),
-  );
 }

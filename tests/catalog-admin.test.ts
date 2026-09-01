@@ -84,8 +84,10 @@ describe("catalog administration", () => {
 
   it("valida categoría propia y propaga la prevención transaccional de ciclos profundos", async () => {
     const repository = new FakeCatalogRepository(); const service = new CatalogAdminService(repository, storage);
-    const category = { id: categoryId, parentId: categoryId, name: "Hogar", slug: "hogar", description: "", isActive: true, sortOrder: 0 };
-    await expect(service.saveCategory(category, actorId)).rejects.toBeInstanceOf(ValidationError);
+    const category = { id: categoryId, parentId: null, name: "Hogar editado", slug: "Hogar Editado", description: "", isActive: true, sortOrder: 1 };
+    await expect(service.saveCategory(category, actorId)).resolves.toEqual({ id: categoryId });
+    expect(repository.categoryCommand).toMatchObject({ id: categoryId, slug: "hogar-editado", name: "Hogar editado" });
+    await expect(service.saveCategory({ ...category, parentId: categoryId }, actorId)).rejects.toBeInstanceOf(ValidationError);
     repository.categoryUpdateError = new ConflictError("La categoría padre generaría un ciclo en la jerarquía.");
     await expect(service.saveCategory({ ...category, parentId: "0f7e2701-34e7-494c-9823-30efe1f79e39" }, actorId)).rejects.toBeInstanceOf(ConflictError);
   });
