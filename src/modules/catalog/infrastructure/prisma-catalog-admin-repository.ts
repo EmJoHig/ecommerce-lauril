@@ -410,7 +410,7 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
     try {
       return await this.prisma.$transaction(
         async (transaction) => {
-          await transaction.$queryRaw`SELECT pg_advisory_xact_lock(741852963)`;
+          await transaction.$executeRaw`SELECT pg_advisory_xact_lock(741852963)`;
           const current = await transaction.category.findUnique({ where: { id: command.id } });
           if (!current) throw new NotFoundError("Categoría inexistente.");
           await assertParentExists(transaction, command.parentId);

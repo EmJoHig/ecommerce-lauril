@@ -10,6 +10,7 @@ import { PrismaCatalogAdminRepository } from "../src/modules/catalog/infrastruct
 import { PrismaProductCatalogRepository } from "../src/modules/catalog/infrastructure/prisma-product-catalog-repository";
 import { RecordInventoryMovement } from "../src/modules/inventory/application/record-inventory-movement";
 import { PrismaInventoryUnitOfWork } from "../src/modules/inventory/infrastructure/prisma-inventory-unit-of-work";
+import { ConflictError } from "../src/shared/domain/errors";
 
 const databaseUrl = requiredEnv("DATABASE_URL");
 const adminEmail = requiredEnv("SEED_ADMIN_EMAIL");
@@ -33,10 +34,12 @@ async function main(): Promise<void> {
   const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
   const category = await admin.saveCategory({ parentId: null, name: `Prueba ${suffix}`, slug: `prueba-${suffix.toLowerCase()}`, description: "Categoría de prueba integral", isActive: true, sortOrder: 9000 }, session.user.id);
   const child = await admin.saveCategory({ parentId: category.id, name: `Hija ${suffix}`, slug: `hija-${suffix.toLowerCase()}`, description: "Categoría hija", isActive: true, sortOrder: 1 }, session.user.id);
+  await admin.saveCategory({ id: child.id, parentId: category.id, name: `Hija editada ${suffix}`, slug: `hija-editada-${suffix.toLowerCase()}`, description: "Categoría hija editada", isActive: true, sortOrder: 2 }, session.user.id);
   let categoryCyclePrevented = false;
   try {
     await admin.saveCategory({ id: category.id, parentId: child.id, name: `Prueba ${suffix}`, slug: `prueba-${suffix.toLowerCase()}`, description: "No debe persistir", isActive: true, sortOrder: 9000 }, session.user.id);
-  } catch { categoryCyclePrevented = true; }
+  } catch (error) { categoryCyclePrevented = error instanceof ConflictError; }
+  if (!categoryCyclePrevented) throw new Error("La prevención de ciclos no devolvió el conflicto esperado.");
 
   const product = await admin.saveProduct({
     name: `Perfumina Manual ${suffix}`,
@@ -83,7 +86,7 @@ async function main(): Promise<void> {
 
   const auditCount = await prisma.auditLog.count({ where: { entityId: { in: [product.id, inventory.id, category.id] } } });
   const sessionHashPersisted = (await prisma.session.findUnique({ where: { tokenHash: (await import("../src/modules/auth/domain/session-token")).hashSessionToken(session.token) } })) !== null;
-  console.info(JSON.stringify({ status: "ok", login: sessionHashPersisted, categoryCreated: true, categoryCyclePrevented, productCreated: true, imageAdded: editor.images.length === 1, productEdited: true, stockAdjusted: adjusted.stockOnHand === 8, movementRecorded: Boolean(movement), publishedAndVisible: true, detailVisible: Boolean(publicDetail), deactivatedAndHidden: inactivePage.total === 0, auditEvents: auditCount }));
+  console.info(JSON.stringify({ status: "ok", login: sessionHashPersisted, categoryCreated: true, categoryEdited: true, categoryCyclePrevented, productCreated: true, imageAdded: editor.images.length === 1, productEdited: true, stockAdjusted: adjusted.stockOnHand === 8, movementRecorded: Boolean(movement), publishedAndVisible: true, detailVisible: Boolean(publicDetail), deactivatedAndHidden: inactivePage.total === 0, auditEvents: auditCount }));
 }
 
 main().catch((error: unknown) => { console.error(error); process.exitCode = 1; }).finally(async () => { await prisma.$disconnect(); });
