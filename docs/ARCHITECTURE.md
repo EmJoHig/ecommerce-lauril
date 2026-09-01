@@ -233,6 +233,24 @@ Los clientes acceden sólo a pedidos vinculados a su sesión. Un invitado recibe
 cookie `HttpOnly` restringida a `/pedido/<número>` con el token opaco del carrito;
 PostgreSQL conserva únicamente su hash. El número humano no autoriza por sí solo.
 
+## Operación administrativa de pedidos en Fase 6
+
+`OrderAdminService` concentra filtros, validación de comandos, notas y decisiones
+de transición; depende de `OrderAdminRepository`. `PrismaOrderAdminRepository`
+implementa consultas, compare-and-set, historial, auditoría y liberación de reserva
+en transacciones serializables. Páginas y Server Actions no importan Prisma.
+
+La máquina de estados está en dominio y distingue fuente `ADMIN`, `SYSTEM` o
+`PAYMENT`. Administración permite `PENDING_PAYMENT -> CANCELLED`, y para pedidos
+ya pagados `PAID -> PREPARING -> READY_TO_SHIP -> SHIPPED -> DELIVERED`. `PICKUP`
+omite despacho y pasa de listo a entregado. `PAID`, rechazos y reembolsos no se
+asignan manualmente; quedan reservados a integraciones futuras.
+
+Cancelar un pendiente libera `stockReserved` una sola vez sin modificar
+`stockOnHand` ni crear `InventoryMovement`. La transición, el historial con actor
+y `AuditLog` se escriben atómicamente. `OrderNote` es información operativa interna
+y nunca forma parte del DTO público del pedido.
+
 ## Despliegue
 
 La aplicación puede ejecutarse con el runtime Node de Render y PostgreSQL

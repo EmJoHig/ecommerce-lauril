@@ -73,25 +73,42 @@ Estado: completada y validada.
 No incluye pagos, Mercado Pago, cupones, promociones, transportistas externos,
 facturación ni emails transaccionales reales.
 
-## Fase 6 — Mercado Pago y reembolsos
+## Fase 6 — Gestión administrativa de pedidos y ventas
 
-- `PaymentGateway` y `MercadoPagoPaymentGateway` con Checkout Pro.
-- Preferencias, retorno pendiente, webhooks firmados, inbox idempotente y
-  conciliación.
-- Pagos, eventos, rechazos, cancelaciones, reembolsos parciales/totales.
-- Métricas y alertas de inconsistencias.
-- Suite de contratos, webhooks duplicados/fuera de orden e idempotencia integral.
+Estado: completada y validada.
 
-## Fase 7 — Operación, marketing, diseño y reportes
+- Listado paginado con búsqueda, rango de fechas, estado, tipo de comprador,
+  método de entrega y orden.
+- Detalle operativo con snapshots, totales, entrega, historial con actor y notas
+  internas no visibles para clientes.
+- Máquina de estados centralizada: cancelación pendiente, preparación, listo,
+  despacho y entrega, con flujo específico para retiro.
+- Cancelación `PENDING_PAYMENT` transaccional, liberación idempotente de reserva y
+  auditoría; estados pagados no se cancelan sin un futuro flujo de reembolso.
+- Permisos `orders.read`/`orders.write`, fixtures exclusivamente locales y
+  verificador PostgreSQL de la operación completa.
+
+Mercado Pago continúa expresamente postergado. `PAID` no puede asignarse desde la
+interfaz administrativa.
+
+## Fase 7 — Marketing, diseño y reportes
 
 - Dashboard y reportes de ventas, pedidos, conversión e inventario.
-- Gestión operativa de envíos, preparación y reembolsos.
+- Gestión de clientes, dashboard comercial y evolución operativa de envíos.
 - Banners, páginas, colores, logo, contenido y configuración SEO.
 - Promociones avanzadas (2x1, 3x2, segunda unidad y combinabilidad).
 - Cupones porcentuales/fijos, envío gratis y promociones por producto/categoría.
 - Auditoría consultable y permisos granulares de administradores.
 
-## Fase 8 — Escala y producción
+## Fase 8 — Pagos (postergada hasta aprobación explícita)
+
+- `PaymentGateway` y `MercadoPagoPaymentGateway` con Checkout Pro.
+- Preferencias, retorno pendiente, webhooks firmados, inbox idempotente y
+  conciliación.
+- Pagos, eventos, rechazos, cancelaciones y reembolsos parciales/totales.
+- Conversión atómica de reserva a venta física y movimientos idempotentes.
+
+## Fase 9 — Escala y producción
 
 - Importación/exportación CSV/XLSX y actualización masiva de precios con preview.
 - Docker de producción, Blueprint/servicios Render, S3, email y observabilidad.

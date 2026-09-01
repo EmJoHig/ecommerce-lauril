@@ -27,6 +27,10 @@ RBAC usa permisos de capacidad (`admin.access`, `catalog.write`, etc.). Las ruta
 administrativas validan sesión y permiso en el servidor. Ocultar un botón no es
 autorización. Toda acción relevante registra actor en `AuditLog`.
 
+Pedidos separa `orders.read` de `orders.write`. Cada Server Action vuelve a exigir
+sesión y permiso; no confía en que la página haya ocultado controles. Los IDs se
+validan y un pedido inexistente no expone datos por respuesta diferencial.
+
 ## Entradas, salidas y negocio
 
 - Validación de esquema en cada borde con límites de longitud y listas permitidas.
@@ -84,6 +88,11 @@ autorización. Toda acción relevante registra actor en `AuditLog`.
   idempotente y no escribe movimientos físicos falsos.
 - `ORDER_RESERVATION_MINUTES` admite de 5 a 120 minutos. El comando de expiración
   no registra tokens ni datos personales completos.
+- Administración no puede asignar `PAID`, estados de rechazo ni reembolsos. La
+  cancelación sólo acepta `PENDING_PAYMENT`, libera reserva con compare-and-set y
+  registra historial/auditoría en la misma transacción.
+- Las notas internas se consultan únicamente mediante el repositorio
+  administrativo y nunca se incluyen en la vista pública del pedido.
 
 ## Secretos y datos
 

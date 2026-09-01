@@ -3,8 +3,8 @@
 Ecommerce propio, single-store y construido como monolito modular con Next.js,
 TypeScript, PostgreSQL, Prisma y Tailwind CSS.
 
-La Fase 5 incluye catálogo, carrito, cuentas, checkout invitado/cliente, métodos
-propios de entrega, pedidos y reserva temporal. No incluye Mercado Pago, pagos,
+La Fase 6 incluye catálogo, carrito, cuentas, checkout, métodos propios de entrega,
+pedidos, reserva temporal y gestión administrativa completa de ventas. No incluye Mercado Pago, pagos,
 descuentos, transportistas externos ni facturación. El alcance está en
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -34,7 +34,7 @@ Abrir `http://localhost:3000` para la tienda y `http://localhost:3000/admin` par
 la administración. El health check superficial está en `/api/health`; agregar
 `?deep=1` también verifica PostgreSQL.
 
-Rutas principales de Fases 2 a 5:
+Rutas principales de Fases 2 a 6:
 
 - `/admin/productos`, `/admin/categorias` y `/admin/stock` para la operación.
 - `/productos`, `/categorias/[slug]` y `/producto/[slug]` para la tienda.
@@ -42,7 +42,7 @@ Rutas principales de Fases 2 a 5:
 - `/registro`, `/login` y `/recuperar-clave` para identidad de clientes.
 - `/mi-cuenta`, `/mi-cuenta/datos` y `/mi-cuenta/direcciones` para la cuenta.
 - `/checkout` y `/pedido/[número]` para confirmar y consultar un pedido.
-- `/admin/envios` y `/admin/pedidos` para la comprobación administrativa.
+- `/admin/envios` y `/admin/pedidos` para métodos de entrega y operación diaria de pedidos.
 
 Las imágenes subidas en desarrollo se guardan en `public/uploads/catalog`, que
 está ignorado por Git. No usar ese adaptador en Render porque su filesystem es
@@ -59,9 +59,15 @@ npm run db:verify:phase2
 npm run db:verify:phase3
 npm run db:verify:phase4
 npm run db:verify:phase5
+npm run db:verify:phase6
 npm run db:expire-orders
 npm run db:studio
 ```
+
+Para una prueba manual local de Fase 6 se pueden crear pedidos sintéticos
+`PENDING_PAYMENT` y `PAID` con `npm run db:fixtures:phase6`, y eliminarlos con
+`npm run db:fixtures:phase6:cleanup`. El script rechaza producción y bases no
+locales; no existe una vía equivalente en la interfaz.
 
 En producción se ejecuta `npm run db:migrate:deploy`, nunca `migrate dev`.
 

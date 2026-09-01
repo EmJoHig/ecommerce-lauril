@@ -57,7 +57,10 @@ roles y permisos.
 
 Las Fases 1 a 4 entregan la fundación, catálogo, inventario, carrito y cuentas de
 cliente. La Fase 5 incorpora checkout cliente/invitado, métodos propios de entrega,
-pedidos con snapshots, reserva temporal de stock, expiración e idempotencia.
+pedidos con snapshots, reserva temporal de stock, expiración e idempotencia. La
+Fase 6 incorpora la operación administrativa completa: búsqueda y filtros,
+detalle, preparación, despacho/entrega, cancelación pendiente, historial con actor
+y notas internas.
 
 El carrito continúa sin reservar stock. La reserva comienza únicamente al crear
 un pedido `PENDING_PAYMENT`, incrementa `stockReserved` durante 15 minutos por

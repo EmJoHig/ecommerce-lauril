@@ -1,7 +1,9 @@
 # Pagos
 
 Mercado Pago Checkout Pro será el primer gateway, pero el dominio no depende de su
-SDK. Esta integración comienza en una fase posterior.
+SDK. Por decisión explícita, esta integración está postergada y no forma parte de
+la Fase 6. No existen SDK, credenciales, endpoints, botones ni vías manuales de
+pago en producción.
 
 ## Contrato
 
@@ -22,7 +24,7 @@ de props, HTML, logs ni respuestas públicas.
 
 1. Fase 5 ya valida carrito, identidad/dirección, envío y stock, crea
    `Order`/`OrderItem` `PENDING_PAYMENT` y reserva `stockReserved` sin movimientos.
-2. Fase 6 creará el intento `Payment` pendiente para ese pedido local.
+2. Una fase futura de pagos creará el intento `Payment` pendiente para ese pedido local.
 3. Fuera de la transacción crea la preferencia usando una idempotency key estable.
 4. Guarda identificadores de preferencia y entrega al navegador solo la URL
    pública de checkout.
@@ -32,6 +34,10 @@ de props, HTML, logs ni respuestas públicas.
 7. Un procesador consulta el pago a Mercado Pago cuando corresponde, bloquea el
    intento local y aplica la transición en una transacción.
 8. Los efectos posteriores (email, preparación) usan outbox/idempotency keys.
+
+La máquina de estados de pedidos ya distingue la fuente `PAYMENT` de `ADMIN`: la
+transición `PENDING_PAYMENT -> PAID` está definida como contrato de dominio para
+la futura integración, pero no tiene acción administrativa ni adaptador activo.
 
 ## Idempotencia
 

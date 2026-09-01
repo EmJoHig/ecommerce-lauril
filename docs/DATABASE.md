@@ -10,7 +10,7 @@
 - Restricciones SQL protegen invariantes además de la validación de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
-## Modelo implementado hasta Fase 5
+## Modelo implementado hasta Fase 6
 
 ### Identidad y autorización
 
@@ -105,11 +105,14 @@ adopción se elimina el token invitado; durante un merge el origen queda
   SKU, variante, precio unitario, cantidad y subtotal exacto.
 - `OrderStatusHistory`: estado anterior/nuevo, actor, motivo y fecha. Índices por
   pedido/fecha y estado/fecha.
+- `OrderNote`: contenido interno, pedido, administrador autor y fecha. No forma
+  parte de consultas públicas; su contenido no se copia a snapshots del cliente.
 
 La máquina de estados comienza en `PENDING_PAYMENT` y contempla `PAID`,
 `PREPARING`, `READY_TO_SHIP`, `SHIPPED`, `DELIVERED`, `CANCELLED`,
-`PAYMENT_REJECTED`, `REFUNDED` y `PARTIALLY_REFUNDED`. Fase 5 sólo crea el primer
-estado y cancela por expiración; pagos incorporará transiciones posteriores.
+`PAYMENT_REJECTED`, `REFUNDED` y `PARTIALLY_REFUNDED`. Fase 6 permite únicamente
+transiciones operativas explícitas y cancelación pendiente; `PAID` y estados de
+pago/reembolso quedan reservados a una integración futura.
 
 `checkoutKeyHash` y `cartId` únicos aportan idempotencia. Una constraint verifica
 `total = itemsSubtotal + shipping - discount`; descuento es cero en esta fase.
@@ -169,7 +172,9 @@ se deriva de pagos, no de un único campo mutable sin historial.
 - inventario: variante única, índice parcial para el predicado de bajo stock
   `stockOnHand - stockReserved <= minimumStock`, movimientos por `(inventoryId,
   createdAt)` y `(referenceType, referenceId)`.
-- pedidos: número único, `(customerId, createdAt)`, `(status, createdAt)`.
+- pedidos: número único, `(customerId, createdAt)`, `(status, createdAt)` y
+  `(shippingMethodId, createdAt)`.
+- notas de pedido: `(orderId, createdAt)` y `(actorUserId, createdAt)`.
 - pagos/eventos: referencias externas e idempotencia únicas.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
@@ -189,3 +194,5 @@ se deriva de pagos, no de un único campo mutable sin historial.
   vincula carritos y agrega constraints/índices parciales sin modificar historial.
 - La migración `20260901110000_phase5_checkout_orders_shipping` agrega métodos de
   entrega, pedidos, snapshots, historial, idempotencia y constraints monetarias.
+- La migración `20260901200000_phase6_admin_order_management` agrega notas internas
+  con autor/constraints e índices para estado, entrega y trazabilidad operativa.
