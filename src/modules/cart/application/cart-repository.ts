@@ -2,6 +2,8 @@ export type CartStatusValue = "ACTIVE" | "CONVERTED" | "ABANDONED";
 
 export type CartIdentity = Readonly<{
   id: string;
+  guestTokenHash: string | null;
+  customerId: string | null;
   status: CartStatusValue;
   expiresAt: Date;
   version: number;
@@ -43,8 +45,10 @@ export type CartRecord = CartIdentity &
 
 export interface CartTransaction {
   findCartByTokenHash(tokenHash: string): Promise<CartIdentity | null>;
+  findActiveCartByCustomerId(customerId: string): Promise<CartIdentity | null>;
   createCart(input: {
-    tokenHash: string;
+    tokenHash: string | null;
+    customerId: string | null;
     expiresAt: Date;
   }): Promise<CartIdentity>;
   resetCart(input: { id: string; expiresAt: Date }): Promise<CartIdentity>;
@@ -58,11 +62,14 @@ export interface CartTransaction {
   }): Promise<void>;
   removeItem(cartId: string, variantId: string): Promise<boolean>;
   clearItems(cartId: string): Promise<void>;
+  assignCartToCustomer(input: { cartId: string; customerId: string; expiresAt: Date }): Promise<CartIdentity>;
+  abandonCart(cartId: string, expiresAt: Date): Promise<void>;
   touchCart(cartId: string, expiresAt: Date): Promise<void>;
   readCart(cartId: string): Promise<CartRecord>;
 }
 
 export interface CartRepository {
   findActiveByTokenHash(tokenHash: string, now: Date): Promise<CartRecord | null>;
+  findActiveByCustomerId(customerId: string, now: Date): Promise<CartRecord | null>;
   run<T>(work: (transaction: CartTransaction) => Promise<T>): Promise<T>;
 }

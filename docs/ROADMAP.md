@@ -47,18 +47,27 @@ Estado: completada y validada.
 La autenticación de clientes y fusión invitado/cliente se trasladan a la fase
 siguiente por decisión explícita de alcance; no se simulan en esta fase.
 
-## Fase 4 — Clientes, checkout, pedidos, descuentos y envíos propios
+## Fase 4 — Clientes, cuenta y fusión de carrito
 
-- Registro/login de clientes, recuperación, perfil, direcciones y fusión del
-  carrito invitado al autenticarse.
+Estado: completada y validada.
+
+- Registro/login/logout cliente con cookie y sesión DB separada de administración.
+- Recuperación segura con `EmailSender` y preview exclusivo de desarrollo.
+- Perfil comercial, email inmutable y direcciones con ownership/default atómico.
+- Carrito autenticado persistente y fusión invitado/cliente serializable.
+- Política de suma, límite a stock y omisión de líneas no disponibles.
+- Sin checkout, pedidos, reservas, envíos, descuentos ni pagos.
+
+## Fase 5 — Checkout, pedidos, descuentos y envíos propios
+
 - Motor extensible de descuentos/cupones y trazabilidad de usos.
 - `CustomShippingProvider`, zonas, códigos postales y administración de métodos.
 - Checkout server-side, snapshots, reservas y expiración de stock.
 - Pedidos, items, máquina de estados, historial y vistas de cliente/administración.
-- Emails detrás de un contrato, con outbox e idempotencia.
+- Emails transaccionales con outbox e idempotencia.
 - Tests de totales, promociones, pedido, transiciones y sobreventa.
 
-## Fase 5 — Mercado Pago y reembolsos
+## Fase 6 — Mercado Pago y reembolsos
 
 - `PaymentGateway` y `MercadoPagoPaymentGateway` con Checkout Pro.
 - Preferencias, retorno pendiente, webhooks firmados, inbox idempotente y
@@ -67,7 +76,7 @@ siguiente por decisión explícita de alcance; no se simulan en esta fase.
 - Métricas y alertas de inconsistencias.
 - Suite de contratos, webhooks duplicados/fuera de orden e idempotencia integral.
 
-## Fase 6 — Operación, marketing, diseño y reportes
+## Fase 7 — Operación, marketing, diseño y reportes
 
 - Dashboard y reportes de ventas, pedidos, conversión e inventario.
 - Gestión operativa de envíos, preparación y reembolsos.
@@ -75,7 +84,7 @@ siguiente por decisión explícita de alcance; no se simulan en esta fase.
 - Promociones avanzadas (2x1, 3x2, segunda unidad y combinabilidad).
 - Auditoría consultable y permisos granulares de administradores.
 
-## Fase 7 — Escala y producción
+## Fase 8 — Escala y producción
 
 - Importación/exportación CSV/XLSX y actualización masiva de precios con preview.
 - Docker de producción, Blueprint/servicios Render, S3, email y observabilidad.

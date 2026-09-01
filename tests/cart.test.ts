@@ -24,6 +24,8 @@ const variantId = "2d45820e-f6ac-405d-a72c-f3ce7e3d6daf";
 const secondVariantId = "7f79a006-6afd-4f87-92aa-b6420cad5688";
 const tokenA = "a".repeat(64);
 const tokenB = "b".repeat(64);
+const customerA = "7e4bfef2-d566-4f3e-9d5d-e08574644dd7";
+const customerB = "089a79d9-34ce-469e-9690-e7336524f0e3";
 const now = new Date("2026-08-31T15:00:00.000Z");
 
 function variant(overrides: Partial<CartVariantRecord> = {}): CartVariantRecord {
@@ -150,6 +152,55 @@ describe("anonymous cart use cases", () => {
   });
 });
 
+describe("authenticated cart and merge", () => {
+  it("convierte el carrito invitado en el carrito persistente del cliente", async () => {
+    const service = new CartService(new MemoryCartRepository([variant()]));
+    await service.addItem({ tokenHash: tokenA, variantId, quantity: 2 }, now);
+    const merge = await service.mergeGuestCart(customerA, tokenA, now);
+    expect(merge).toMatchObject({ merged: true, adjustedLines: 0, removedLines: 0 });
+    expect((await service.getCustomerCart(customerA, now)).itemCount).toBe(2);
+    expect((await service.getCart(tokenA, now)).itemCount).toBe(0);
+  });
+
+  it("suma la misma variante y limita el resultado al stock disponible", async () => {
+    const service = new CartService(new MemoryCartRepository([variant()]));
+    await service.addCustomerItem({ customerId: customerA, variantId, quantity: 6 }, now);
+    await service.addItem({ tokenHash: tokenA, variantId, quantity: 4 }, now);
+    const merge = await service.mergeGuestCart(customerA, tokenA, now);
+    expect(merge.adjustedLines).toBe(1);
+    expect(merge.cart.items).toHaveLength(1);
+    expect(merge.cart.items[0]?.quantity).toBe(8);
+  });
+
+  it("omite una variante inactiva durante la fusión", async () => {
+    const repository = new MemoryCartRepository([variant()]);
+    const service = new CartService(repository);
+    await service.addItem({ tokenHash: tokenA, variantId, quantity: 1 }, now);
+    repository.setVariant(variant({ isActive: false }));
+    const merge = await service.mergeGuestCart(customerA, tokenA, now);
+    expect(merge.removedLines).toBe(1);
+    expect(merge.cart.items).toEqual([]);
+  });
+
+  it("omite un producto inactivo durante la fusión", async () => {
+    const repository = new MemoryCartRepository([variant()]);
+    const service = new CartService(repository);
+    await service.addItem({ tokenHash: tokenA, variantId, quantity: 1 }, now);
+    repository.setVariant(variant({ product: { ...variant().product, status: "INACTIVE" } }));
+    const merge = await service.mergeGuestCart(customerA, tokenA, now);
+    expect(merge.removedLines).toBe(1);
+    expect(merge.cart.items).toEqual([]);
+  });
+
+  it("persiste por cliente y mantiene aislamiento entre clientes", async () => {
+    const repository = new MemoryCartRepository([variant()]);
+    await new CartService(repository).addCustomerItem({ customerId: customerA, variantId, quantity: 2 }, now);
+    await new CartService(repository).addCustomerItem({ customerId: customerB, variantId, quantity: 1 }, now);
+    expect((await new CartService(repository).getCustomerCart(customerA, now)).itemCount).toBe(2);
+    expect((await new CartService(repository).getCustomerCart(customerB, now)).itemCount).toBe(1);
+  });
+});
+
 class MemoryCartRepository implements CartRepository {
   private readonly carts = new Map<string, MutableCart>();
   private readonly variants = new Map<string, CartVariantRecord>();
@@ -164,12 +215,19 @@ class MemoryCartRepository implements CartRepository {
   }
 
   findActiveByTokenHash(tokenHash: string, date: Date): Promise<CartRecord | null> {
-    const cart = this.carts.get(tokenHash);
+    const cart = [...this.carts.values()].find((candidate) => candidate.tokenHash === tokenHash);
     return Promise.resolve(
       cart?.status === "ACTIVE" && cart.expiresAt > date
         ? toRecord(cart, this.variants)
         : null,
     );
+  }
+
+  findActiveByCustomerId(customerId: string, date: Date): Promise<CartRecord | null> {
+    const cart = [...this.carts.values()].find(
+      (candidate) => candidate.customerId === customerId && candidate.status === "ACTIVE",
+    );
+    return Promise.resolve(cart && cart.expiresAt > date ? toRecord(cart, this.variants) : null);
   }
 
   async run<T>(work: (transaction: CartTransaction) => Promise<T>): Promise<T> {
@@ -179,19 +237,26 @@ class MemoryCartRepository implements CartRepository {
   private transaction(): CartTransaction {
     return {
       findCartByTokenHash: async (tokenHash) => {
-        const cart = this.carts.get(tokenHash);
+        const cart = [...this.carts.values()].find((candidate) => candidate.tokenHash === tokenHash);
         return cart ? identity(cart) : null;
       },
-      createCart: async ({ tokenHash, expiresAt }) => {
+      findActiveCartByCustomerId: async (customerId) => {
+        const cart = [...this.carts.values()].find(
+          (candidate) => candidate.customerId === customerId && candidate.status === "ACTIVE",
+        );
+        return cart ? identity(cart) : null;
+      },
+      createCart: async ({ tokenHash, customerId, expiresAt }) => {
         const cart: MutableCart = {
           id: `cart-${++this.sequence}`,
           tokenHash,
+          customerId,
           status: "ACTIVE",
           expiresAt,
           version: 0,
           items: new Map(),
         };
-        this.carts.set(tokenHash, cart);
+        this.carts.set(cart.id, cart);
         return identity(cart);
       },
       resetCart: async ({ id, expiresAt }) => {
@@ -220,6 +285,20 @@ class MemoryCartRepository implements CartRepository {
       },
       removeItem: async (cartId, id) => this.findCart(cartId).items.delete(id),
       clearItems: async (cartId) => { this.findCart(cartId).items.clear(); },
+      assignCartToCustomer: async ({ cartId, customerId, expiresAt }) => {
+        const cart = this.findCart(cartId);
+        cart.tokenHash = null;
+        cart.customerId = customerId;
+        cart.expiresAt = expiresAt;
+        cart.version += 1;
+        return identity(cart);
+      },
+      abandonCart: async (cartId, expiresAt) => {
+        const cart = this.findCart(cartId);
+        cart.status = "ABANDONED";
+        cart.expiresAt = expiresAt;
+        cart.version += 1;
+      },
       touchCart: async (cartId, expiresAt) => {
         const cart = this.findCart(cartId);
         cart.expiresAt = expiresAt;
@@ -238,7 +317,8 @@ class MemoryCartRepository implements CartRepository {
 
 type MutableCart = {
   id: string;
-  tokenHash: string;
+  tokenHash: string | null;
+  customerId: string | null;
   status: "ACTIVE" | "CONVERTED" | "ABANDONED";
   expiresAt: Date;
   version: number;
@@ -248,6 +328,8 @@ type MutableCart = {
 function identity(cart: MutableCart): CartIdentity {
   return {
     id: cart.id,
+    guestTokenHash: cart.tokenHash,
+    customerId: cart.customerId,
     status: cart.status,
     expiresAt: cart.expiresAt,
     version: cart.version,

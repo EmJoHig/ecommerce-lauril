@@ -43,6 +43,14 @@ export class PrismaCartRepository implements CartRepository {
     return cart ? mapCart(cart) : null;
   }
 
+  async findActiveByCustomerId(customerId: string, now: Date): Promise<CartRecord | null> {
+    const cart = await this.prisma.cart.findFirst({
+      where: { customerId, status: "ACTIVE", expiresAt: { gt: now } },
+      include: cartInclude,
+    });
+    return cart ? mapCart(cart) : null;
+  }
+
   async run<T>(work: (transaction: CartTransaction) => Promise<T>): Promise<T> {
     try {
       return await this.prisma.$transaction(
@@ -60,15 +68,26 @@ function createTransaction(transaction: Transaction): CartTransaction {
     findCartByTokenHash: async (tokenHash) => {
       const cart = await transaction.cart.findUnique({
         where: { guestTokenHash: tokenHash },
-        select: { id: true, status: true, expiresAt: true, version: true },
+        select: { id: true, guestTokenHash: true, customerId: true, status: true, expiresAt: true, version: true },
+      });
+      return cart ? mapIdentity(cart) : null;
+    },
+    findActiveCartByCustomerId: async (customerId) => {
+      const cart = await transaction.cart.findFirst({
+        where: { customerId, status: "ACTIVE" },
+        select: { id: true, guestTokenHash: true, customerId: true, status: true, expiresAt: true, version: true },
       });
       return cart ? mapIdentity(cart) : null;
     },
     createCart: async (input) =>
       mapIdentity(
         await transaction.cart.create({
-          data: { guestTokenHash: input.tokenHash, expiresAt: input.expiresAt },
-          select: { id: true, status: true, expiresAt: true, version: true },
+          data: {
+            guestTokenHash: input.tokenHash,
+            customerId: input.customerId,
+            expiresAt: input.expiresAt,
+          },
+          select: { id: true, guestTokenHash: true, customerId: true, status: true, expiresAt: true, version: true },
         }),
       ),
     resetCart: async (input) => {
@@ -81,7 +100,7 @@ function createTransaction(transaction: Transaction): CartTransaction {
             expiresAt: input.expiresAt,
             version: { increment: 1 },
           },
-          select: { id: true, status: true, expiresAt: true, version: true },
+          select: { id: true, guestTokenHash: true, customerId: true, status: true, expiresAt: true, version: true },
         }),
       );
     },
@@ -123,6 +142,25 @@ function createTransaction(transaction: Transaction): CartTransaction {
     clearItems: async (cartId) => {
       await transaction.cartItem.deleteMany({ where: { cartId } });
     },
+    assignCartToCustomer: async (input) =>
+      mapIdentity(
+        await transaction.cart.update({
+          where: { id: input.cartId },
+          data: {
+            guestTokenHash: null,
+            customerId: input.customerId,
+            expiresAt: input.expiresAt,
+            version: { increment: 1 },
+          },
+          select: { id: true, guestTokenHash: true, customerId: true, status: true, expiresAt: true, version: true },
+        }),
+      ),
+    abandonCart: async (cartId, expiresAt) => {
+      await transaction.cart.update({
+        where: { id: cartId },
+        data: { status: "ABANDONED", expiresAt, version: { increment: 1 } },
+      });
+    },
     touchCart: async (cartId, expiresAt) => {
       await transaction.cart.update({
         where: { id: cartId },
@@ -141,6 +179,8 @@ function createTransaction(transaction: Transaction): CartTransaction {
 
 function mapIdentity(row: {
   id: string;
+  guestTokenHash: string | null;
+  customerId: string | null;
   status: "ACTIVE" | "CONVERTED" | "ABANDONED";
   expiresAt: Date;
   version: number;

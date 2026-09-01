@@ -36,7 +36,7 @@ export default async function CartPage() {
       <div className="cart-heading">
         <p className="eyebrow">Tu selección</p>
         <h1>Carrito</h1>
-        <p>{cart.itemCount} unidades guardadas en este navegador.</p>
+        <p>{cart.itemCount} unidades guardadas en tu carrito.</p>
       </div>
       {cart.hasIssues ? <div className="cart-warning" role="alert"><strong>Revisá el carrito.</strong><span>Algún producto cambió de disponibilidad o stock.</span></div> : null}
       <div className="cart-layout">
@@ -67,7 +67,7 @@ export default async function CartPage() {
           <div><span>Unidades</span><strong>{cart.itemCount}</strong></div>
           <div className="cart-summary__total"><span>Subtotal</span><strong>{formatMoney(cart.subtotalInCents)}</strong></div>
           <p>Los precios y el stock se validan nuevamente en el servidor. El carrito no reserva unidades.</p>
-          <button className="button button--primary button--wide" disabled type="button">Checkout disponible en FASE 4</button>
+          <button className="button button--primary button--wide" disabled type="button">Checkout disponible en una próxima fase</button>
           <ClearCartButton />
         </aside>
       </div>

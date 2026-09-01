@@ -55,14 +55,14 @@ roles y permisos.
 
 ## Alcance actual
 
-Las Fases 1 y 2 entregan la fundación, administración del catálogo, inventario
-trazable y publicación pública. La Fase 3 agrega un carrito anónimo persistente:
-alta de variantes, actualización, eliminación, vaciado, contador y recálculo
-server-side de precio y disponibilidad.
+Las Fases 1 a 3 entregan la fundación, catálogo, inventario trazable, publicación
+pública y carrito anónimo. La Fase 4 incorpora cuentas de cliente, perfil,
+direcciones, recuperación de contraseña y carrito persistente asociado al cliente
+con fusión transaccional del carrito invitado.
 
-El carrito no reserva stock ni crea movimientos. Checkout, autenticación de
-clientes, pedidos, pagos, promociones y envíos permanecen fuera de esta fase. La
-interfaz no presenta un checkout ficticio como una operación habilitada.
+El carrito continúa sin reservar stock ni crear movimientos. Checkout, pedidos,
+pagos, promociones, cupones, cálculo de envíos y facturación permanecen fuera del
+alcance. La interfaz no presenta operaciones comerciales ficticias.
 
 ## Criterios no funcionales
 

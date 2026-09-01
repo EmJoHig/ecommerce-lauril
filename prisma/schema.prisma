@@ -43,6 +43,13 @@ enum CartStatus {
   @@map("cart_status")
 }
 
+enum CustomerStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("customer_status")
+}
+
 model User {
   id                  String               @id @default(uuid()) @db.Uuid
   email               String               @unique @db.VarChar(320)
@@ -58,9 +65,49 @@ model User {
   passwordResetTokens PasswordResetToken[]
   inventoryMovements  InventoryMovement[]  @relation("InventoryMovementAdmin")
   auditLogs           AuditLog[]
+  customer            Customer?
 
   @@index([status])
   @@map("users")
+}
+
+model Customer {
+  id        String            @id @default(uuid()) @db.Uuid
+  userId    String            @unique @map("user_id") @db.Uuid
+  phone     String            @db.VarChar(30)
+  document  String?           @db.VarChar(50)
+  status    CustomerStatus    @default(ACTIVE)
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  addresses CustomerAddress[]
+  carts     Cart[]
+
+  @@index([status, createdAt])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id                 String   @id @default(uuid()) @db.Uuid
+  customerId         String   @map("customer_id") @db.Uuid
+  label              String   @db.VarChar(80)
+  recipientFirstName String   @map("recipient_first_name") @db.VarChar(100)
+  recipientLastName  String   @map("recipient_last_name") @db.VarChar(100)
+  phone              String   @db.VarChar(30)
+  street             String   @db.VarChar(160)
+  streetNumber       String   @map("street_number") @db.VarChar(30)
+  floorApartment     String?  @map("floor_apartment") @db.VarChar(80)
+  city               String   @db.VarChar(120)
+  province           String   @db.VarChar(120)
+  postalCode         String   @map("postal_code") @db.VarChar(20)
+  references         String?  @db.VarChar(500)
+  isDefault          Boolean  @default(false) @map("is_default")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  customer           Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, isDefault, createdAt])
+  @@map("customer_addresses")
 }
 
 model Role {
@@ -272,15 +319,18 @@ model InventoryMovement {
 
 model Cart {
   id             String     @id @default(uuid()) @db.Uuid
-  guestTokenHash String     @unique @map("guest_token_hash") @db.Char(64)
+  guestTokenHash String?    @unique @map("guest_token_hash") @db.Char(64)
+  customerId     String?    @map("customer_id") @db.Uuid
   status         CartStatus @default(ACTIVE)
   expiresAt      DateTime   @map("expires_at") @db.Timestamptz(3)
   version        Int        @default(0)
   createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
   items          CartItem[]
+  customer       Customer?  @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   @@index([status, expiresAt])
+  @@index([customerId, status, updatedAt])
   @@index([updatedAt])
   @@map("carts")
 }
@@ -302,15 +352,15 @@ model CartItem {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   actorUserId String?  @map("actor_user_id") @db.Uuid
-  action     String   @db.VarChar(120)
-  entityType String   @map("entity_type") @db.VarChar(100)
-  entityId   String?  @map("entity_id") @db.VarChar(120)
-  metadata   Json?
-  ipAddress  String?  @map("ip_address") @db.VarChar(64)
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  actor      User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  action      String   @db.VarChar(120)
+  entityType  String   @map("entity_type") @db.VarChar(100)
+  entityId    String?  @map("entity_id") @db.VarChar(120)
+  metadata    Json?
+  ipAddress   String?  @map("ip_address") @db.VarChar(64)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([actorUserId, createdAt])
   @@index([entityType, entityId, createdAt])

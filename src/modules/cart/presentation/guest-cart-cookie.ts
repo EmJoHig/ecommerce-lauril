@@ -32,3 +32,7 @@ export async function setGuestCartCookie(token: string): Promise<void> {
     priority: "high",
   });
 }
+
+export async function deleteGuestCartCookie(): Promise<void> {
+  (await cookies()).delete(getServerEnv().CART_COOKIE_NAME);
+}

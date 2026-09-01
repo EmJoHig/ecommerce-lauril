@@ -118,8 +118,27 @@ hash SHA-256. Las contraseñas se almacenan con bcrypt y factor configurable. La
 autorización consulta permisos efectivos de los roles.
 
 La autorización administrativa se verifica server-side por permiso antes de cada
-consulta o mutación. Registro de clientes, recuperación completa, rotación y rate
-limiting distribuido permanecen para fases posteriores.
+consulta o mutación. La cookie administrativa y la cookie de cliente son distintas;
+ambas usan `Session`, pero el acceso cliente exige un `Customer` activo y el acceso
+administrativo exige `admin.access`. Ningún perfil se deduce automáticamente del
+otro.
+
+## Clientes en Fase 4
+
+`User` conserva la identidad compartida (email, hash de contraseña y nombre) y
+`Customer` agrega el perfil comercial 1:1 (teléfono, documento y estado), evitando
+duplicar datos. El módulo `customers` concentra registro, login público,
+recuperación, perfil y direcciones mediante puertos propios; la presentación solo
+valida DTOs, resuelve sesión e invoca casos de uso.
+
+La recuperación invalida tokens anteriores, utiliza CSPRNG, persiste solo SHA-256,
+permite un único uso y revoca todas las sesiones al cambiar la contraseña.
+`EmailSender` desacopla la entrega: desarrollo devuelve un enlace de preview al
+formulario y producción no expone el token mientras no exista proveedor real.
+
+Cada mutación de dirección deriva `customerId` de la sesión y consulta por
+`(addressId, customerId)`. La dirección predeterminada se mantiene en una
+transacción serializable y un índice parcial impide más de una por cliente.
 
 ## Imágenes
 
@@ -167,6 +186,24 @@ cantidad total se calculan en dominio con enteros/bigint. El precio observado en
 `CartItem` sirve únicamente para avisar un cambio; nunca es autoritativo. El stock
 disponible usa la regla de `inventory`; no se reserva, modifica ni genera
 `InventoryMovement` en esta fase.
+
+## Carrito autenticado y fusión en Fase 4
+
+`Cart` tiene exactamente un propietario: hash de token invitado o `customerId`.
+PostgreSQL garantiza un solo carrito `ACTIVE` por cliente. Las acciones resuelven
+primero la sesión cliente y nunca aceptan `customerId` desde el navegador.
+
+En registro/login, el merge se ejecuta en una transacción serializable con hasta
+tres reintentos ante conflicto. Para cada variante se suman las cantidades, se
+vuelve a leer producto, variante, precio e inventario y se limita a
+`min(suma, stockAvailable, 999)`. Las líneas inactivas o sin stock se omiten y el
+snapshot se actualiza al precio efectivo. El origen invitado se vacía y marca
+`ABANDONED`; si se adopta directamente, se elimina su hash invitado. La UI informa
+cantidades ajustadas u omitidas.
+
+La fusión no reserva stock ni genera `InventoryMovement`. El carrito cliente se
+resuelve por sesión y permanece en PostgreSQL después de logout, reinicio o una
+sesión posterior.
 
 ## Despliegue
 

@@ -10,17 +10,31 @@
 - Restricciones SQL protegen invariantes además de la validación de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
-## Modelo implementado hasta Fase 3
+## Modelo implementado hasta Fase 4
 
 ### Identidad y autorización
 
-- `User`: identidad administrativa/cliente futura, email único normalizado,
+- `User`: identidad compartida, email único normalizado,
   contraseña hasheada, estado y último acceso.
 - `Role`, `Permission`, `UserRole`, `RolePermission`: RBAC normalizado. Los códigos
   son estables y únicos.
 - `Session`: token opaco hasheado, expiración, metadatos mínimos y revocación.
 - `PasswordResetToken`: token de un solo uso, hasheado y con expiración.
 - `AuditLog`: actor opcional, acción, entidad, metadatos e IP.
+
+La autenticación administrativa y cliente usa cookies distintas. Las sesiones
+comparten la tabla normalizada, pero cada lector valida además el perfil requerido.
+
+### Clientes
+
+- `Customer`: perfil comercial 1:1 con `User`; teléfono, documento opcional,
+  estado y timestamps. Nombre y email viven en `User` para no duplicarlos.
+- `CustomerAddress`: destinatario y dirección argentina estructurada. Todas las
+  consultas y mutaciones se restringen por `customerId`.
+
+Un índice único parcial mantiene una sola dirección predeterminada por cliente.
+La primera dirección se vuelve predeterminada y, al eliminarla, la operación
+selecciona otra en la misma transacción. El email queda inmutable en esta fase.
 
 ### Catálogo
 
@@ -62,8 +76,9 @@ Invariantes:
 
 ### Carrito
 
-- `Cart`: carrito anónimo identificado por `guestTokenHash` SHA-256 único, estado,
-  expiración, versión y timestamps UTC.
+- `Cart`: carrito anónimo identificado por `guestTokenHash` SHA-256 o carrito
+  autenticado identificado por `customerId`, estado, expiración, versión y
+  timestamps UTC.
 - `CartItem`: relación entre carrito y variante, cantidad y precio observado en
   centavos. `unique(cartId, variantId)` evita líneas duplicadas.
 
@@ -76,18 +91,12 @@ eliminar físicamente un carrito durante una futura limpieza.
 Los carritos expiran 30 días después de la última mutación por defecto. El índice
 `(status, expiresAt)` prepara una tarea futura de limpieza; esta fase no ejecuta
 purga automática. El token crudo nunca se persiste y el UUID interno nunca se usa
-como credencial pública. Una relación opcional con `Customer` se agregará cuando
-exista el módulo de clientes, manteniendo el token durante la transición/fusión.
+como credencial pública. Una constraint XOR exige exactamente un propietario. Un
+índice único parcial impide dos carritos `ACTIVE` del mismo cliente. Durante una
+adopción se elimina el token invitado; durante un merge el origen queda
+`ABANDONED` y el destino conserva las líneas consolidadas.
 
 ## Modelo objetivo por fases
-
-### Clientes
-
-- `Customer` enlaza 1:1 con `User` y contiene nombre, apellido, teléfono y documento
-  opcional. Documento no es globalmente obligatorio ni necesariamente único.
-- `CustomerAddress` pertenece al cliente, guarda destinatario y dirección
-  estructurada. Una restricción/operación transaccional mantiene una sola dirección
-  predeterminada por tipo.
 
 ### Pedidos
 
@@ -158,3 +167,5 @@ se deriva de pagos, no de un único campo mutable sin historial.
   consulta administrativa `(status, updated_at)` sin modificar migraciones previas.
 - `npm run db:verify` comprueba invariantes y mínimos del seed sin exigir cantidades
   exactas, por lo que sigue siendo válido después de operar el catálogo.
+- La migración `20260901023000_phase4_customers` crea clientes y direcciones,
+  vincula carritos y agrega constraints/índices parciales sin modificar historial.

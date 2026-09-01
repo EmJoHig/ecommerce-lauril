@@ -12,6 +12,7 @@ import {
 import type { CartView } from "../application/cart-service";
 import type { CartActionState } from "./cart-action-state";
 import { getGuestCartToken, setGuestCartCookie } from "./guest-cart-cookie";
+import { getCurrentCustomer } from "@/modules/customers/presentation/customer-session";
 
 const itemSchema = z.object({
   variantId: z.uuid(),
@@ -30,6 +31,12 @@ export async function addCartItemAction(
   if (!parsed.success) return errorState("Seleccioná una variante y una cantidad válida.");
 
   try {
+    const customer = await getCurrentCustomer();
+    if (customer) {
+      const cart = await getCartService().addCustomerItem({ customerId: customer.id, ...parsed.data });
+      revalidateCart();
+      return successState(cart, "Producto agregado al carrito.");
+    }
     const currentToken = await getGuestCartToken();
     const token = currentToken ?? createGuestCartToken();
     const cart = await getCartService().addItem({
@@ -54,6 +61,12 @@ export async function updateCartItemAction(
   });
   if (!parsed.success) return errorState("Ingresá una cantidad válida.");
   try {
+    const customer = await getCurrentCustomer();
+    if (customer) {
+      const cart = await getCartService().updateCustomerItemQuantity({ customerId: customer.id, ...parsed.data });
+      revalidateCart();
+      return successState(cart, "Cantidad actualizada.");
+    }
     const token = await requireGuestToken();
     const cart = await getCartService().updateItemQuantity({
       tokenHash: hashGuestCartToken(token),
@@ -74,6 +87,12 @@ export async function removeCartItemAction(
   const parsed = variantSchema.safeParse({ variantId: formData.get("variantId") });
   if (!parsed.success) return errorState("El artículo seleccionado no es válido.");
   try {
+    const customer = await getCurrentCustomer();
+    if (customer) {
+      const cart = await getCartService().removeCustomerItem(customer.id, parsed.data.variantId);
+      revalidateCart();
+      return successState(cart, "Producto eliminado.");
+    }
     const token = await requireGuestToken();
     const cart = await getCartService().removeItem(
       hashGuestCartToken(token),
@@ -94,6 +113,12 @@ export async function clearCartAction(
   void _previous;
   void _formData;
   try {
+    const customer = await getCurrentCustomer();
+    if (customer) {
+      const cart = await getCartService().clearCustomerCart(customer.id);
+      revalidateCart();
+      return successState(cart, "Carrito vaciado.");
+    }
     const token = await requireGuestToken();
     const cart = await getCartService().clearCart(hashGuestCartToken(token));
     await setGuestCartCookie(token);

@@ -51,6 +51,26 @@ autorización. Toda acción relevante registra actor en `AuditLog`.
 - La expiración deslizante es de 30 días por defecto y se configura con
   `CART_TTL_DAYS`. Los índices permiten limpieza futura de carritos abandonados.
 
+## Clientes, direcciones y carrito autenticado
+
+- La cookie cliente es opaca, `HttpOnly`, `SameSite=Lax`, `Secure` en producción
+  y diferente de la cookie administrativa. La base conserva solo SHA-256.
+- El login cliente exige `Customer` activo; `/admin` sigue exigiendo el permiso
+  `admin.access` desde la cookie administrativa. Crear una cuenta no asigna roles.
+- Registro/login usan mensajes genéricos y comparación bcrypt dummy cuando la
+  identidad no existe. Las contraseñas nunca se incluyen en logs o retornos.
+- Recuperación invalida tokens previos, vence a los 30 minutos por defecto, acepta
+  un solo uso y revoca sesiones al cambiar la contraseña. El preview solo se
+  devuelve en desarrollo y usa fragmento URL para que el token no llegue a logs;
+  producción no lo revela.
+- Toda dirección se consulta por ID y propietario derivado de sesión. Los IDs del
+  formulario no otorgan ownership.
+- La cookie invitada se elimina solo después de una fusión exitosa. El carrito
+  cliente se consulta exclusivamente por `customerId` derivado de la sesión.
+- Un limitador en memoria protege login, registro y recuperación en la instancia
+  actual. Antes de escalar horizontalmente debe reemplazarse por un backend
+  compartido.
+
 ## Secretos y datos
 
 - `.env` está ignorado; `.env.example` contiene nombres y ejemplos no sensibles.
@@ -76,6 +96,6 @@ evita usando endpoints configurados, no URLs arbitrarias recibidas del cliente.
 
 ## Pendientes antes de producción
 
-Rate limiter compartido, recuperación de contraseña y correo, CSP y cabeceras
-completas, rotación de secretos, Sentry/OpenTelemetry, política de privacidad,
+Rate limiter compartido, proveedor real de correo, CSP y cabeceras completas,
+rotación de secretos, Sentry/OpenTelemetry, política de privacidad,
 backups/restores probados, pruebas de autorización por permiso y revisión OWASP.

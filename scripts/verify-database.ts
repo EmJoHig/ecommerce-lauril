@@ -22,7 +22,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const [products, categories, variants, inventories, movements, admins] =
+  const [products, categories, variants, inventories, movements, admins, customers, addresses] =
     await Promise.all([
       prisma.product.count(),
       prisma.category.count(),
@@ -32,6 +32,8 @@ async function main(): Promise<void> {
       prisma.user.count({
         where: { roles: { some: { role: { code: "ADMIN" } } } },
       }),
+      prisma.customer.count(),
+      prisma.customerAddress.count(),
     ]);
 
   const constraints = await prisma.$queryRaw<Array<{ conname: string }>>`
@@ -54,6 +56,10 @@ async function main(): Promise<void> {
       'carts_expiration_after_creation_check',
       'cart_items_quantity_check',
       'cart_items_price_snapshot_check'
+      ,'customers_phone_not_blank_check'
+      ,'customers_document_not_blank_check'
+      ,'customer_addresses_required_text_check'
+      ,'carts_exactly_one_owner_check'
     )
   `;
   const defaultVariantIndex = await prisma.$queryRaw<Array<{ count: bigint }>>`
@@ -77,8 +83,38 @@ async function main(): Promise<void> {
     WHERE indexname IN (
       'carts_guest_token_hash_key',
       'carts_status_expires_at_idx',
-      'cart_items_cart_id_variant_id_key'
+      'cart_items_cart_id_variant_id_key',
+      'carts_one_active_per_customer_key'
     )
+  `;
+  const customerIndexes = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM pg_indexes
+    WHERE indexname IN (
+      'customers_user_id_key',
+      'customer_addresses_one_default_key',
+      'carts_customer_id_status_updated_at_idx'
+    )
+  `;
+  const invalidCustomerCarts = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM (
+      SELECT customer_id
+      FROM carts
+      WHERE customer_id IS NOT NULL AND status = 'ACTIVE'
+      GROUP BY customer_id
+      HAVING count(*) > 1
+    ) invalid
+  `;
+  const invalidDefaultAddresses = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM (
+      SELECT customer_id
+      FROM customer_addresses
+      WHERE is_default = true
+      GROUP BY customer_id
+      HAVING count(*) > 1
+    ) invalid
   `;
   const variantsWithoutInventory = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
@@ -191,11 +227,16 @@ async function main(): Promise<void> {
     inventories,
     movements,
     admins,
+    customers,
+    addresses,
     verifiedConstraints: constraints.length,
     defaultVariantPartialIndex: defaultVariantIndex[0]?.count === 1n,
     lowStockIndex: lowStockIndex[0]?.count === 1n,
     adminCatalogIndex: adminCatalogIndex[0]?.count === 1n,
     cartIndexes: Number(cartIndexes[0]?.count ?? 0n),
+    customerIndexes: Number(customerIndexes[0]?.count ?? 0n),
+    invalidCustomerCarts: Number(invalidCustomerCarts[0]?.count ?? 0n),
+    invalidDefaultAddresses: Number(invalidDefaultAddresses[0]?.count ?? 0n),
     variantsWithoutInventory: Number(variantsWithoutInventory[0]?.count ?? 0n),
     productsWithoutValidDefault: Number(
       productsWithoutValidDefault[0]?.count ?? 0n,
@@ -216,11 +257,14 @@ async function main(): Promise<void> {
     inventories !== variants ||
     movements < 4 ||
     (expectedAdminEmail ? admins < 1 : false) ||
-    constraints.length !== 16 ||
+    constraints.length !== 20 ||
     defaultVariantIndex[0]?.count !== 1n ||
     lowStockIndex[0]?.count !== 1n ||
     adminCatalogIndex[0]?.count !== 1n ||
-    cartIndexes[0]?.count !== 3n ||
+    cartIndexes[0]?.count !== 4n ||
+    customerIndexes[0]?.count !== 3n ||
+    invalidCustomerCarts[0]?.count !== 0n ||
+    invalidDefaultAddresses[0]?.count !== 0n ||
     variantsWithoutInventory[0]?.count !== 0n ||
     productsWithoutValidDefault[0]?.count !== 0n ||
     inventoryWithoutTrace[0]?.count !== 0n ||
