@@ -37,6 +37,21 @@ export class PrismaInventoryUnitOfWork implements InventoryUnitOfWork {
             data: input,
             select: { id: true },
           }),
+        createAudit: (input) =>
+          prismaTransaction.auditLog.create({
+            data: {
+              actorUserId: input.actorUserId,
+              action: "inventory.adjust",
+              entityType: "Inventory",
+              entityId: input.inventoryId,
+              metadata: {
+                movementId: input.movementId,
+                quantity: input.quantity,
+                stockBefore: input.stockBefore,
+                stockAfter: input.stockAfter,
+              },
+            },
+          }).then(() => undefined),
       };
 
       return work(transaction);

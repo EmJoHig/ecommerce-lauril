@@ -100,3 +100,33 @@ export async function listInventoryRows() {
     updatedAt: inventory.updatedAt,
   }));
 }
+
+export async function listRecentInventoryMovements(limit = 30) {
+  const movements = await getPrisma().inventoryMovement.findMany({
+    orderBy: { createdAt: "desc" },
+    take: Math.min(Math.max(limit, 1), 100),
+    include: {
+      inventory: {
+        include: {
+          variant: { include: { product: { select: { name: true } } } },
+        },
+      },
+      adminUser: { select: { firstName: true, lastName: true, email: true } },
+    },
+  });
+  return movements.map((movement) => ({
+    id: movement.id,
+    productName: movement.inventory.variant.product.name,
+    variantName: movement.inventory.variant.name,
+    sku: movement.inventory.variant.sku,
+    type: movement.type,
+    quantity: movement.quantity,
+    stockBefore: movement.stockBefore,
+    stockAfter: movement.stockAfter,
+    reason: movement.reason,
+    actor: movement.adminUser
+      ? `${movement.adminUser.firstName} ${movement.adminUser.lastName}`.trim()
+      : "Sistema",
+    createdAt: movement.createdAt,
+  }));
+}

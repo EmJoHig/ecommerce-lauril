@@ -11,6 +11,8 @@ import {
   type InventoryUnitOfWork,
 } from "@/modules/inventory/application/record-inventory-movement";
 
+const actorId = "7bcaa109-9007-4f1c-bf56-bc4eaaf05647";
+
 describe("inventory domain", () => {
   it("calcula disponibilidad y stock bajo descontando reservas", () => {
     expect(calculateAvailableStock(10, 4)).toBe(6);
@@ -54,6 +56,7 @@ describe("inventory domain", () => {
       findInventory: async () => ({ id: "2eac35c6-aec6-4d75-a6e0-f59e748318a6", stockOnHand: 2, stockReserved: 0, version: 4 }),
       updateStock: async () => { calls.push("update"); return true; },
       createMovement: async () => { calls.push("movement"); return { id: "movement-1" }; },
+      createAudit: async () => { calls.push("audit"); },
     };
     const unitOfWork: InventoryUnitOfWork = { run: (work) => work(transaction) };
     const result = await new RecordInventoryMovement(unitOfWork).execute({
@@ -71,6 +74,7 @@ describe("inventory domain", () => {
       findInventory: async () => ({ id: "2eac35c6-aec6-4d75-a6e0-f59e748318a6", stockOnHand: 2, stockReserved: 0, version: 4 }),
       updateStock: async () => false,
       createMovement: async () => ({ id: "unreachable" }),
+      createAudit: async () => undefined,
     };
     const unitOfWork: InventoryUnitOfWork = { run: (work) => work(transaction) };
     await expect(
@@ -81,5 +85,23 @@ describe("inventory domain", () => {
         reason: "Ingreso de proveedor",
       }),
     ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("audita un ajuste manual junto con el movimiento", async () => {
+    const calls: string[] = [];
+    const transaction: InventoryMovementTransaction = {
+      findInventory: async () => ({ id: "2eac35c6-aec6-4d75-a6e0-f59e748318a6", stockOnHand: 10, stockReserved: 2, version: 1 }),
+      updateStock: async () => { calls.push("update"); return true; },
+      createMovement: async () => { calls.push("movement"); return { id: "movement-manual" }; },
+      createAudit: async (input) => { calls.push(`audit:${input.stockBefore}:${input.stockAfter}`); },
+    };
+    await new RecordInventoryMovement({ run: (work) => work(transaction) }).execute({
+      inventoryId: "2eac35c6-aec6-4d75-a6e0-f59e748318a6",
+      type: "ADJUSTMENT",
+      quantity: -3,
+      reason: "Conteo físico",
+      adminUserId: actorId,
+    });
+    expect(calls).toEqual(["update", "movement", "audit:10:7"]);
   });
 });

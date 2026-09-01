@@ -10,7 +10,7 @@
 - Restricciones SQL protegen invariantes además de la validación de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
-## Modelo implementado en Fase 1
+## Modelo implementado hasta Fase 2
 
 ### Identidad y autorización
 
@@ -35,6 +35,13 @@
 Todo producto creado por la aplicación debe tener exactamente una variante por
 defecto. PostgreSQL impide más de una mediante un índice único parcial. La
 eliminación física de una variante con referencias históricas no estará permitida.
+El caso de uso exige además que esa variante sea activa. Productos operativos se
+retiran del catálogo mediante `INACTIVE` o `ARCHIVED`, no por borrado físico.
+
+La jerarquía de categorías se protege en una transacción serializable con advisory
+lock y recorrido recursivo de ancestros. `parentId` usa `ON DELETE SET NULL`. La
+imagen principal es la primera por `sortOrder`; los binarios viven fuera de
+PostgreSQL.
 
 ### Inventario
 
@@ -113,8 +120,9 @@ se deriva de pagos, no de un único campo mutable sin historial.
 
 ## Índices principales previstos
 
-- catálogo: producto por `(status, publishedAt)`, destacado, categoría/producto,
-  SKU y slug únicos; búsqueda textual se evaluará con `pg_trgm` o `tsvector`.
+- catálogo: producto por `(status, publishedAt)`, `(status, updatedAt)`, destacado,
+  categoría/producto, SKU y slug únicos; búsqueda textual se evaluará con
+  `pg_trgm` o `tsvector` si el volumen lo justifica.
 - inventario: variante única, índice parcial para el predicado de bajo stock
   `stockOnHand - stockReserved <= minimumStock`, movimientos por `(inventoryId,
   createdAt)` y `(referenceType, referenceId)`.
@@ -130,3 +138,5 @@ se deriva de pagos, no de un único campo mutable sin historial.
   el administrador ya existe, no reemplaza su contraseña ni reactiva su cuenta.
 - El administrador inicial solo se crea si se proveen `SEED_ADMIN_EMAIL` y
   `SEED_ADMIN_PASSWORD`; nunca existe una credencial predeterminada en Git.
+- La migración `20260831203000_phase2_catalog_management` agrega el índice de la
+  consulta administrativa `(status, updated_at)` sin modificar migraciones previas.

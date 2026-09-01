@@ -25,8 +25,11 @@ describe("catalog domain", () => {
         shortDescription: null,
         description: null,
         featured: false,
+        seoTitle: null,
+        seoDescription: null,
         imageUrl: null,
         imageAlt: null,
+        images: [],
         categories: [],
         variants: [
           {

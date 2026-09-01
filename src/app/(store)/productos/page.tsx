@@ -1,53 +1,17 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ProductCard } from "@/modules/catalog/presentation/product-card";
 import { getCatalogService } from "@/modules/catalog/infrastructure/catalog-composition";
+import { PublicCatalog } from "@/modules/catalog/presentation/public-catalog";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Tienda", description: "Explorá todos los productos y categorías de Lauril.", alternates: { canonical: "/productos" } };
 
-export const metadata: Metadata = {
-  title: "Tienda",
-  description: "Explorá todos los productos y colecciones de Lauril.",
-};
-
-type ProductsPageProps = {
-  searchParams: Promise<{ categoria?: string }>;
-};
-
-export default async function ProductsPage({ searchParams }: ProductsPageProps) {
-  const { categoria } = await searchParams;
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = await searchParams; const category = text(query.categoria); const search = text(query.buscar); const sort = text(query.orden);
   const catalog = getCatalogService();
-  const [products, categories] = await Promise.all([
-    catalog.listProducts({ ...(categoria ? { categorySlug: categoria } : {}), limit: 48 }),
-    catalog.listCategories(),
-  ]);
-
-  return (
-    <section className="catalog-page section">
-      <div className="catalog-intro">
-        <p className="eyebrow">Catálogo Lauril</p>
-        <h1>Piezas para hacer hogar</h1>
-        <p>Materiales nobles, formas simples y una selección pensada para durar.</p>
-      </div>
-      <div className="filter-row" aria-label="Filtros por categoría">
-        <Link className={!categoria ? "filter-chip filter-chip--active" : "filter-chip"} href="/productos">Todo</Link>
-        {categories.map((category) => (
-          <Link
-            className={categoria === category.slug ? "filter-chip filter-chip--active" : "filter-chip"}
-            href={`/productos?categoria=${category.slug}`}
-            key={category.id}
-          >
-            {category.name}
-          </Link>
-        ))}
-      </div>
-      <p className="results-count">{products.length} productos</p>
-      <div className="product-grid">
-        {products.map((product) => <ProductCard key={product.id} product={product} />)}
-      </div>
-      {products.length === 0 ? (
-        <div className="empty-state"><h2>No encontramos productos</h2><p>Probá con otra colección.</p></div>
-      ) : null}
-    </section>
-  );
+  const [page, categories] = await Promise.all([catalog.listProductPage({ page: positive(query.pagina), pageSize: 12, search, sort: validSort(sort), ...(category ? { categorySlug: category } : {}) }), catalog.listCategories()]);
+  return <PublicCatalog categories={categories} currentCategory={category || undefined} page={page} search={search} sort={sort} />;
 }
+
+function text(value: string | string[] | undefined) { return typeof value === "string" ? value : ""; }
+function positive(value: string | string[] | undefined) { const number = Number(text(value)); return Number.isSafeInteger(number) && number > 0 ? number : 1; }
+function validSort(value: string): "featured" | "newest" | "name-asc" | "name-desc" { return ["newest", "name-asc", "name-desc"].includes(value) ? value as "newest" | "name-asc" | "name-desc" : "featured"; }

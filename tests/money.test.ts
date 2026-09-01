@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { effectivePrice, formatMoney, money } from "@/shared/domain/money";
+import {
+  effectivePrice,
+  formatMoney,
+  formatMoneyInput,
+  money,
+  moneyToDecimalString,
+  parseMoneyInputToCents,
+} from "@/shared/domain/money";
 import { ValidationError } from "@/shared/domain/errors";
 
 describe("money", () => {
@@ -16,5 +23,15 @@ describe("money", () => {
   it("rechaza importes y promociones inválidos", () => {
     expect(() => money(-1n)).toThrow(ValidationError);
     expect(() => effectivePrice(10000n, 10000n)).toThrow(ValidationError);
+  });
+
+  it("convierte importes de formulario sin usar punto flotante", () => {
+    expect(parseMoneyInputToCents("4100")).toBe(410000n);
+    expect(parseMoneyInputToCents("4100,5")).toBe(410050n);
+    expect(parseMoneyInputToCents("4100.05")).toBe(410005n);
+    expect(formatMoneyInput(410000n)).toBe("4100");
+    expect(formatMoneyInput(410050n)).toBe("4100,50");
+    expect(moneyToDecimalString(410005n)).toBe("4100.05");
+    expect(() => parseMoneyInputToCents("41.00,50")).toThrow(ValidationError);
   });
 });

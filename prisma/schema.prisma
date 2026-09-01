@@ -151,6 +151,7 @@ model Product {
   categories       ProductCategory[]
 
   @@index([status, publishedAt])
+  @@index([status, updatedAt])
   @@index([featured, status])
   @@map("products")
 }

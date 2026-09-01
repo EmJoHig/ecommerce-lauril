@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { effectivePrice } from "@/shared/domain/money";
+import { calculateAvailableStock } from "@/modules/inventory/domain/inventory";
 import type {
   CatalogCategory,
   ListCatalogProductsInput,
@@ -34,6 +35,29 @@ export class PrismaProductCatalogRepository
     return row ? mapProduct(row) : null;
   }
 
+  async listProductPage(input: ListCatalogProductsInput) {
+    const page = input.page ?? 1;
+    const pageSize = input.pageSize ?? 12;
+    const where = publicProductWhere(input);
+    const total = await this.prisma.product.count({ where });
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const effectivePage = Math.min(page, pageCount);
+    const rows = await this.prisma.product.findMany({
+        where,
+        include: productInclude,
+        orderBy: publicProductOrder(input.sort),
+        skip: (effectivePage - 1) * pageSize,
+        take: pageSize,
+      });
+    return {
+      items: rows.map(mapProduct),
+      total,
+      page: effectivePage,
+      pageSize,
+      pageCount,
+    };
+  }
+
   async listCategories(): Promise<CatalogCategory[]> {
     return this.prisma.category.findMany({
       where: { isActive: true },
@@ -44,23 +68,16 @@ export class PrismaProductCatalogRepository
 
   queryProducts(input: ListCatalogProductsInput = {}) {
     return this.prisma.product.findMany({
-      where: {
-        status: "ACTIVE",
-        variants: { some: { isActive: true } },
-        ...(input.featured === undefined ? {} : { featured: input.featured }),
-        ...(input.categorySlug
-          ? { categories: { some: { category: { slug: input.categorySlug } } } }
-          : {}),
-      },
+      where: publicProductWhere(input),
       include: productInclude,
-      orderBy: [{ featured: "desc" }, { publishedAt: "desc" }, { name: "asc" }],
+      orderBy: publicProductOrder(input.sort),
       take: input.limit ?? 24,
     });
   }
 }
 
 const productInclude = {
-  images: { orderBy: { sortOrder: "asc" }, take: 1 },
+  images: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
   categories: {
     orderBy: { sortOrder: "asc" },
     include: { category: { select: { name: true, slug: true } } },
@@ -81,8 +98,11 @@ function mapProduct(row: ProductRow): CatalogProduct {
     shortDescription: row.shortDescription,
     description: row.description,
     featured: row.featured,
+    seoTitle: row.seoTitle,
+    seoDescription: row.seoDescription,
     imageUrl: image?.url ?? null,
     imageAlt: image?.altText ?? null,
+    images: row.images.map(({ id, url, altText }) => ({ id, url, altText })),
     categories: row.categories.map(({ category }) => category),
     variants: row.variants.map((variant) => ({
       id: variant.id,
@@ -95,14 +115,46 @@ function mapProduct(row: ProductRow): CatalogProduct {
         variant.priceInCents,
         variant.promotionalPriceInCents,
       ),
-      availableStock: Math.max(
-        0,
-        (variant.inventory?.stockOnHand ?? 0) -
-          (variant.inventory?.stockReserved ?? 0),
+      availableStock: calculateAvailableStock(
+        variant.inventory?.stockOnHand ?? 0,
+        variant.inventory?.stockReserved ?? 0,
       ),
       isDefault: variant.isDefault,
     })),
   };
+}
+
+function publicProductWhere(input: ListCatalogProductsInput): Prisma.ProductWhereInput {
+  return {
+    status: "ACTIVE",
+    variants: { some: { isActive: true } },
+    ...(input.featured === undefined ? {} : { featured: input.featured }),
+    ...(input.categorySlug
+      ? {
+          categories: {
+            some: { category: { slug: input.categorySlug, isActive: true } },
+          },
+        }
+      : {}),
+    ...(input.search
+      ? {
+          OR: [
+            { name: { contains: input.search, mode: "insensitive" } },
+            { shortDescription: { contains: input.search, mode: "insensitive" } },
+            { variants: { some: { sku: { contains: input.search.toUpperCase() } } } },
+          ],
+        }
+      : {}),
+  };
+}
+
+function publicProductOrder(
+  sort: ListCatalogProductsInput["sort"],
+): Prisma.ProductOrderByWithRelationInput[] {
+  if (sort === "name-asc") return [{ name: "asc" }];
+  if (sort === "name-desc") return [{ name: "desc" }];
+  if (sort === "newest") return [{ publishedAt: "desc" }, { name: "asc" }];
+  return [{ featured: "desc" }, { publishedAt: "desc" }, { name: "asc" }];
 }
 
 function toStringRecord(value: unknown): Readonly<Record<string, string>> {

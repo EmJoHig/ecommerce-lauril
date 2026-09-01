@@ -49,6 +49,14 @@ export interface InventoryMovementTransaction {
     referenceId: string | null;
     adminUserId: string | null;
   }): Promise<{ id: string }>;
+  createAudit(input: {
+    actorUserId: string;
+    inventoryId: string;
+    movementId: string;
+    quantity: number;
+    stockBefore: number;
+    stockAfter: number;
+  }): Promise<void>;
 }
 
 export interface InventoryUnitOfWork {
@@ -96,6 +104,17 @@ export class RecordInventoryMovement {
         referenceId: input.referenceId,
         adminUserId: input.adminUserId,
       });
+
+      if (input.adminUserId) {
+        await transaction.createAudit({
+          actorUserId: input.adminUserId,
+          inventoryId: inventory.id,
+          movementId: movement.id,
+          quantity: input.quantity,
+          stockBefore: transition.stockBefore,
+          stockAfter: transition.stockAfter,
+        });
+      }
 
       return { movementId: movement.id };
     });

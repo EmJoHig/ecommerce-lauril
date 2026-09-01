@@ -20,8 +20,11 @@ export type CatalogProduct = Readonly<{
   shortDescription: string | null;
   description: string | null;
   featured: boolean;
+  seoTitle: string | null;
+  seoDescription: string | null;
   imageUrl: string | null;
   imageAlt: string | null;
+  images: ReadonlyArray<{ id: string; url: string; altText: string }>;
   categories: ReadonlyArray<{ name: string; slug: string }>;
   variants: ReadonlyArray<CatalogVariant>;
 }>;

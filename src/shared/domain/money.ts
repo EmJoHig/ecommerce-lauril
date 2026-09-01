@@ -43,3 +43,31 @@ export function formatMoney(amountInCents: bigint): string {
 
   return `$ ${formattedWhole},${cents}`;
 }
+
+export function parseMoneyInputToCents(value: string): bigint {
+  const normalized = value.trim().replace(/\s/g, "");
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(normalized)) {
+    throw new ValidationError(
+      "El importe debe ser un número positivo con hasta dos decimales.",
+    );
+  }
+
+  const [whole = "0", fraction = ""] = normalized.split(/[.,]/);
+  const amount = BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0") || "0");
+  money(amount);
+  return amount;
+}
+
+export function formatMoneyInput(amountInCents: bigint): string {
+  const value = money(amountInCents).amountInCents;
+  const whole = value / 100n;
+  const cents = value % 100n;
+  return cents === 0n
+    ? whole.toString()
+    : `${whole},${cents.toString().padStart(2, "0")}`;
+}
+
+export function moneyToDecimalString(amountInCents: bigint): string {
+  const value = money(amountInCents).amountInCents;
+  return `${value / 100n}.${(value % 100n).toString().padStart(2, "0")}`;
+}

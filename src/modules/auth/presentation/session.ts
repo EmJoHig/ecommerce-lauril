@@ -2,8 +2,8 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ForbiddenError } from "@/shared/domain/errors";
 import { getServerEnv } from "@/shared/infrastructure/env";
+import { assertPermission } from "../application/authorization";
 import { getAuthService } from "../infrastructure/auth-composition";
 
 export async function getCurrentUser() {
@@ -22,9 +22,7 @@ export async function requireAdmin(permission = "admin.access") {
     redirect("/admin/login");
   }
 
-  if (!user.permissions.includes(permission)) {
-    throw new ForbiddenError("No tenés permiso para acceder a esta sección.");
-  }
+  assertPermission(user.permissions, permission);
 
   return user;
 }

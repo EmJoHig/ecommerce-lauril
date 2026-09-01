@@ -97,11 +97,11 @@ conectar a la base durante el build.
 ## Errores, logs y observabilidad
 
 El dominio usa errores tipados (`ValidationError`, `ConflictError`,
-`NotFoundError`). En Fase 1 el borde HTTP traduce los errores esperables del login;
-el mapeo centralizado debe completarse antes de exponer nuevas APIs mutables. El
-logger estructurado acepta contexto como `requestId`, módulo, acción y actor cuando
-el llamador lo provee. No se registran contraseñas, tokens, cookies ni payloads
-completos de pagos.
+`NotFoundError`). Las Server Actions del catálogo traducen errores esperables a
+mensajes de formulario y dejan los errores inesperados al borde central de Next.js.
+El logger estructurado acepta contexto como `requestId`, módulo, acción y actor
+cuando el llamador lo provee. No se registran contraseñas, tokens, cookies ni
+payloads completos de pagos.
 
 El endpoint `/api/health` comprueba proceso y, opcionalmente, conectividad mediante
 un servicio de infraestructura; el Route Handler no accede a Prisma. En producción
@@ -117,15 +117,30 @@ cookie `HttpOnly`, `Secure` en producción y `SameSite=Lax`; la base guarda solo
 hash SHA-256. Las contraseñas se almacenan con bcrypt y factor configurable. La
 autorización consulta permisos efectivos de los roles.
 
-Fase 1 prepara login/logout administrativo y el modelo RBAC. Registro de clientes,
-recuperación completa, rotación y rate limiting distribuido se completan en Fase
-2.
+La autorización administrativa se verifica server-side por permiso antes de cada
+consulta o mutación. Registro de clientes, recuperación completa, rotación y rate
+limiting distribuido permanecen para fases posteriores.
 
 ## Imágenes
 
 `ProductImage` guarda clave de objeto, URL pública/servida, texto alternativo y
-orden. El futuro `ObjectStorage` implementará carga firmada, eliminación y URLs.
-En producción los binarios no se guardarán en el disco efímero de Render.
+orden; la primera imagen por `sortOrder` es la principal. `ObjectStorage` desacopla
+el caso de uso del proveedor. En desarrollo, `LocalObjectStorage` escribe en
+`public/uploads/catalog`, ruta ignorada por Git. Producción deberá usar un adaptador
+S3 compatible: los binarios no se guardarán en el disco efímero de Render.
+
+## Catálogo en Fase 2
+
+Las páginas y Server Actions dependen de casos de uso de `catalog` e `inventory`;
+no importan Prisma. `PrismaCatalogAdminRepository` concentra consultas y
+transacciones. La creación de producto, variante predeterminada, inventario,
+movimiento inicial y auditoría es atómica. Los ajustes de stock usan el caso de uso
+de inventario y registran movimiento y auditoría en la misma transacción.
+
+Las categorías serializan cambios jerárquicos con un advisory lock transaccional y
+validan ancestros mediante una consulta recursiva, evitando ciclos incluso ante
+escrituras concurrentes. Productos y variantes se desactivan o archivan; no se
+eliminan físicamente desde la administración.
 
 ## Despliegue
 

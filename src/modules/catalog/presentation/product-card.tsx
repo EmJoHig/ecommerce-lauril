@@ -9,7 +9,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
 
   return (
     <article className="product-card">
-      <Link className="product-card__image" href={`/productos/${product.slug}`}>
+      <Link className="product-card__image" href={`/producto/${product.slug}`}>
         <Image
           alt={product.imageAlt ?? product.name}
           fill
@@ -23,7 +23,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
           {product.categories[0]?.name ?? "Colección Lauril"}
         </p>
         <h3>
-          <Link href={`/productos/${product.slug}`}>{product.name}</Link>
+          <Link href={`/producto/${product.slug}`}>{product.name}</Link>
         </h3>
         <p className="product-card__description">
           {product.shortDescription ?? "Una pieza elegida para disfrutar todos los días."}

@@ -55,6 +55,11 @@ async function main(): Promise<void> {
     FROM pg_indexes
     WHERE indexname = 'inventory_low_stock_idx'
   `;
+  const adminCatalogIndex = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM pg_indexes
+    WHERE indexname = 'products_status_updated_at_idx'
+  `;
   const lowStockRows = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM inventory
@@ -104,6 +109,7 @@ async function main(): Promise<void> {
     verifiedConstraints: constraints.length,
     defaultVariantPartialIndex: defaultVariantIndex[0]?.count === 1n,
     lowStockIndex: lowStockIndex[0]?.count === 1n,
+    adminCatalogIndex: adminCatalogIndex[0]?.count === 1n,
     lowStockRows: Number(lowStockRows[0]?.count ?? 0n),
     inventoryTimestampColumns: Number(timestampColumns[0]?.count ?? 0n),
     productSlugMaxLength:
@@ -121,6 +127,7 @@ async function main(): Promise<void> {
     constraints.length !== 5 ||
     defaultVariantIndex[0]?.count !== 1n ||
     lowStockIndex[0]?.count !== 1n ||
+    adminCatalogIndex[0]?.count !== 1n ||
     lowStockRows[0]?.count !== 1n ||
     timestampColumns[0]?.count !== 2n ||
     productSlugColumn[0]?.character_maximum_length !== 180 ||

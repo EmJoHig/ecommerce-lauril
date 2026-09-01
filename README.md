@@ -3,9 +3,10 @@
 Ecommerce propio, single-store y construido como monolito modular con Next.js,
 TypeScript, PostgreSQL, Prisma y Tailwind CSS.
 
-La Fase 1 incluye la base ejecutable, autenticación administrativa preparada,
-catálogo, categorías, variantes, inventario trazable, seed y layouts de tienda y
-administración. El alcance y las fases siguientes están en
+La Fase 2 incluye gestión administrativa de productos, categorías, variantes,
+imágenes e inventario trazable; catálogo público real, ficha de producto y SEO.
+No incluye carrito, checkout, clientes ecommerce, pedidos ni pagos. El alcance y
+las fases siguientes están en
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Requisitos
@@ -34,6 +35,15 @@ Abrir `http://localhost:3000` para la tienda y `http://localhost:3000/admin` par
 la administración. El health check superficial está en `/api/health`; agregar
 `?deep=1` también verifica PostgreSQL.
 
+Rutas principales de Fase 2:
+
+- `/admin/productos`, `/admin/categorias` y `/admin/stock` para la operación.
+- `/productos`, `/categorias/[slug]` y `/producto/[slug]` para la tienda.
+
+Las imágenes subidas en desarrollo se guardan en `public/uploads/catalog`, que
+está ignorado por Git. No usar ese adaptador en Render porque su filesystem es
+efímero.
+
 ## Desarrollo de base de datos
 
 ```bash
@@ -41,6 +51,7 @@ npm run db:generate
 npm run db:migrate -- --name nombre_del_cambio
 npm run db:seed
 npm run db:verify
+npm run db:verify:phase2
 npm run db:studio
 ```
 
@@ -63,7 +74,8 @@ npm run build
 - `SESSION_COOKIE_NAME`, `SESSION_TTL_DAYS`: configuración de sesión.
 - `BCRYPT_COST`: costo bcrypt entre 10 y 15.
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: administrador inicial opcional.
-- `S3_*`: reservadas para el adaptador de objetos de Fase 2; todavía no se usan.
+- `S3_*`: reservadas para el futuro adaptador S3 compatible; el adaptador local no
+  necesita variables adicionales.
 
 No hay credenciales predeterminadas en el repositorio. `.env` está ignorado por
 Git.

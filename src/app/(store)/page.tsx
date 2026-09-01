@@ -42,7 +42,7 @@ export default async function HomePage() {
           {categories.slice(0, 3).map((category, index) => (
             <Link
               className={`category-tile category-tile--${index + 1}`}
-              href={`/productos?categoria=${category.slug}`}
+              href={`/categorias/${category.slug}`}
               key={category.id}
             >
               <span>0{index + 1}</span>

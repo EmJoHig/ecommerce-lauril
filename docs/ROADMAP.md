@@ -6,7 +6,7 @@ siguiente.
 
 ## Fase 1 — Fundación, catálogo e inventario
 
-Estado: alcance de esta entrega.
+Estado: completada y aprobada.
 
 - Next.js, TypeScript estricto y Tailwind CSS.
 - PostgreSQL, Prisma, primera migración y seed idempotente.
@@ -19,19 +19,29 @@ Estado: alcance de esta entrega.
 
 No incluye carrito, pedidos, Mercado Pago, cotización real de envíos ni ABM completo.
 
-## Fase 2 — Experiencia de catálogo, clientes y carrito
+## Fase 2 — Catálogo y gestión de productos
+
+Estado: implementada; pendiente de aprobación de cierre.
 
 - ABM administrativo completo de productos, categorías, variantes e imágenes.
-- Adaptador S3 compatible con carga firmada y procesamiento básico de imágenes.
-- Búsqueda, filtros, paginación, categorías, ficha y productos relacionados.
-- Registro/login de clientes, recuperación de contraseña, perfil y direcciones.
-- Carrito invitado persistente, carrito autenticado y fusión segura al iniciar
-  sesión.
-- Motor de cálculo de carrito server-side, disponibilidad y precio promocional.
-- SEO técnico: metadata, canonical, OpenGraph, sitemap, robots y Product JSON-LD.
-- Tests de permisos, carrito, fusión y concurrencia de inventario.
+- `ObjectStorage` con adaptador local de desarrollo y límite de archivos; S3 queda
+  como adaptador de producción posterior.
+- Búsqueda, filtros, orden, paginación, categorías y ficha con variantes.
+- Ajustes de inventario transaccionales, movimiento y auditoría administrativa.
+- SEO de producto: metadata, canonical, OpenGraph y Product JSON-LD real.
+- Tests de validaciones, permisos, dinero, categorías, inventario y transacciones.
 
-## Fase 3 — Checkout, pedidos, descuentos y envíos propios
+No incluye clientes, carrito, checkout, pedidos, descuentos, envíos ni pagos.
+
+## Fase 3 — Clientes y carrito
+
+- Registro/login de clientes, recuperación de contraseña, perfil y direcciones.
+- Carrito invitado persistente, carrito autenticado y fusión al iniciar sesión.
+- Cálculo server-side, revalidación de precios y disponibilidad.
+- Reservas todavía no definitivas; el pedido se incorpora en la fase siguiente.
+- Tests de sesión de cliente, carrito, fusión, totales y concurrencia básica.
+
+## Fase 4 — Checkout, pedidos, descuentos y envíos propios
 
 - Motor extensible de descuentos/cupones y trazabilidad de usos.
 - `CustomShippingProvider`, zonas, códigos postales y administración de métodos.
@@ -40,7 +50,7 @@ No incluye carrito, pedidos, Mercado Pago, cotización real de envíos ni ABM co
 - Emails detrás de un contrato, con outbox e idempotencia.
 - Tests de totales, promociones, pedido, transiciones y sobreventa.
 
-## Fase 4 — Mercado Pago y reembolsos
+## Fase 5 — Mercado Pago y reembolsos
 
 - `PaymentGateway` y `MercadoPagoPaymentGateway` con Checkout Pro.
 - Preferencias, retorno pendiente, webhooks firmados, inbox idempotente y
@@ -49,7 +59,7 @@ No incluye carrito, pedidos, Mercado Pago, cotización real de envíos ni ABM co
 - Métricas y alertas de inconsistencias.
 - Suite de contratos, webhooks duplicados/fuera de orden e idempotencia integral.
 
-## Fase 5 — Operación, marketing, diseño y reportes
+## Fase 6 — Operación, marketing, diseño y reportes
 
 - Dashboard y reportes de ventas, pedidos, conversión e inventario.
 - Gestión operativa de envíos, preparación y reembolsos.
@@ -57,7 +67,7 @@ No incluye carrito, pedidos, Mercado Pago, cotización real de envíos ni ABM co
 - Promociones avanzadas (2x1, 3x2, segunda unidad y combinabilidad).
 - Auditoría consultable y permisos granulares de administradores.
 
-## Fase 6 — Escala y producción
+## Fase 7 — Escala y producción
 
 - Importación/exportación CSV/XLSX y actualización masiva de precios con preview.
 - Docker de producción, Blueprint/servicios Render, S3, email y observabilidad.

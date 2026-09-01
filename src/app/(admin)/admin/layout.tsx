@@ -2,10 +2,13 @@ import Link from "next/link";
 import { logoutAction } from "@/modules/auth/presentation/auth-actions";
 import { requireAdmin } from "@/modules/auth/presentation/session";
 
-const navigation = [
+const navigation: Array<{
+  label: string;
+  items: Array<{ name: string; href?: string }>;
+}> = [
   { label: "General", items: [{ name: "Dashboard", href: "/admin" }] },
   { label: "Ventas", items: [{ name: "Pedidos" }, { name: "Pagos" }, { name: "Envíos" }, { name: "Reembolsos" }] },
-  { label: "Productos", items: [{ name: "Productos", href: "/admin/productos" }, { name: "Stock", href: "/admin/stock" }, { name: "Categorías" }, { name: "Movimientos" }] },
+  { label: "Productos", items: [{ name: "Productos", href: "/admin/productos" }, { name: "Categorías", href: "/admin/categorias" }, { name: "Stock y movimientos", href: "/admin/stock" }] },
   { label: "Relaciones", items: [{ name: "Clientes" }, { name: "Marketing" }] },
   { label: "Tienda", items: [{ name: "Diseño" }, { name: "Reportes" }, { name: "Configuración" }] },
 ];
@@ -37,6 +40,7 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
         <nav className="admin-mobile-nav" aria-label="Administración móvil">
           <Link href="/admin">Dashboard</Link>
           <Link href="/admin/productos">Productos</Link>
+          <Link href="/admin/categorias">Categorías</Link>
           <Link href="/admin/stock">Stock</Link>
         </nav>
         <main className="admin-content">{children}</main>

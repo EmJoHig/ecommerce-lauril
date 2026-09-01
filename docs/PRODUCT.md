@@ -55,10 +55,14 @@ roles y permisos.
 
 ## Alcance actual
 
-La Fase 1 entrega la base ejecutable: estructura modular, PostgreSQL/Prisma,
-autenticación administrativa preparada, catálogo inicial, variantes, inventario,
-layouts público/administrativo, seed y pruebas básicas. Carrito, pedidos, pagos y
-envíos están diseñados pero se implementan en fases posteriores.
+La Fase 2 entrega la gestión administrativa del catálogo y su publicación real:
+ABM lógico de productos, variantes, categorías e imágenes; búsqueda, filtros,
+paginación, ajuste trazable de inventario y catálogo público con ficha, variantes
+y SEO basado en datos reales. El almacenamiento local de desarrollo está detrás
+de `ObjectStorage`, listo para sustituirse por un proveedor S3 compatible.
+
+Carrito, checkout, clientes ecommerce, pedidos, pagos, promociones y envíos no
+forman parte de esta fase y permanecen deshabilitados o sin interfaz ficticia.
 
 ## Criterios no funcionales
 

@@ -15,8 +15,8 @@ export default function StoreLayout({ children }: Readonly<{ children: React.Rea
           <Link href="/#historia">Nuestra historia</Link>
         </nav>
         <div className="store-header__actions">
-          <span aria-label="Búsqueda disponible en fase 2">Buscar</span>
-          <span aria-label="Carrito disponible en fase 2">Bolsa (0)</span>
+          <Link href="/productos">Buscar</Link>
+          <span aria-label="Carrito disponible en una próxima fase">Bolsa (0)</span>
         </div>
       </header>
       <main>{children}</main>

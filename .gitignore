@@ -12,6 +12,7 @@
 /.turbo
 /dist
 /tmp
+/public/uploads
 *.db
 *.db-journal
 *.sqlite
