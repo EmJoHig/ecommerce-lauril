@@ -37,6 +37,20 @@ autorización. Toda acción relevante registra actor en `AuditLog`.
 - Protección CSRF mediante cookies SameSite, comprobación de origen en mutaciones
   sensibles y tokens cuando el flujo lo necesite.
 
+## Carrito anónimo
+
+- Cookie opaca de 256 bits, `HttpOnly`, `SameSite=Lax`, `Path=/`, prioridad alta y
+  `Secure` en producción; no contiene precio, stock, UUID ni datos personales.
+- PostgreSQL almacena únicamente SHA-256 del token. Cambiar un UUID o `variantId`
+  no concede acceso: todas las mutaciones vuelven a resolver el carrito desde la
+  cookie y acotan el artículo por pertenencia.
+- Las Server Actions aceptan solamente variante y cantidad, validan nuevamente en
+  aplicación y se benefician de la comprobación Origin/Host y POST de Next.js.
+- El precio, estado de publicación y stock se vuelven a consultar en servidor.
+  Leer o modificar el carrito no reserva stock ni crea movimientos.
+- La expiración deslizante es de 30 días por defecto y se configura con
+  `CART_TTL_DAYS`. Los índices permiten limpieza futura de carritos abandonados.
+
 ## Secretos y datos
 
 - `.env` está ignorado; `.env.example` contiene nombres y ejemplos no sensibles.

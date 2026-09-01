@@ -20,6 +20,7 @@
     "db:seed": "prisma db seed",
     "db:verify": "tsx scripts/verify-database.ts",
     "db:verify:phase2": "tsx scripts/verify-phase2-flow.ts",
+    "db:verify:phase3": "tsx scripts/verify-phase3-flow.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },

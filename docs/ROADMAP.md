@@ -33,16 +33,24 @@ Estado: completada y auditada técnicamente.
 
 No incluye clientes, carrito, checkout, pedidos, descuentos, envíos ni pagos.
 
-## Fase 3 — Clientes y carrito
+## Fase 3 — Carrito anónimo
 
-- Registro/login de clientes, recuperación de contraseña, perfil y direcciones.
-- Carrito invitado persistente, carrito autenticado y fusión al iniciar sesión.
-- Cálculo server-side, revalidación de precios y disponibilidad.
-- Reservas todavía no definitivas; el pedido se incorpora en la fase siguiente.
-- Tests de sesión de cliente, carrito, fusión, totales y concurrencia básica.
+Estado: completada y validada.
 
-## Fase 4 — Checkout, pedidos, descuentos y envíos propios
+- Carrito invitado persistente con token opaco y hash server-side.
+- Agregar, acumular, actualizar, eliminar y vaciar artículos por variante.
+- Cálculo server-side y revalidación de precios, publicación y disponibilidad.
+- Contador global, página responsive y resumen rápido en ficha de producto.
+- Sin reservas ni movimientos de inventario; el stock se vuelve a comprobar.
+- Tests de totales, aislamiento, cambios concurrentes de catálogo y persistencia.
 
+La autenticación de clientes y fusión invitado/cliente se trasladan a la fase
+siguiente por decisión explícita de alcance; no se simulan en esta fase.
+
+## Fase 4 — Clientes, checkout, pedidos, descuentos y envíos propios
+
+- Registro/login de clientes, recuperación, perfil, direcciones y fusión del
+  carrito invitado al autenticarse.
 - Motor extensible de descuentos/cupones y trazabilidad de usos.
 - `CustomShippingProvider`, zonas, códigos postales y administración de métodos.
 - Checkout server-side, snapshots, reservas y expiración de stock.

@@ -3,10 +3,9 @@
 Ecommerce propio, single-store y construido como monolito modular con Next.js,
 TypeScript, PostgreSQL, Prisma y Tailwind CSS.
 
-La Fase 2 incluye gestión administrativa de productos, categorías, variantes,
-imágenes e inventario trazable; catálogo público real, ficha de producto y SEO.
-No incluye carrito, checkout, clientes ecommerce, pedidos ni pagos. El alcance y
-las fases siguientes están en
+La Fase 3 incluye gestión administrativa y publicación del catálogo, inventario
+trazable y un carrito anónimo persistente con recálculo server-side. No incluye
+checkout, clientes ecommerce, pedidos ni pagos. El alcance y las fases siguientes están en
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Requisitos
@@ -35,10 +34,11 @@ Abrir `http://localhost:3000` para la tienda y `http://localhost:3000/admin` par
 la administración. El health check superficial está en `/api/health`; agregar
 `?deep=1` también verifica PostgreSQL.
 
-Rutas principales de Fase 2:
+Rutas principales de Fases 2 y 3:
 
 - `/admin/productos`, `/admin/categorias` y `/admin/stock` para la operación.
 - `/productos`, `/categorias/[slug]` y `/producto/[slug]` para la tienda.
+- `/carrito` para consultar y modificar el carrito anónimo persistente.
 
 Las imágenes subidas en desarrollo se guardan en `public/uploads/catalog`, que
 está ignorado por Git. No usar ese adaptador en Render porque su filesystem es
@@ -52,6 +52,7 @@ npm run db:migrate -- --name nombre_del_cambio
 npm run db:seed
 npm run db:verify
 npm run db:verify:phase2
+npm run db:verify:phase3
 npm run db:studio
 ```
 
@@ -72,6 +73,8 @@ npm run build
   instalar dependencias, generar Prisma, migrar, ejecutar el seed o iniciar la app.
 - `APP_URL`: origen público de la tienda.
 - `SESSION_COOKIE_NAME`, `SESSION_TTL_DAYS`: configuración de sesión.
+- `CART_COOKIE_NAME`, `CART_TTL_DAYS`: cookie opaca y expiración deslizante del
+  carrito anónimo; los valores predeterminados son `lauril_cart` y 30 días.
 - `BCRYPT_COST`: costo bcrypt entre 10 y 15.
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: administrador inicial opcional.
 - `S3_*`: reservadas para el futuro adaptador S3 compatible; el adaptador local no

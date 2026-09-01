@@ -55,14 +55,14 @@ roles y permisos.
 
 ## Alcance actual
 
-La Fase 2 entrega la gestión administrativa del catálogo y su publicación real:
-ABM lógico de productos, variantes, categorías e imágenes; búsqueda, filtros,
-paginación, ajuste trazable de inventario y catálogo público con ficha, variantes
-y SEO basado en datos reales. El almacenamiento local de desarrollo está detrás
-de `ObjectStorage`, listo para sustituirse por un proveedor S3 compatible.
+Las Fases 1 y 2 entregan la fundación, administración del catálogo, inventario
+trazable y publicación pública. La Fase 3 agrega un carrito anónimo persistente:
+alta de variantes, actualización, eliminación, vaciado, contador y recálculo
+server-side de precio y disponibilidad.
 
-Carrito, checkout, clientes ecommerce, pedidos, pagos, promociones y envíos no
-forman parte de esta fase y permanecen deshabilitados o sin interfaz ficticia.
+El carrito no reserva stock ni crea movimientos. Checkout, autenticación de
+clientes, pedidos, pagos, promociones y envíos permanecen fuera de esta fase. La
+interfaz no presenta un checkout ficticio como una operación habilitada.
 
 ## Criterios no funcionales
 

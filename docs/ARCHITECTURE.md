@@ -143,6 +143,31 @@ validan ancestros mediante una consulta recursiva, evitando ciclos incluso ante
 escrituras concurrentes. Productos y variantes se desactivan o archivan; no se
 eliminan físicamente desde la administración.
 
+## Carrito en Fase 3
+
+`cart` mantiene la misma dirección de dependencias: presentación invoca
+`CartService`, el caso de uso usa `CartRepository`/`CartTransaction` y
+`PrismaCartRepository` implementa el puerto. Ningún componente ni Server Action
+consulta Prisma directamente.
+
+El propietario anónimo se demuestra con un token CSPRNG de 256 bits almacenado en
+cookie `HttpOnly`, `SameSite=Lax` y `Secure` en producción. PostgreSQL conserva
+solo SHA-256 del token; el UUID interno del carrito nunca se envía al navegador.
+Cada mutación obtiene el carrito por ese hash y restringe artículos al carrito
+encontrado, evitando IDOR por sustitución de IDs.
+
+Los casos de uso disponibles son lectura, agregar, cambiar cantidad, eliminar y
+vaciar. Las mutaciones usan transacciones serializables para que dos pestañas no
+creen líneas duplicadas ni pierdan actualizaciones silenciosamente. Un conflicto
+concurrente se devuelve como error recuperable para reintentar.
+
+El carrito vuelve a leer `Product`, `ProductVariant` e `Inventory` en cada
+operación y lectura. Precio efectivo, subtotal de línea, subtotal general y
+cantidad total se calculan en dominio con enteros/bigint. El precio observado en
+`CartItem` sirve únicamente para avisar un cambio; nunca es autoritativo. El stock
+disponible usa la regla de `inventory`; no se reserva, modifica ni genera
+`InventoryMovement` en esta fase.
+
 ## Despliegue
 
 La aplicación puede ejecutarse con el runtime Node de Render y PostgreSQL

@@ -48,7 +48,12 @@ async function main(): Promise<void> {
       'inventory_reservation_within_stock_check',
       'inventory_movements_quantity_check',
       'inventory_movements_transition_check',
-      'inventory_movements_direction_check'
+      'inventory_movements_direction_check',
+      'carts_guest_token_hash_check',
+      'carts_version_non_negative_check',
+      'carts_expiration_after_creation_check',
+      'cart_items_quantity_check',
+      'cart_items_price_snapshot_check'
     )
   `;
   const defaultVariantIndex = await prisma.$queryRaw<Array<{ count: bigint }>>`
@@ -65,6 +70,15 @@ async function main(): Promise<void> {
     SELECT count(*)::bigint AS count
     FROM pg_indexes
     WHERE indexname = 'products_status_updated_at_idx'
+  `;
+  const cartIndexes = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM pg_indexes
+    WHERE indexname IN (
+      'carts_guest_token_hash_key',
+      'carts_status_expires_at_idx',
+      'cart_items_cart_id_variant_id_key'
+    )
   `;
   const variantsWithoutInventory = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
@@ -136,6 +150,15 @@ async function main(): Promise<void> {
       AND data_type = 'timestamp with time zone'
       AND is_nullable = 'NO'
   `;
+  const cartTimestampColumns = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'carts'
+      AND column_name IN ('expires_at', 'created_at', 'updated_at')
+      AND data_type = 'timestamp with time zone'
+      AND is_nullable = 'NO'
+  `;
   const productSlugColumn = await prisma.$queryRaw<
     Array<{ character_maximum_length: number | null }>
   >`
@@ -172,6 +195,7 @@ async function main(): Promise<void> {
     defaultVariantPartialIndex: defaultVariantIndex[0]?.count === 1n,
     lowStockIndex: lowStockIndex[0]?.count === 1n,
     adminCatalogIndex: adminCatalogIndex[0]?.count === 1n,
+    cartIndexes: Number(cartIndexes[0]?.count ?? 0n),
     variantsWithoutInventory: Number(variantsWithoutInventory[0]?.count ?? 0n),
     productsWithoutValidDefault: Number(
       productsWithoutValidDefault[0]?.count ?? 0n,
@@ -179,6 +203,7 @@ async function main(): Promise<void> {
     inventoryWithoutTrace: Number(inventoryWithoutTrace[0]?.count ?? 0n),
     categoryCycles: Number(categoryCycles[0]?.count ?? 0n),
     inventoryTimestampColumns: Number(timestampColumns[0]?.count ?? 0n),
+    cartTimestampColumns: Number(cartTimestampColumns[0]?.count ?? 0n),
     productSlugMaxLength:
       productSlugColumn[0]?.character_maximum_length ?? null,
     expectedAdminPasswordMatches,
@@ -191,15 +216,17 @@ async function main(): Promise<void> {
     inventories !== variants ||
     movements < 4 ||
     (expectedAdminEmail ? admins < 1 : false) ||
-    constraints.length !== 11 ||
+    constraints.length !== 16 ||
     defaultVariantIndex[0]?.count !== 1n ||
     lowStockIndex[0]?.count !== 1n ||
     adminCatalogIndex[0]?.count !== 1n ||
+    cartIndexes[0]?.count !== 3n ||
     variantsWithoutInventory[0]?.count !== 0n ||
     productsWithoutValidDefault[0]?.count !== 0n ||
     inventoryWithoutTrace[0]?.count !== 0n ||
     categoryCycles[0]?.count !== 0n ||
     timestampColumns[0]?.count !== 2n ||
+    cartTimestampColumns[0]?.count !== 3n ||
     productSlugColumn[0]?.character_maximum_length !== 180 ||
     expectedAdminPasswordMatches === false
   ) {

@@ -10,7 +10,7 @@
 - Restricciones SQL protegen invariantes además de la validación de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
-## Modelo implementado hasta Fase 2
+## Modelo implementado hasta Fase 3
 
 ### Identidad y autorización
 
@@ -60,19 +60,34 @@ Invariantes:
 - ningún cambio válido actualiza solo `Inventory`: también inserta movimiento en la
   misma transacción.
 
+### Carrito
+
+- `Cart`: carrito anónimo identificado por `guestTokenHash` SHA-256 único, estado,
+  expiración, versión y timestamps UTC.
+- `CartItem`: relación entre carrito y variante, cantidad y precio observado en
+  centavos. `unique(cartId, variantId)` evita líneas duplicadas.
+
+El precio observado no es una cotización ni una fuente autoritativa: cada lectura
+y mutación obtiene el precio efectivo actual de `ProductVariant`. La cantidad se
+limita entre 1 y 999 tanto en dominio como mediante constraint SQL. Las claves
+foráneas impiden eliminar una variante referenciada y eliminan los items al
+eliminar físicamente un carrito durante una futura limpieza.
+
+Los carritos expiran 30 días después de la última mutación por defecto. El índice
+`(status, expiresAt)` prepara una tarea futura de limpieza; esta fase no ejecuta
+purga automática. El token crudo nunca se persiste y el UUID interno nunca se usa
+como credencial pública. Una relación opcional con `Customer` se agregará cuando
+exista el módulo de clientes, manteniendo el token durante la transición/fusión.
+
 ## Modelo objetivo por fases
 
-### Clientes y carritos
+### Clientes
 
 - `Customer` enlaza 1:1 con `User` y contiene nombre, apellido, teléfono y documento
   opcional. Documento no es globalmente obligatorio ni necesariamente único.
 - `CustomerAddress` pertenece al cliente, guarda destinatario y dirección
   estructurada. Una restricción/operación transaccional mantiene una sola dirección
   predeterminada por tipo.
-- `Cart` tiene token de invitado hasheado o cliente, estado y expiración. Índices por
-  cliente/estado y expiración permiten recuperar y purgar.
-- `CartItem` referencia variante y cantidad; `unique(cartId, variantId)` evita
-  duplicados. Los precios guardados son solo una vista; checkout recalcula.
 
 ### Pedidos
 

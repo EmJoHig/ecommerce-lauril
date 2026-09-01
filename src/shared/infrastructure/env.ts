@@ -5,6 +5,8 @@ const serverEnvSchema = z.object({
   APP_URL: z.string().url().default("http://localhost:3000"),
   SESSION_COOKIE_NAME: z.string().min(1).default("lauril_session"),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  CART_COOKIE_NAME: z.string().min(1).default("lauril_cart"),
+  CART_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   BCRYPT_COST: z.coerce.number().int().min(10).max(15).default(12),
   NODE_ENV: z
     .enum(["development", "test", "production"])

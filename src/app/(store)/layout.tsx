@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CartIndicator } from "@/modules/cart/presentation/cart-indicator";
 
 export default function StoreLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
@@ -16,7 +17,7 @@ export default function StoreLayout({ children }: Readonly<{ children: React.Rea
         </nav>
         <div className="store-header__actions">
           <Link href="/productos">Buscar</Link>
-          <span aria-label="Carrito disponible en una próxima fase">Bolsa (0)</span>
+          <CartIndicator />
         </div>
       </header>
       <main>{children}</main>
