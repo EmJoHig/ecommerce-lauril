@@ -263,9 +263,15 @@ Si existe un conflicto real, informarlo.
 
 ## Validación proporcional
 
-La validación debe ser proporcional al cambio.
+### Límite de tests durante tareas Codex
 
-No ejecutar automáticamente toda la suite después de cada modificación.
+Durante una tarea de desarrollo, ejecutar como máximo 10 tests dirigidos al comportamiento modificado.
+
+No ejecutar `npm test` ni toda la suite local desde Codex salvo instrucción explícita del usuario.
+
+La suite completa, lint, typecheck y build globales se delegan preferentemente al workflow de GitHub CI después del push.
+
+Si no existen tests suficientemente dirigidos, ejecutar el subconjunto mínimo disponible y reportarlo; no ampliar automáticamente a toda la suite.
 
 ### Cambio visual o textual pequeño
 
@@ -322,26 +328,25 @@ Si afecta varios módulos o infraestructura central, ampliar las validaciones se
 
 ## Validación completa
 
-Ejecutar:
+## Validación completa
 
-```bash
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
+La validación completa del repositorio se delega preferentemente a GitHub CI.
 
-todos juntos únicamente cuando:
+Codex no debe ejecutar automáticamente `npm test` ni toda la suite local al cerrar una fase.
 
-- se cierre una fase;
-- el usuario lo solicite explícitamente;
-- el cambio sea transversal y exista riesgo razonable de regresión;
-- se prepare una entrega;
-- o sea necesario para validar correctamente una modificación importante.
+Durante el trabajo local:
+- máximo 10 tests dirigidos;
+- typecheck cuando corresponda;
+- lint solamente si es relevante;
+- Prisma/migraciones si fueron modificados.
 
-No ejecutar la validación completa repetidamente durante una misma tarea.
+Después del push, GitHub CI valida:
+- lint;
+- typecheck;
+- suite completa;
+- build.
 
-Si la validación completa ya pasó y después se realiza un cambio pequeño y aislado, ejecutar solamente las comprobaciones que puedan haber sido afectadas por ese nuevo cambio.
+Solo ejecutar la matriz completa localmente si el usuario lo solicita explícitamente o si GitHub CI no puede realizarla.
 
 ---
 
