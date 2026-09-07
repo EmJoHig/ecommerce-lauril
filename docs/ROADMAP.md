@@ -165,6 +165,8 @@ Objetivo: reemplazar dependencias exclusivamente locales o de desarrollo por imp
 
 ### Fase 11C — Jobs operativos
 
+Estado: completada y validada.
+
 - Programar expiración y liberación de reservas de pedidos.
 - Incorporar únicamente limpiezas operativas justificadas por casos de uso existentes.
 - Evitar introducir infraestructura distribuida de jobs sin necesidad.

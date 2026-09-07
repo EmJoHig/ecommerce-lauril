@@ -143,6 +143,15 @@ describe("checkout", () => {
     expect(repository.reserved).toBe(1);
     expect(await checkout.expirePendingOrder(ids.order, now)).toBe(false);
   });
+
+  it("no expira ni libera la reserva antes del vencimiento", async () => {
+    const { checkout, repository } = service();
+    repository.pending = { id: ids.order, status: "PENDING_PAYMENT", paymentExpiresAt: new Date(now.getTime() + 1), reservationReleasedAt: null, reservations: [{ quantity: 2, inventory: { id: ids.inventory, stockOnHand: 10, stockReserved: 3, version: 1 } }] };
+
+    expect(await checkout.expirePendingOrder(ids.order, now)).toBe(false);
+    expect(repository.released).toBe(false);
+    expect(repository.reserved).toBe(1);
+  });
 });
 
 function guestInput() {

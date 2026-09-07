@@ -7,14 +7,25 @@ import { PrismaOrderRepository } from "../src/modules/orders/infrastructure/pris
 import { CustomShippingProvider } from "../src/modules/shipping/application/custom-shipping-provider";
 import { PrismaShippingRepository } from "../src/modules/shipping/infrastructure/prisma-shipping-repository";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL es obligatoria.");
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+const job = "expire-pending-orders";
 
 try {
-  const repository = new PrismaOrderRepository(prisma);
-  const expired = await new CheckoutService(repository, new CustomShippingProvider(new PrismaShippingRepository(prisma))).expirePendingOrders();
-  console.info(JSON.stringify({ status: "ok", expired }));
-} finally {
-  await prisma.$disconnect();
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL es obligatoria.");
+
+  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+  let expired: number;
+  try {
+    const repository = new PrismaOrderRepository(prisma);
+    expired = await new CheckoutService(
+      repository,
+      new CustomShippingProvider(new PrismaShippingRepository(prisma)),
+    ).expirePendingOrders();
+  } finally {
+    await prisma.$disconnect();
+  }
+  console.info(JSON.stringify({ job, status: "ok", expired }));
+} catch {
+  console.error(JSON.stringify({ job, status: "error" }));
+  process.exitCode = 1;
 }

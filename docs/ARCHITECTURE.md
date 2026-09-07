@@ -226,8 +226,22 @@ versión optimista; `stockOnHand` y `InventoryMovement` no cambian. El carrito q
 
 Todo pedido nace `PENDING_PAYMENT`, con historial y vencimiento configurable por
 `ORDER_RESERVATION_MINUTES` (15 por defecto). `expirePendingOrders` libera cada
-reserva una sola vez, marca `CANCELLED` y agrega historial. Puede ejecutarse con
-`npm run db:expire-orders`; producción deberá programarlo periódicamente.
+reserva una sola vez, marca `CANCELLED` y agrega historial.
+
+### Job operativo de expiración
+
+Un scheduler externo debe ejecutar periódicamente `npm run db:expire-orders` en
+el artefacto de la aplicación con `DATABASE_URL` configurada. El comando no es
+interactivo, procesa hasta 100 pedidos vencidos por ejecución y termina; conviene
+programarlo con una frecuencia menor al tiempo de reserva y evitar ejecuciones
+solapadas. No requiere endpoint HTTP, proceso web, cola ni worker permanente.
+
+En éxito, incluso si no hay pedidos para expirar, devuelve código `0` y una línea
+JSON con `job`, `status` y `expired`. Ante un fallo devuelve código `1` y un JSON
+mínimo sin credenciales, tokens, datos personales ni detalles internos del error.
+Las ejecuciones repetidas son seguras: cada pedido vuelve a validar estado y
+vencimiento, y la liberación de `stockReserved`, cancelación e historial ocurren
+en una transacción serializable con compare-and-set de la versión de inventario.
 
 Los clientes acceden sólo a pedidos vinculados a su sesión. Un invitado recibe una
 cookie `HttpOnly` restringida a `/pedido/<número>` con el token opaco del carrito;
