@@ -19,7 +19,7 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
           <Link href="/#historia">Nuestra historia</Link>
         </nav>
         <div className="store-header__actions">
-          <Link href="/productos">Buscar</Link>
+          <Link href="/productos#buscar">Buscar</Link>
           {customer ? <><Link href="/mi-cuenta">Mi cuenta</Link><form action={logoutCustomerAction}><button type="submit">Cerrar sesión</button></form></> : <><Link href="/login">Ingresar</Link><Link href="/registro">Crear cuenta</Link></>}
           <CartIndicator />
         </div>

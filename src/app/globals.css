@@ -372,6 +372,13 @@ button { color: inherit; }
 .address-card__actions button, .address-card__actions a { background: transparent; border: 0; color: var(--sage-dark); cursor: pointer; font-size: .7rem; font-weight: 800; padding: 0; text-decoration: underline; }
 .address-card__actions form:last-child button { color: #8e4b36; }
 .account-content > div > .customer-form { margin-bottom: 1rem; }
+.account-empty-state { margin-top: 0; }
+.customer-order-list { display: flex; flex-direction: column; gap: .8rem; }
+.customer-order-card { align-items: center; background: var(--white); border: 1px solid var(--line); display: flex; gap: 1rem; justify-content: space-between; padding: 1.3rem; }
+.customer-order-card h3 { font-family: var(--font-serif),serif; font-size: 1.6rem; font-weight: 500; margin: .25rem 0 .5rem; }
+.customer-order-card p { color: var(--muted); margin: 0; }
+.customer-order-card .eyebrow { color: var(--terracotta); }
+.customer-order-card__actions { align-items: flex-end; display: flex; flex-direction: column; gap: .8rem; }
 
 .checkout-page, .order-page { min-height: 72vh; }
 .checkout-layout { align-items: start; display: grid; gap: 2rem; grid-template-columns: minmax(0,1fr) 380px; }
@@ -393,6 +400,9 @@ button { color: inherit; }
 .order-hero > p:last-child { color: var(--muted); }
 .order-layout { align-items: start; display: grid; gap: 2rem; grid-template-columns: minmax(0,1fr) 360px; margin-bottom: 1.5rem; }
 .order-line { align-items: start; border-top: 1px solid var(--line); display: flex; gap: 1rem; justify-content: space-between; padding: 1rem 0; }
+.order-navigation { display: flex; flex-wrap: wrap; gap: .7rem; }
+.store-error { min-height: 65vh; }
+.store-error h1 { font-family: var(--font-serif),serif; font-size: clamp(3rem,7vw,6rem); font-weight: 450; letter-spacing: -.04em; margin: 0 0 1rem; max-width: 900px; }
 .admin-grid { align-items: start; display: grid; gap: 1rem; grid-template-columns: minmax(0,1fr) 360px; margin-bottom: 1rem; }
 .admin-filters--orders { grid-template-columns: minmax(250px,2fr) repeat(3,minmax(145px,1fr)); }
 .admin-filters--orders .filter-date { display: flex; flex-direction: column; font-size: .62rem; font-weight: 800; gap: .3rem; letter-spacing: .08em; text-transform: uppercase; }
@@ -536,6 +546,8 @@ button { color: inherit; }
   .order-action-form { grid-template-columns: 1fr; }
   .form-grid--street, .account-dashboard { grid-template-columns: 1fr; }
   .address-card { flex-direction: column; }
+  .customer-order-card { align-items: flex-start; flex-direction: column; }
+  .customer-order-card__actions { align-items: flex-start; }
   .address-card__actions { align-items: flex-start; }
   .sticky-actions { position: static; }
   .add-cart-form { grid-template-columns: 1fr; }

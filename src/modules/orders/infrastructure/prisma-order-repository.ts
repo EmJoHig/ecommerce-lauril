@@ -7,6 +7,7 @@ import type {
   CheckoutCustomerRecord,
   CheckoutOwner,
   CheckoutTransaction,
+  CustomerOrderRow,
   OrderRepository,
   OrderView,
   PendingOrderRecord,
@@ -54,6 +55,30 @@ export class PrismaOrderRepository implements OrderRepository {
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     });
     return rows.map(mapAddress);
+  }
+
+  async listCustomerOrders(customerId: string): Promise<ReadonlyArray<CustomerOrderRow>> {
+    const rows = await this.prisma.order.findMany({
+      where: { customerId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 100,
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        totalInCents: true,
+        createdAt: true,
+        _count: { select: { items: true } },
+      },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      number: row.number,
+      status: row.status,
+      totalInCents: row.totalInCents,
+      itemCount: row._count.items,
+      createdAt: row.createdAt,
+    }));
   }
 
   async findPublicOrder(

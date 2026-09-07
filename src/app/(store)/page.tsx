@@ -51,6 +51,7 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
+        {categories.length === 0 ? <div className="empty-state"><h2>Las colecciones estarán disponibles pronto</h2><p>Mientras tanto, podés recorrer todos los productos publicados.</p><Link className="button button--secondary" href="/productos">Ver catálogo</Link></div> : null}
       </section>
 
       <section className="section section--tint">
@@ -61,6 +62,7 @@ export default async function HomePage() {
         <div className="product-grid">
           {products.map((product) => <ProductCard key={product.id} product={product} />)}
         </div>
+        {products.length === 0 ? <div className="empty-state"><h2>Todavía no hay favoritos publicados</h2><p>Explorá el catálogo completo para descubrir la colección.</p><Link className="button button--secondary" href="/productos">Ver productos</Link></div> : null}
       </section>
 
       <section className="story" id="historia">

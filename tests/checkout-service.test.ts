@@ -36,6 +36,7 @@ class MemoryRepository implements OrderRepository {
   findCheckoutCart(owner: CheckoutOwner) { return Promise.resolve(matchesOwner(this.cart, owner) ? this.cart : null); }
   findCustomer(customerId: string) { return Promise.resolve(customerId === ids.customer ? { id: ids.customer, userId: ids.user, firstName: "Cliente", lastName: "Prueba", email: "cliente@test.local", phone: "+54 11 5555-0000", status: "ACTIVE" as const, userStatus: "ACTIVE" as const } : null); }
   listCustomerAddresses(customerId: string) { return Promise.resolve(customerId === ids.customer ? [{ id: ids.address, customerId: ids.customer, label: "Casa", recipientFirstName: "Cliente", recipientLastName: "Prueba", phone: "+54 11 5555-0000", street: "Calle", streetNumber: "123", floorApartment: null, city: "CABA", province: "Buenos Aires", postalCode: "1000", references: null, isDefault: true }] : []); }
+  listCustomerOrders() { return Promise.resolve([]); }
   findPublicOrder(number: bigint, owner: { customerId: string | null; guestTokenHash: string | null }) { return Promise.resolve(this.saved?.number === number && (this.saved.customerId === owner.customerId || this.saved.guestAccessTokenHash === owner.guestTokenHash) ? this.saved : null); }
   listAdminOrders() { return Promise.resolve([]); }
   findAdminOrder(id: string) { return Promise.resolve(this.saved?.id === id ? this.saved : null); }

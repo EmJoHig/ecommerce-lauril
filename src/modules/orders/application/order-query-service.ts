@@ -11,6 +11,10 @@ export class OrderQueryService {
     return order;
   }
 
+  listCustomer(customerId: string) {
+    return this.repository.listCustomerOrders(validateId(customerId));
+  }
+
   listAdmin() {
     return this.repository.listAdminOrders();
   }

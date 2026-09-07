@@ -92,6 +92,15 @@ export type OrderView = Readonly<{
   }>>;
 }>;
 
+export type CustomerOrderRow = Readonly<{
+  id: string;
+  number: bigint;
+  status: OrderStatusValue;
+  totalInCents: bigint;
+  itemCount: number;
+  createdAt: Date;
+}>;
+
 export type AdminOrderRow = Readonly<{
   id: string;
   number: bigint;
@@ -176,6 +185,7 @@ export interface OrderRepository {
   findCheckoutCart(owner: CheckoutOwner, now: Date): Promise<CheckoutCartRecord | null>;
   findCustomer(customerId: string): Promise<CheckoutCustomerRecord | null>;
   listCustomerAddresses(customerId: string): Promise<ReadonlyArray<CheckoutAddressRecord>>;
+  listCustomerOrders(customerId: string): Promise<ReadonlyArray<CustomerOrderRow>>;
   findPublicOrder(number: bigint, owner: { customerId: string | null; guestTokenHash: string | null }): Promise<OrderView | null>;
   listAdminOrders(): Promise<ReadonlyArray<AdminOrderRow>>;
   findAdminOrder(id: string): Promise<OrderView | null>;
