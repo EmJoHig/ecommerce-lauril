@@ -1,27 +1,22 @@
 import Link from "next/link";
-import { getAdminCatalogOverview, listInventoryRows } from "@/modules/catalog/infrastructure/admin-catalog-query";
+import { getAdminOverviewService } from "@/modules/admin/infrastructure/admin-overview-composition";
+import { requireAdmin } from "@/modules/auth/presentation/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminDashboardPage() {
-  const [overview, inventory] = await Promise.all([getAdminCatalogOverview(), listInventoryRows()]);
-  const lowStock = inventory.filter((row) => row.available <= row.minimumStock).slice(0, 5);
+const shortcuts = [
+  { href: "/admin/productos", title: "Productos", description: "Publicación, variantes, imágenes y precios." },
+  { href: "/admin/pedidos", title: "Pedidos", description: "Preparación, entrega, historial y notas." },
+  { href: "/admin/clientes", title: "Clientes", description: "Perfiles, direcciones, pedidos y notas privadas." },
+  { href: "/admin/stock", title: "Stock", description: "Disponibilidad, reservas y ajustes trazables." },
+] as const;
 
-  return (
-    <>
-      <div className="admin-heading"><div><p className="eyebrow">Resumen</p><h1>Buen día.</h1><p>Esta es la base operativa de tu tienda.</p></div><Link className="button button--dark" href="/admin/productos">Ver catálogo</Link></div>
-      <section className="metric-grid">
-        <article><span>Productos</span><strong>{overview.productCount}</strong><small>{overview.activeProductCount} publicados</small></article>
-        <article><span>Categorías</span><strong>{overview.categoryCount}</strong><small>colecciones activas</small></article>
-        <article><span>Alertas de stock</span><strong>{overview.lowStockCount}</strong><small>en mínimo o por debajo</small></article>
-        <article className="metric-card--muted"><span>Ventas del mes</span><strong>—</strong><small>Disponible con pedidos · Fase 3</small></article>
-      </section>
-      <section className="admin-panel">
-        <div className="panel-heading"><div><p className="eyebrow">Inventario</p><h2>Productos con poco stock</h2></div><Link href="/admin/stock">Ver inventario →</Link></div>
-        {lowStock.length ? (
-          <div className="admin-list">{lowStock.map((row) => <div key={row.id}><span><strong>{row.productName}</strong><small>{row.sku} · {row.variantName}</small></span><span className="stock stock--out">{row.available} disponibles</span></div>)}</div>
-        ) : <div className="empty-state empty-state--small"><p>No hay alertas de stock.</p></div>}
-      </section>
-    </>
-  );
+export default async function AdminDashboardPage() {
+  await requireAdmin("admin.access");
+  const overview = await getAdminOverviewService().getOverview();
+  return <>
+    <div className="admin-heading"><div><p className="eyebrow">Inicio</p><h1>Operación de la tienda</h1><p>Accesos y contadores esenciales del backoffice.</p></div></div>
+    <section className="metric-grid metric-grid--five"><article><span>Pedidos pendientes</span><strong>{overview.pendingOrders}</strong><small>requieren pago o cancelación</small></article><article><span>En preparación</span><strong>{overview.preparingOrders}</strong><small>incluye listos para entregar</small></article><article><span>Productos activos</span><strong>{overview.activeProducts}</strong><small>visibles en la tienda</small></article><article><span>Stock bajo</span><strong>{overview.lowStockVariants}</strong><small>variantes en mínimo</small></article><article><span>Clientes</span><strong>{overview.registeredCustomers}</strong><small>perfiles registrados</small></article></section>
+    <section className="admin-shortcut-grid">{shortcuts.map((item) => <Link className="admin-panel admin-shortcut" href={item.href} key={item.href}><span>Ir a</span><h2>{item.title}</h2><p>{item.description}</p><strong>Abrir →</strong></Link>)}</section>
+  </>;
 }

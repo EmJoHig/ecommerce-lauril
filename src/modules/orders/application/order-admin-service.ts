@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ConflictError, NotFoundError, ValidationError } from "@/shared/domain/errors";
+import { boundedPageSize, businessDate, normalizedSearch, positivePage } from "@/shared/application/admin-list-query";
+import { ConflictError, NotFoundError } from "@/shared/domain/errors";
 import {
   allowedAdministrativeTransitions,
   assertOrderTransition,
@@ -29,23 +30,26 @@ export class OrderAdminService {
     createdTo?: string;
     sort?: string;
   }>) {
-    const page = safePositiveInteger(input.page, 1);
-    const pageSize = Math.min(safePositiveInteger(input.pageSize, 20), 100);
+    const page = positivePage(input.page);
+    const pageSize = boundedPageSize(input.pageSize);
     const status = orderStatuses.find((value) => value === input.status);
     const ownerType = (["customer", "guest"] as const).find((value) => value === input.ownerType);
     const sort = adminOrderSorts.find((value) => value === input.sort) ?? "newest";
+    const search = normalizedSearch(input.search);
+    const createdFrom = businessDate(input.createdFrom);
+    const createdToExclusive = businessDate(input.createdTo, true);
     const query: AdminOrderListQuery = {
       page,
       pageSize,
       sort,
-      ...(input.search?.trim() ? { search: input.search.trim().slice(0, 200) } : {}),
+      ...(search ? { search } : {}),
       ...(status ? { status } : {}),
       ...(ownerType ? { ownerType: ownerType as AdminOrderOwnerType } : {}),
       ...(input.shippingMethodId && z.uuid().safeParse(input.shippingMethodId).success
         ? { shippingMethodId: input.shippingMethodId }
         : {}),
-      ...(input.createdFrom ? { createdFrom: parseBusinessDate(input.createdFrom, false) } : {}),
-      ...(input.createdTo ? { createdToExclusive: parseBusinessDate(input.createdTo, true) } : {}),
+      ...(createdFrom ? { createdFrom } : {}),
+      ...(createdToExclusive ? { createdToExclusive } : {}),
     };
     return this.repository.list(query);
   }
@@ -120,22 +124,6 @@ export class OrderAdminService {
     if (!order) throw new NotFoundError("No se encontró el pedido.");
     return order;
   }
-}
-
-function safePositiveInteger(value: number | undefined, fallback: number): number {
-  return Number.isSafeInteger(value) && (value ?? 0) > 0 ? value! : fallback;
-}
-
-function parseBusinessDate(value: string, endExclusive: boolean): Date {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new ValidationError("La fecha no es válida.");
-  }
-  const date = new Date(`${value}T00:00:00-03:00`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
-    throw new ValidationError("La fecha no es válida.");
-  }
-  if (endExclusive) date.setUTCDate(date.getUTCDate() + 1);
-  return date;
 }
 
 function defaultTransitionReason(status: OrderStatusValue): string {

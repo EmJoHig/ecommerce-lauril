@@ -91,6 +91,7 @@ model User {
   auditLogs           AuditLog[]
   orderStatusChanges  OrderStatusHistory[] @relation("OrderStatusActor")
   orderNotes          OrderNote[]          @relation("OrderNoteActor")
+  customerNotes       CustomerNote[]       @relation("CustomerNoteActor")
   customer            Customer?
 
   @@index([status])
@@ -109,9 +110,24 @@ model Customer {
   addresses CustomerAddress[]
   carts     Cart[]
   orders    Order[]
+  notes     CustomerNote[]
 
   @@index([status, createdAt])
   @@map("customers")
+}
+
+model CustomerNote {
+  id          String   @id @default(uuid()) @db.Uuid
+  customerId  String   @map("customer_id") @db.Uuid
+  actorUserId String   @map("actor_user_id") @db.Uuid
+  content     String   @db.VarChar(2000)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  actor       User     @relation("CustomerNoteActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([customerId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("customer_notes")
 }
 
 model CustomerAddress {

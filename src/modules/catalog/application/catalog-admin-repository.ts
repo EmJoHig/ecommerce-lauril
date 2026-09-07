@@ -76,6 +76,7 @@ export type AdminProductEditor = Readonly<{
   description: string | null;
   status: ProductStatusInput | "ARCHIVED";
   featured: boolean;
+  updatedAt: Date;
   categoryIds: string[];
   images: Array<{ id: string; url: string; objectKey: string; altText: string; sortOrder: number }>;
   variants: Array<{
@@ -89,6 +90,7 @@ export type AdminProductEditor = Readonly<{
     isActive: boolean;
     stockOnHand: number;
     stockReserved: number;
+    stockAvailable: number;
     minimumStock: number;
   }>;
 }>;

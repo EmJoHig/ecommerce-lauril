@@ -418,6 +418,55 @@ button { color: inherit; }
 .order-notes article { border-top: 1px solid var(--line); padding: .9rem 0; }
 .order-notes article p { white-space: pre-wrap; }
 
+.admin-nav-section > a.is-active { background: rgba(255,255,255,.13); color: white; font-weight: 800; }
+.admin-mobile-nav-wrap { display: none; }
+.admin-breadcrumbs { align-items: center; color: var(--muted); display: flex; font-size: .72rem; gap: .45rem; padding: 1rem clamp(1.5rem,4vw,4rem) 0; text-transform: capitalize; }
+.admin-breadcrumbs span { align-items: center; display: flex; gap: .45rem; }
+.admin-breadcrumbs a { color: var(--sage-dark); }
+.heading-actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+.metric-grid--five { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.metric-grid--five article > strong { font-size: 2.8rem; }
+.admin-shortcut-grid { display: grid; gap: 1rem; grid-template-columns: repeat(4,minmax(0,1fr)); }
+.admin-shortcut { color: inherit; margin-top: 0; }
+.admin-shortcut > span { color: var(--muted); font-size: .62rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.admin-shortcut h2 { margin: .6rem 0; }
+.admin-shortcut p { color: var(--muted); min-height: 3.4rem; }
+.admin-shortcut > strong { color: var(--sage-dark); font-size: .75rem; text-transform: uppercase; }
+.admin-detail-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.admin-detail-grid > .admin-panel { margin-top: 0; }
+.detail-list { display: grid; grid-template-columns: 160px minmax(0,1fr); margin: 0 0 1.4rem; }
+.detail-list dt, .detail-list dd { border-top: 1px solid var(--line); margin: 0; padding: .75rem 0; }
+.detail-list dt { color: var(--muted); font-size: .72rem; }
+.admin-form--compact label, .admin-role-form label { display: flex; flex-direction: column; font-size: .7rem; font-weight: 800; gap: .35rem; }
+.admin-form--compact input:not([type="checkbox"]) { background: white; border: 1px solid var(--line); min-height: 44px; padding: .7rem; width: 100%; }
+.admin-form--compact fieldset { border: 1px solid var(--line); padding: 1rem; }
+.admin-form--compact legend { font-size: .7rem; font-weight: 800; padding: 0 .4rem; text-transform: uppercase; }
+.admin-form--compact .form-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.inline-action { display: flex; flex-direction: column; gap: .4rem; margin-top: 1rem; }
+.address-admin-list, .internal-note-list { display: flex; flex-direction: column; gap: .7rem; }
+.address-admin-list article, .internal-note-list article { background: #fafaf7; border: 1px solid var(--line); padding: 1rem; }
+.address-admin-list article > div { align-items: center; display: flex; gap: .6rem; }
+.address-admin-list p { color: var(--muted); font-size: .78rem; margin: .3rem 0; }
+.internal-note-list { margin-top: 1rem; }
+.internal-note-list p { margin: 0 0 .5rem; white-space: pre-wrap; }
+.internal-note-list small { color: var(--muted); }
+.admin-image-grid { display: grid; gap: .7rem; grid-template-columns: repeat(3,minmax(0,1fr)); }
+.admin-image-grid figure { margin: 0; }
+.admin-image-grid figure > div { aspect-ratio: 1; background: var(--cream); position: relative; }
+.admin-image-grid img { object-fit: cover; }
+.admin-image-grid figcaption { color: var(--muted); font-size: .68rem; padding-top: .35rem; }
+.checkbox-grid { display: flex; flex-wrap: wrap; gap: .7rem 1rem; }
+.checkbox-grid label { align-items: center; flex-direction: row; font-weight: 600; }
+.admin-role-form { display: flex; flex-direction: column; gap: .6rem; min-width: 260px; }
+.role-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.role-grid > .admin-panel { margin-top: 0; }
+.permission-list { display: flex; flex-direction: column; gap: .45rem; list-style: none; margin: 1rem 0 0; padding: 0; }
+.permission-list li { align-items: start; background: #fafaf7; display: flex; flex-direction: column; padding: .65rem; }
+.permission-list span { color: var(--muted); font-size: .72rem; }
+.audit-metadata { font-family: ui-monospace, monospace; font-size: .68rem; margin: 0; max-width: 360px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.admin-filters--customers { grid-template-columns: minmax(240px,2fr) repeat(2,minmax(150px,1fr)); }
+.admin-filters .filter-date { display: flex; flex-direction: column; font-size: .62rem; font-weight: 800; gap: .3rem; letter-spacing: .08em; text-transform: uppercase; }
+
 @media (max-width: 1100px) {
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
@@ -431,6 +480,9 @@ button { color: inherit; }
   .admin-grid { grid-template-columns: 1fr; }
   .order-admin-summary { grid-template-columns: 1fr; }
   .order-admin-bottom { grid-template-columns: 1fr; }
+  .metric-grid--five { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-shortcut-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .admin-detail-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 800px) {
@@ -457,8 +509,11 @@ button { color: inherit; }
   .account-nav nav > * { border: 1px solid rgba(255,255,255,.2); flex: 0 0 auto; padding: .65rem; }
   .admin-shell { display: block; }
   .admin-sidebar { display: none; }
+  .admin-mobile-nav-wrap { display: block; }
   .admin-mobile-nav { background: white; border-bottom: 1px solid #dfe2db; display: flex; gap: .4rem; overflow-x: auto; padding: .7rem 1rem; position: sticky; top: 70px; z-index: 9; }
   .admin-mobile-nav a { border: 1px solid var(--line); font-size: .68rem; font-weight: 800; letter-spacing: .06em; padding: .55rem .75rem; text-transform: uppercase; white-space: nowrap; }
+  .admin-mobile-nav a.is-active { background: var(--sage-dark); color: white; }
+  .admin-breadcrumbs { padding-inline: 1.2rem; }
 }
 
 @media (max-width: 560px) {
@@ -488,6 +543,10 @@ button { color: inherit; }
   .cart-line__actions, .cart-line__subtotal { grid-column: 1 / -1; }
   .cart-line__subtotal { grid-row: auto; justify-self: start; }
   .cart-quantity > div { grid-template-columns: 40px minmax(0,1fr) 40px; }
+  .admin-form--compact .form-grid, .admin-shortcut-grid, .role-grid, .metric-grid--five { grid-template-columns: 1fr; }
+  .detail-list { grid-template-columns: 1fr; }
+  .detail-list dt { padding-bottom: .2rem; }
+  .detail-list dd { border-top: 0; padding-top: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -26,6 +26,8 @@
     "db:verify:phase6": "tsx scripts/verify-phase6-flow.ts",
     "db:fixtures:phase6": "tsx scripts/phase6-development-fixtures.ts create",
     "db:fixtures:phase6:cleanup": "tsx scripts/phase6-development-fixtures.ts cleanup",
+    "db:fixtures:phase7": "tsx scripts/phase7-development-fixtures.ts create",
+    "db:fixtures:phase7:cleanup": "tsx scripts/phase7-development-fixtures.ts cleanup",
     "db:expire-orders": "tsx scripts/expire-pending-orders.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"

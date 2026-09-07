@@ -39,7 +39,8 @@ async function main(): Promise<void> {
   const constraints = await prisma.$queryRaw<Array<{ conname: string }>>`
     SELECT conname
     FROM pg_constraint
-    WHERE conname IN (
+    WHERE connamespace = current_schema()::regnamespace
+      AND conname IN (
       'products_slug_normalized_check',
       'products_active_has_publication_check',
       'product_variants_prices_check',
@@ -73,27 +74,32 @@ async function main(): Promise<void> {
       ,'order_items_snapshot_check'
       ,'order_status_history_transition_check'
       ,'order_notes_content_not_blank_check'
+      ,'customer_notes_content_check'
     )
   `;
   const defaultVariantIndex = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM pg_indexes
-    WHERE indexname = 'product_variants_one_default_per_product_key'
+    WHERE schemaname = current_schema()
+      AND indexname = 'product_variants_one_default_per_product_key'
   `;
   const lowStockIndex = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM pg_indexes
-    WHERE indexname = 'inventory_low_stock_idx'
+    WHERE schemaname = current_schema()
+      AND indexname = 'inventory_low_stock_idx'
   `;
   const adminCatalogIndex = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM pg_indexes
-    WHERE indexname = 'products_status_updated_at_idx'
+    WHERE schemaname = current_schema()
+      AND indexname = 'products_status_updated_at_idx'
   `;
   const cartIndexes = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM pg_indexes
-    WHERE indexname IN (
+    WHERE schemaname = current_schema()
+      AND indexname IN (
       'carts_guest_token_hash_key',
       'carts_status_expires_at_idx',
       'cart_items_cart_id_variant_id_key',
@@ -103,23 +109,33 @@ async function main(): Promise<void> {
   const customerIndexes = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM pg_indexes
-    WHERE indexname IN (
+    WHERE schemaname = current_schema()
+      AND indexname IN (
       'customers_user_id_key',
       'customer_addresses_one_default_key',
       'carts_customer_id_status_updated_at_idx'
     )
   `;
   const checkoutIndexes = await prisma.$queryRaw<Array<{ count: bigint }>>`
-    SELECT count(*)::bigint AS count FROM pg_indexes WHERE indexname IN (
+    SELECT count(*)::bigint AS count FROM pg_indexes
+    WHERE schemaname = current_schema() AND indexname IN (
       'shipping_methods_code_key', 'orders_order_number_key', 'orders_cart_id_key',
       'orders_checkout_key_hash_key', 'orders_guest_access_token_hash_key',
       'orders_status_payment_expires_at_idx'
     )
   `;
   const orderAdminIndexes = await prisma.$queryRaw<Array<{ count: bigint }>>`
-    SELECT count(*)::bigint AS count FROM pg_indexes WHERE indexname IN (
+    SELECT count(*)::bigint AS count FROM pg_indexes
+    WHERE schemaname = current_schema() AND indexname IN (
       'orders_status_created_at_idx', 'orders_shipping_method_id_created_at_idx',
       'order_notes_order_id_created_at_idx', 'order_notes_actor_user_id_created_at_idx'
+    )
+  `;
+  const customerAdminIndexes = await prisma.$queryRaw<Array<{ count: bigint }>>`
+    SELECT count(*)::bigint AS count FROM pg_indexes
+    WHERE schemaname = current_schema() AND indexname IN (
+      'customer_notes_customer_id_created_at_idx',
+      'customer_notes_actor_user_id_created_at_idx'
     )
   `;
   const invalidCustomerCarts = await prisma.$queryRaw<Array<{ count: bigint }>>`
@@ -206,7 +222,7 @@ async function main(): Promise<void> {
   const timestampColumns = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM information_schema.columns
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'inventory'
       AND column_name IN ('created_at', 'updated_at')
       AND data_type = 'timestamp with time zone'
@@ -215,7 +231,7 @@ async function main(): Promise<void> {
   const cartTimestampColumns = await prisma.$queryRaw<Array<{ count: bigint }>>`
     SELECT count(*)::bigint AS count
     FROM information_schema.columns
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'carts'
       AND column_name IN ('expires_at', 'created_at', 'updated_at')
       AND data_type = 'timestamp with time zone'
@@ -226,7 +242,7 @@ async function main(): Promise<void> {
   >`
     SELECT character_maximum_length
     FROM information_schema.columns
-    WHERE table_schema = 'public'
+    WHERE table_schema = current_schema()
       AND table_name = 'products'
       AND column_name = 'slug'
   `;
@@ -263,6 +279,7 @@ async function main(): Promise<void> {
     customerIndexes: Number(customerIndexes[0]?.count ?? 0n),
     checkoutIndexes: Number(checkoutIndexes[0]?.count ?? 0n),
     orderAdminIndexes: Number(orderAdminIndexes[0]?.count ?? 0n),
+    customerAdminIndexes: Number(customerAdminIndexes[0]?.count ?? 0n),
     invalidCustomerCarts: Number(invalidCustomerCarts[0]?.count ?? 0n),
     invalidDefaultAddresses: Number(invalidDefaultAddresses[0]?.count ?? 0n),
     variantsWithoutInventory: Number(variantsWithoutInventory[0]?.count ?? 0n),
@@ -285,7 +302,7 @@ async function main(): Promise<void> {
     inventories !== variants ||
     movements < 4 ||
     (expectedAdminEmail ? admins < 1 : false) ||
-    constraints.length !== 33 ||
+    constraints.length !== 34 ||
     defaultVariantIndex[0]?.count !== 1n ||
     lowStockIndex[0]?.count !== 1n ||
     adminCatalogIndex[0]?.count !== 1n ||
@@ -293,6 +310,7 @@ async function main(): Promise<void> {
     customerIndexes[0]?.count !== 3n ||
     checkoutIndexes[0]?.count !== 6n ||
     orderAdminIndexes[0]?.count !== 4n ||
+    customerAdminIndexes[0]?.count !== 2n ||
     invalidCustomerCarts[0]?.count !== 0n ||
     invalidDefaultAddresses[0]?.count !== 0n ||
     variantsWithoutInventory[0]?.count !== 0n ||

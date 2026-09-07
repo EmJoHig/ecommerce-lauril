@@ -1,8 +1,9 @@
 import "server-only";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getServerEnv } from "@/shared/infrastructure/env";
+import { ForbiddenError } from "@/shared/domain/errors";
 import { assertPermission } from "../application/authorization";
 import { getAuthService } from "../infrastructure/auth-composition";
 
@@ -22,7 +23,12 @@ export async function requireAdmin(permission = "admin.access") {
     redirect("/admin/login");
   }
 
-  assertPermission(user.permissions, permission);
+  try {
+    assertPermission(user.permissions, permission);
+  } catch (error) {
+    if (error instanceof ForbiddenError) notFound();
+    throw error;
+  }
 
   return user;
 }

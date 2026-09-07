@@ -1,52 +1,17 @@
 import Link from "next/link";
 import { logoutAction } from "@/modules/auth/presentation/auth-actions";
 import { requireAdmin } from "@/modules/auth/presentation/session";
-
-const navigation: Array<{
-  label: string;
-  items: Array<{ name: string; href?: string }>;
-}> = [
-  { label: "General", items: [{ name: "Dashboard", href: "/admin" }] },
-  { label: "Ventas", items: [{ name: "Pedidos", href: "/admin/pedidos" }, { name: "Pagos" }, { name: "Envíos", href: "/admin/envios" }, { name: "Reembolsos" }] },
-  { label: "Productos", items: [{ name: "Productos", href: "/admin/productos" }, { name: "Categorías", href: "/admin/categorias" }, { name: "Stock y movimientos", href: "/admin/stock" }] },
-  { label: "Relaciones", items: [{ name: "Clientes" }, { name: "Marketing" }] },
-  { label: "Tienda", items: [{ name: "Diseño" }, { name: "Reportes" }, { name: "Configuración" }] },
-];
+import { AdminBreadcrumbs, AdminNavigation } from "@/modules/admin/presentation/admin-navigation";
 
 export default async function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await requireAdmin();
-  return (
-    <div className="admin-shell">
-      <aside className="admin-sidebar">
-        <Link className="brand brand--light" href="/admin"><span className="brand__mark">L</span><span>Lauril</span></Link>
-        <nav aria-label="Administración">
-          {navigation.map((section) => (
-            <div className="admin-nav-section" key={section.label}>
-              <p>{section.label}</p>
-              {section.items.map((item) => item.href ? (
-                <Link href={item.href} key={item.name}>{item.name}</Link>
-              ) : (
-                <span className="admin-nav-disabled" key={item.name}>{item.name}<small>próx.</small></span>
-              ))}
-            </div>
-          ))}
-        </nav>
-      </aside>
-      <div className="admin-main">
-        <header className="admin-topbar">
-          <div><span className="status-dot" /> Sistema operativo</div>
-          <div className="admin-user"><span><strong>{user.name}</strong><small>{user.email}</small></span><form action={logoutAction}><button type="submit">Salir</button></form></div>
-        </header>
-        <nav className="admin-mobile-nav" aria-label="Administración móvil">
-          <Link href="/admin">Dashboard</Link>
-          <Link href="/admin/productos">Productos</Link>
-          <Link href="/admin/categorias">Categorías</Link>
-          <Link href="/admin/stock">Stock</Link>
-          <Link href="/admin/pedidos">Pedidos</Link>
-          <Link href="/admin/envios">Envíos</Link>
-        </nav>
-        <main className="admin-content">{children}</main>
-      </div>
+  return <div className="admin-shell">
+    <aside className="admin-sidebar"><Link className="brand brand--light" href="/admin"><span className="brand__mark">L</span><span>Lauril</span></Link><AdminNavigation permissions={user.permissions} /></aside>
+    <div className="admin-main">
+      <header className="admin-topbar"><div><span className="status-dot" /> Backoffice operativo</div><div className="admin-user"><span><strong>{user.name}</strong><small>{user.email}</small></span><form action={logoutAction}><button type="submit">Salir</button></form></div></header>
+      <div className="admin-mobile-nav-wrap"><AdminNavigation mobile permissions={user.permissions} /></div>
+      <AdminBreadcrumbs />
+      <main className="admin-content">{children}</main>
     </div>
-  );
+  </div>;
 }

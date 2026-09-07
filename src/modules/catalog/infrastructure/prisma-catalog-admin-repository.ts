@@ -109,6 +109,7 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
       description: product.description,
       status: product.status,
       featured: product.featured,
+      updatedAt: product.updatedAt,
       categoryIds: product.categories.map(({ categoryId }) => categoryId),
       images: product.images,
       variants: product.variants.map((variant) => ({
@@ -122,6 +123,10 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
         isActive: variant.isActive,
         stockOnHand: variant.inventory?.stockOnHand ?? 0,
         stockReserved: variant.inventory?.stockReserved ?? 0,
+        stockAvailable: calculateAvailableStock(
+          variant.inventory?.stockOnHand ?? 0,
+          variant.inventory?.stockReserved ?? 0,
+        ),
         minimumStock: variant.inventory?.minimumStock ?? 0,
       })),
     };

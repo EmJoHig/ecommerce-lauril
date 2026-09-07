@@ -59,6 +59,14 @@ export function normalizeCustomerAddress(input: CustomerAddressInput) {
   };
 }
 
+export function normalizeCustomerNote(value: string): string {
+  const normalized = value.trim().replace(/\r\n/g, "\n");
+  if (normalized.length < 1 || normalized.length > 2000) {
+    throw new ValidationError("La nota debe contener entre 1 y 2000 caracteres.");
+  }
+  return normalized;
+}
+
 function normalizePhone(value: string): string {
   const phone = value.trim();
   if (phone.length < 6 || phone.length > 30 || !/^[+()0-9 .-]+$/.test(phone)) {
