@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+const emptyStringAsUndefined = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? undefined : value;
+
+const optionalText = () =>
+  z.preprocess(emptyStringAsUndefined, z.string().trim().min(1).optional());
+
+const optionalUrl = () =>
+  z.preprocess(emptyStringAsUndefined, z.string().url().optional());
+
 const serverEnvSchema = z.object({
   DATABASE_URL: z.string().url(),
   APP_URL: z.string().url().default("http://localhost:3000"),
@@ -12,6 +21,12 @@ const serverEnvSchema = z.object({
   CART_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   ORDER_RESERVATION_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
   BCRYPT_COST: z.coerce.number().int().min(10).max(15).default(12),
+  S3_ENDPOINT: optionalUrl(),
+  S3_REGION: optionalText(),
+  S3_BUCKET: optionalText(),
+  S3_ACCESS_KEY_ID: optionalText(),
+  S3_SECRET_ACCESS_KEY: optionalText(),
+  S3_PUBLIC_BASE_URL: optionalUrl(),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

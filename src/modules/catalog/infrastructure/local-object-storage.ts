@@ -3,24 +3,12 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { ValidationError } from "@/shared/domain/errors";
 import type { ObjectStorage, ObjectUpload, StoredObject } from "../application/object-storage";
-
-const extensions: Readonly<Record<string, string>> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/avif": "avif",
-  "image/gif": "gif",
-};
+import { validateCatalogImageUpload } from "./catalog-image-upload";
 
 export class LocalObjectStorage implements ObjectStorage {
   async store(upload: ObjectUpload): Promise<StoredObject> {
-    const extension = extensions[upload.contentType];
-    if (!extension) throw new ValidationError("Formato de imagen no permitido.");
-    if (upload.bytes.byteLength === 0 || upload.bytes.byteLength > 5 * 1024 * 1024) {
-      throw new ValidationError("Cada imagen debe pesar entre 1 byte y 5 MB.");
-    }
+    const extension = validateCatalogImageUpload(upload);
     const fileName = `${randomUUID()}.${extension}`;
     const directory = path.join(process.cwd(), "public", "uploads", "catalog");
     await mkdir(directory, { recursive: true });
