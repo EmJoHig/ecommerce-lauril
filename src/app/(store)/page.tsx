@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { ProductCard } from "@/modules/catalog/presentation/product-card";
 import { getCatalogService } from "@/modules/catalog/infrastructure/catalog-composition";
+import { getPublicStoreSettings } from "@/modules/store-settings/infrastructure/store-settings-composition";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const catalog = getCatalogService();
-  const [products, categories] = await Promise.all([
+  const [products, categories, settings] = await Promise.all([
     catalog.listProducts({ featured: true, limit: 4 }),
     catalog.listCategories(),
+    getPublicStoreSettings(),
   ]);
 
   return (
@@ -60,7 +62,7 @@ export default async function HomePage() {
           <Link className="text-link" href="/productos">Ver catálogo →</Link>
         </div>
         <div className="product-grid">
-          {products.map((product) => <ProductCard key={product.id} product={product} />)}
+          {products.map((product) => <ProductCard key={product.id} product={product} storeName={settings.storeName} />)}
         </div>
         {products.length === 0 ? <div className="empty-state"><h2>Todavía no hay favoritos publicados</h2><p>Explorá el catálogo completo para descubrir la colección.</p><Link className="button button--secondary" href="/productos">Ver productos</Link></div> : null}
       </section>
@@ -72,7 +74,7 @@ export default async function HomePage() {
           <h2>Menos cosas.<br />Mejores historias.</h2>
         </div>
         <p>
-          Lauril nace de una idea simple: rodearnos de objetos honestos, útiles y
+          {settings.storeName} nace de una idea simple: rodearnos de objetos honestos, útiles y
           bellos. Cada pieza se elige por su material, su oficio y la manera en que
           mejora un pequeño momento del día.
         </p>

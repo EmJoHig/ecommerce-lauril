@@ -136,6 +136,12 @@ e idempotentes mediante `reservationReleasedAt`.
 
 ## Modelo objetivo por fases
 
+### Configuración de tienda implementada en Fase 10
+
+`StoreSettings` conserva una única fila (`id = 1`) con la identidad comercial,
+los datos públicos de contacto, redes sociales y una descripción breve. La base
+protege el carácter single-store mediante un `CHECK` sobre la clave primaria.
+
 ### Pagos
 
 - `Payment`: pedido, gateway, referencia externa, estado, importe, moneda e
@@ -203,3 +209,6 @@ se deriva de pagos, no de un único campo mutable sin historial.
   privadas de cliente, longitud protegida en PostgreSQL e índices por cliente y
   autor. Los permisos de clientes, usuarios, roles y auditoría se agregan mediante
   el seed idempotente.
+- La migración `20260907120000_phase10_store_settings` crea la configuración
+  comercial single-store e inicializa los valores públicos que antes estaban
+  definidos en el código.

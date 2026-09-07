@@ -4,7 +4,7 @@ import type { CatalogProduct } from "../domain/product";
 import { getLowestProductPrice } from "../domain/product";
 import { formatMoney } from "@/shared/domain/money";
 
-export function ProductCard({ product }: { product: CatalogProduct }) {
+export function ProductCard({ product, storeName }: { product: CatalogProduct; storeName: string }) {
   const hasStock = product.variants.some((variant) => variant.availableStock > 0);
 
   return (
@@ -20,7 +20,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
       </Link>
       <div className="product-card__body">
         <p className="eyebrow">
-          {product.categories[0]?.name ?? "Colección Lauril"}
+          {product.categories[0]?.name ?? `Colección ${storeName}`}
         </p>
         <h3>
           <Link href={`/producto/${product.slug}`}>{product.name}</Link>

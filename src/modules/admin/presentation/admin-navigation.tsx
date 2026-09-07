@@ -10,7 +10,7 @@ const sections = [
   { label: "Ventas", items: [{ name: "Pedidos", href: "/admin/pedidos", permission: "orders.read" }] },
   { label: "Clientes", items: [{ name: "Clientes", href: "/admin/clientes", permission: "customers.read" }] },
   { label: "Envíos", items: [{ name: "Métodos de entrega", href: "/admin/envios", permission: "shipping.read" }] },
-  { label: "Administración", items: [{ name: "Administradores", href: "/admin/administradores", permission: "users.read" }, { name: "Roles y permisos", href: "/admin/roles", permission: "roles.read" }, { name: "Auditoría", href: "/admin/auditoria", permission: "audit.read" }] },
+  { label: "Administración", items: [{ name: "Configuración", href: "/admin/configuracion", permission: "admin.access" }, { name: "Administradores", href: "/admin/administradores", permission: "users.read" }, { name: "Roles y permisos", href: "/admin/roles", permission: "roles.read" }, { name: "Auditoría", href: "/admin/auditoria", permission: "audit.read" }] },
 ] as const;
 
 export function AdminNavigation({ permissions, mobile = false }: Readonly<{ permissions: ReadonlyArray<string>; mobile?: boolean }>) {

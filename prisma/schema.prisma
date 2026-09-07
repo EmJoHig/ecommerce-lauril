@@ -533,3 +533,19 @@ model AuditLog {
   @@index([entityType, entityId, createdAt])
   @@map("audit_logs")
 }
+
+model StoreSettings {
+  id                Int      @id @default(1)
+  storeName         String   @map("store_name") @db.VarChar(120)
+  publicEmail       String   @map("public_email") @db.VarChar(320)
+  phone             String?  @db.VarChar(30)
+  whatsapp          String?  @db.VarChar(30)
+  businessAddress   String?  @map("business_address") @db.VarChar(300)
+  instagramUrl      String?  @map("instagram_url") @db.VarChar(500)
+  facebookUrl       String?  @map("facebook_url") @db.VarChar(500)
+  publicDescription String?  @map("public_description") @db.VarChar(500)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("store_settings")
+}

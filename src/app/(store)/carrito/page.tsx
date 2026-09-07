@@ -8,13 +8,13 @@ import {
   ClearCartButton,
   RemoveCartItemButton,
 } from "@/modules/cart/presentation/cart-controls";
+import { getPublicStoreSettings } from "@/modules/store-settings/infrastructure/store-settings-composition";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = {
-  title: "Carrito",
-  description: "Revisá los productos guardados en tu carrito Lauril.",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getPublicStoreSettings();
+  return { title: "Carrito", description: `Revisá los productos guardados en tu carrito ${settings.storeName}.`, robots: { index: false, follow: false } };
+}
 
 export default async function CartPage() {
   const cart = await getRequestCart();
