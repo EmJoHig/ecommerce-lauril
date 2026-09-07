@@ -3,9 +3,10 @@
 Ecommerce propio, single-store y construido como monolito modular con Next.js,
 TypeScript, PostgreSQL, Prisma y Tailwind CSS.
 
-La Fase 6 incluye catálogo, carrito, cuentas, checkout, métodos propios de entrega,
-pedidos, reserva temporal y gestión administrativa completa de ventas. No incluye Mercado Pago, pagos,
-descuentos, transportistas externos ni facturación. El alcance está en
+La Fase 7 incluye catálogo, carrito, cuentas, checkout, métodos propios de entrega,
+pedidos, reserva temporal y un backoffice consolidado para clientes, inventario,
+ventas, administradores y auditoría. No incluye Mercado Pago, pagos, promociones,
+transportistas externos ni facturación. El alcance está en
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Requisitos
@@ -34,7 +35,7 @@ Abrir `http://localhost:3000` para la tienda y `http://localhost:3000/admin` par
 la administración. El health check superficial está en `/api/health`; agregar
 `?deep=1` también verifica PostgreSQL.
 
-Rutas principales de Fases 2 a 6:
+Rutas principales de Fases 2 a 7:
 
 - `/admin/productos`, `/admin/categorias` y `/admin/stock` para la operación.
 - `/productos`, `/categorias/[slug]` y `/producto/[slug]` para la tienda.
@@ -43,6 +44,10 @@ Rutas principales de Fases 2 a 6:
 - `/mi-cuenta`, `/mi-cuenta/datos` y `/mi-cuenta/direcciones` para la cuenta.
 - `/checkout` y `/pedido/[número]` para confirmar y consultar un pedido.
 - `/admin/envios` y `/admin/pedidos` para métodos de entrega y operación diaria de pedidos.
+- `/admin/clientes` para perfiles, direcciones, pedidos y notas internas.
+- `/admin/stock/movimientos` para trazabilidad inmutable del inventario.
+- `/admin/administradores`, `/admin/roles` y `/admin/auditoria` para gobierno del
+  backoffice según permisos.
 
 Las imágenes subidas en desarrollo se guardan en `public/uploads/catalog`, que
 está ignorado por Git. No usar ese adaptador en Render porque su filesystem es
@@ -68,6 +73,10 @@ Para una prueba manual local de Fase 6 se pueden crear pedidos sintéticos
 `PENDING_PAYMENT` y `PAID` con `npm run db:fixtures:phase6`, y eliminarlos con
 `npm run db:fixtures:phase6:cleanup`. El script rechaza producción y bases no
 locales; no existe una vía equivalente en la interfaz.
+
+Los fixtures de Fase 7 para cliente, pedido y permisos del backoffice se crean con
+`PHASE7_FIXTURE_PASSWORD=<valor> npm run db:fixtures:phase7` y se eliminan con
+`npm run db:fixtures:phase7:cleanup`; también están restringidos a PostgreSQL local.
 
 En producción se ejecuta `npm run db:migrate:deploy`, nunca `migrate dev`.
 

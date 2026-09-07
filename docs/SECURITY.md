@@ -31,6 +31,14 @@ Pedidos separa `orders.read` de `orders.write`. Cada Server Action vuelve a exig
 sesión y permiso; no confía en que la página haya ocultado controles. Los IDs se
 validan y un pedido inexistente no expone datos por respuesta diferencial.
 
+Fase 7 separa además `customers`, `users`, `roles` y `audit` en capacidades de
+lectura/escritura. Email y contraseña del cliente no son editables desde el
+backoffice. Deshabilitar un cliente conserva su historia y bloquea el login. Un
+administrador no puede deshabilitarse a sí mismo ni deshabilitar al último
+administrador activo; asignar roles exige conservar `admin.access`.
+Las rutas protegidas responden como recurso no encontrado cuando falta una
+capacidad, evitando revelar su existencia y sin depender de la navegación visible.
+
 ## Entradas, salidas y negocio
 
 - Validación de esquema en cada borde con límites de longitud y listas permitidas.
@@ -93,6 +101,9 @@ validan y un pedido inexistente no expone datos por respuesta diferencial.
   registra historial/auditoría en la misma transacción.
 - Las notas internas se consultan únicamente mediante el repositorio
   administrativo y nunca se incluyen en la vista pública del pedido.
+- Las notas privadas de cliente tampoco se incluyen en `Mi cuenta`. Auditoría es
+  de solo lectura y elimina recursivamente metadatos cuyas claves indiquen
+  password, token, cookie, secreto, autorización, credencial o sesión.
 
 ## Secretos y datos
 

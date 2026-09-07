@@ -91,27 +91,59 @@ Estado: completada y validada.
 Mercado Pago continúa expresamente postergado. `PAID` no puede asignarse desde la
 interfaz administrativa.
 
-## Fase 7 — Marketing, diseño y reportes
+## Fase 7 — Administración integral
 
-- Dashboard y reportes de ventas, pedidos, conversión e inventario.
-- Gestión de clientes, dashboard comercial y evolución operativa de envíos.
-- Banners, páginas, colores, logo, contenido y configuración SEO.
-- Promociones avanzadas (2x1, 3x2, segunda unidad y combinabilidad).
-- Cupones porcentuales/fijos, envío gratis y promociones por producto/categoría.
-- Auditoría consultable y permisos granulares de administradores.
+Estado: completada y validada.
 
-## Fase 8 — Pagos (postergada hasta aprobación explícita)
+- Navegación y layout operativo unificados según permisos.
+- Clientes paginados, detalle, direcciones, pedidos, estado y notas privadas.
+- Detalle de producto, stock y movimientos integrados con trazabilidad.
+- Administración básica de usuarios/roles y auditoría consultable de solo lectura.
+- Inicio con contadores operativos, sin gráficos ni BI.
 
-- `PaymentGateway` y `MercadoPagoPaymentGateway` con Checkout Pro.
-- Preferencias, retorno pendiente, webhooks firmados, inbox idempotente y
-  conciliación.
-- Pagos, eventos, rechazos, cancelaciones y reembolsos parciales/totales.
-- Conversión atómica de reserva a venta física y movimientos idempotentes.
+## Fase 8 — Tienda pública completa
 
-## Fase 9 — Escala y producción
+- Completar navegación, cuenta, pedidos públicos y experiencia responsive.
+- No incluye pagos ni rediseño visual definitivo.
 
-- Importación/exportación CSV/XLSX y actualización masiva de precios con preview.
-- Docker de producción, Blueprint/servicios Render, S3, email y observabilidad.
-- Rate limiting compartido, hardening, performance, accesibilidad y carga.
-- Backups/restores, runbooks, CI/CD, entornos preview y checklist de lanzamiento.
-- Evaluar extracción de servicios solo a partir de métricas, nunca por anticipación.
+## Fase 9 — Gestión avanzada de catálogo y stock
+
+- Operaciones avanzadas de catálogo e inventario aprobadas explícitamente.
+
+## Fase 10 — Importación/exportación y catálogo real
+
+- CSV/XLSX, validación, preview e importación idempotente.
+
+## Fase 11 — Configuración básica
+
+- Datos de la tienda y configuración operativa no secreta.
+
+## Fase 12 — Emails esenciales
+
+- Proveedor real y mensajes transaccionales mínimos.
+
+## Fase 13 — Dashboard y reportes
+
+- Métricas, ventas, pedidos e inventario; recién aquí se incorporan gráficos.
+
+## Fase 14 — Diseño y UX definitivo
+
+- Sistema visual final, accesibilidad y rendimiento responsive.
+
+## Fase 15 — QA y staging
+
+- Entorno de prueba, carga, hardening, backups y runbooks.
+
+## Fase 16 — Mercado Pago
+
+- `PaymentGateway`, Checkout Pro, webhooks firmados e idempotencia.
+- Conversión atómica de reserva a venta y movimientos físicos.
+
+## Fase 17 — Prueba end-to-end
+
+- Validación integral de compra, pago, operación y despliegue.
+
+## Extras posteriores
+
+Promociones, personalización avanzada, marketing, envíos avanzados y
+automatizaciones se evaluarán únicamente después de la Fase 17.

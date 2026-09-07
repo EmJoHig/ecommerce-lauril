@@ -251,6 +251,23 @@ Cancelar un pendiente libera `stockReserved` una sola vez sin modificar
 y `AuditLog` se escriben atómicamente. `OrderNote` es información operativa interna
 y nunca forma parte del DTO público del pedido.
 
+## Backoffice consolidado en Fase 7
+
+El layout protegido compone navegación responsive y consciente de permisos. Las
+páginas autentican con `requireAdmin`, invocan servicios y renderizan DTOs; no
+importan Prisma. Búsqueda, fechas, paginación y límites se normalizan con
+utilidades compartidas de aplicación.
+
+`CustomerAdminService`, `InventoryAdminService`, `AdminAccessService`,
+`AuditService` y `AdminOverviewService` exponen consultas y comandos específicos.
+Sus adaptadores Prisma concentran filtros, transacciones y auditoría. Las notas de
+cliente son privadas; editar un perfil conserva email y contraseña, y
+deshabilitarlo bloquea el login sin borrar identidad ni historia comercial.
+
+Administradores y roles reutilizan el RBAC existente. Las mutaciones impiden la
+auto-deshabilitación y dejar el sistema sin un administrador activo. Auditoría es
+de solo lectura y elimina claves sensibles de metadatos antes de enviarlos a UI.
+
 ## Despliegue
 
 La aplicación puede ejecutarse con el runtime Node de Render y PostgreSQL

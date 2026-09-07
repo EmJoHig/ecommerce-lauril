@@ -10,7 +10,7 @@
 - Restricciones SQL protegen invariantes además de la validación de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
-## Modelo implementado hasta Fase 6
+## Modelo implementado hasta Fase 7
 
 ### Identidad y autorización
 
@@ -31,6 +31,8 @@ comparten la tabla normalizada, pero cada lector valida además el perfil requer
   estado y timestamps. Nombre y email viven en `User` para no duplicarlos.
 - `CustomerAddress`: destinatario y dirección argentina estructurada. Todas las
   consultas y mutaciones se restringen por `customerId`.
+- `CustomerNote`: nota administrativa privada con cliente, autor y fecha; no se
+  expone en DTOs públicos.
 
 Un índice único parcial mantiene una sola dirección predeterminada por cliente.
 La primera dirección se vuelve predeterminada y, al eliminarla, la operación
@@ -175,6 +177,7 @@ se deriva de pagos, no de un único campo mutable sin historial.
 - pedidos: número único, `(customerId, createdAt)`, `(status, createdAt)` y
   `(shippingMethodId, createdAt)`.
 - notas de pedido: `(orderId, createdAt)` y `(actorUserId, createdAt)`.
+- notas de cliente: `(customerId, createdAt)` y `(actorUserId, createdAt)`.
 - pagos/eventos: referencias externas e idempotencia únicas.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
@@ -196,3 +199,7 @@ se deriva de pagos, no de un único campo mutable sin historial.
   entrega, pedidos, snapshots, historial, idempotencia y constraints monetarias.
 - La migración `20260901200000_phase6_admin_order_management` agrega notas internas
   con autor/constraints e índices para estado, entrega y trazabilidad operativa.
+- La migración `20260902010000_phase7_backoffice_consolidation` agrega notas
+  privadas de cliente, longitud protegida en PostgreSQL e índices por cliente y
+  autor. Los permisos de clientes, usuarios, roles y auditoría se agregan mediante
+  el seed idempotente.

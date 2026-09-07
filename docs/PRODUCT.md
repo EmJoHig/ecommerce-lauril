@@ -58,15 +58,17 @@ roles y permisos.
 Las Fases 1 a 4 entregan la fundación, catálogo, inventario, carrito y cuentas de
 cliente. La Fase 5 incorpora checkout cliente/invitado, métodos propios de entrega,
 pedidos con snapshots, reserva temporal de stock, expiración e idempotencia. La
-Fase 6 incorpora la operación administrativa completa: búsqueda y filtros,
+Fase 6 incorpora la operación administrativa de ventas: búsqueda y filtros,
 detalle, preparación, despacho/entrega, cancelación pendiente, historial con actor
-y notas internas.
+y notas internas. La Fase 7 consolida el backoffice: navegación unificada, inicio
+operativo, clientes y notas privadas, catálogo e inventario integrados,
+administradores/roles y auditoría de solo lectura.
 
 El carrito continúa sin reservar stock. La reserva comienza únicamente al crear
 un pedido `PENDING_PAYMENT`, incrementa `stockReserved` durante 15 minutos por
 defecto y no representa una venta ni genera `InventoryMovement`. Mercado Pago,
-pagos, promociones, cupones, facturación y transportistas externos permanecen
-fuera del alcance actual.
+pagos, promociones, cupones, facturación, analítica avanzada y transportistas
+externos permanecen fuera del alcance actual.
 
 ## Criterios no funcionales
 
