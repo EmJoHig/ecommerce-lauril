@@ -27,6 +27,8 @@ const serverEnvSchema = z.object({
   S3_ACCESS_KEY_ID: optionalText(),
   S3_SECRET_ACCESS_KEY: optionalText(),
   S3_PUBLIC_BASE_URL: optionalUrl(),
+  RESEND_API_KEY: optionalText(),
+  EMAIL_FROM: optionalText(),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

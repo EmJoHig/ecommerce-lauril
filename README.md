@@ -104,6 +104,8 @@ npm run build
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: administrador inicial opcional.
 - `S3_*`: reservadas para el futuro adaptador S3 compatible; el adaptador local no
   necesita variables adicionales.
+- `RESEND_API_KEY`, `EMAIL_FROM`: obligatorias en producción para enviar emails
+  transaccionales mediante Resend; desarrollo y test conservan el sender local.
 
 No hay credenciales predeterminadas en el repositorio. `.env` está ignorado por
 Git.
