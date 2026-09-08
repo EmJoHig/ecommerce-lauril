@@ -42,91 +42,61 @@ const shippingMethods = [
 
 const categories = [
   {
-    slug: "ritual-del-mate",
-    name: "Ritual del mate",
-    description: "Mates, bombillas y accesorios para una pausa compartida.",
+    slug: "perfuminas",
+    name: "Perfuminas",
+    description: "Aromas textiles para renovar cada ambiente.",
     sortOrder: 1,
   },
   {
-    slug: "mesa-y-hogar",
-    name: "Mesa & hogar",
-    description: "Texturas y formas cálidas para habitar todos los días.",
+    slug: "desodorantes-para-piso-concentrado",
+    name: "Desodorantes para piso concentrado",
+    description: "Fragancias concentradas para la limpieza de pisos.",
     sortOrder: 2,
   },
   {
-    slug: "cuidado-personal",
-    name: "Cuidado personal",
-    description: "Pequeños gestos de bienestar con materiales nobles.",
+    slug: "difusores",
+    name: "Difusores",
+    description: "Difusores para perfumar los espacios de forma continua.",
     sortOrder: 3,
   },
 ] as const;
 
 const products = [
-  {
-    slug: "mate-calden",
-    name: "Mate Caldén",
-    shortDescription: "Madera torneada y virola de acero para el ritual de siempre.",
-    description:
-      "Una pieza cálida de líneas simples, sellada para acompañarte todos los días. Cada veta hace que no haya dos iguales.",
-    categorySlug: "ritual-del-mate",
-    featured: true,
-    sku: "LAU-MAT-CAL-001",
-    variantName: "Natural",
-    attributes: { material: "Madera de caldén", color: "Natural" },
-    priceInCents: 3290000n,
-    promotionalPriceInCents: 2990000n,
-    initialStock: 14,
-    minimumStock: 4,
+  ["BAT-017", "Uva", 100],
+  ["BAT-016", "Papaya", 100],
+  ["BAT-015", "Millon", 99],
+  ["BAT-014", "Naranja", 100],
+  ["BAT-013", "Melón Banana", 100],
+  ["BAT-012", "Limón", 100],
+  ["BAT-011", "Lavanda", 100],
+  ["BAT-010", "Frutos Rojos", 0],
+  ["BAT-009", "Flores Amarillas", 100],
+  ["BAT-008", "Duvet", 0],
+  ["BAT-007", "Cony", 100],
+  ["BAT-006", "Coco Vai", 100],
+  ["BAT-005", "Citrus", 100],
+  ["BAT-004", "Chicle", 100],
+  ["BAT-003", "Caricias De Algodón", 100],
+  ["BAT-002", "Bouquet", 100],
+  ["BAT-001", "Bebé", 100],
+].map(([sku, fragrance, initialStock]) => ({
+  slug: `bruma-aromatica-textil-${String(fragrance).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+  name: `BRUMA AROMATICA TEXTIL ${String(fragrance).toLocaleUpperCase("es-AR")}`,
+  shortDescription: null,
+  description: null,
+  categorySlug: "perfuminas",
+  featured: false,
+  sku: String(sku),
+  variantName: "Única",
+  attributes: {
+    fragancia: String(fragrance),
+    fraganciaKey: String(fragrance).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-AR"),
   },
-  {
-    slug: "jarra-tierra",
-    name: "Jarra Tierra",
-    shortDescription: "Cerámica de acabado mate para agua, flores o sobremesas largas.",
-    description:
-      "Jarra de cerámica esmaltada por dentro y de tacto mineral por fuera. Su silueta funciona tanto en la mesa como con flores.",
-    categorySlug: "mesa-y-hogar",
-    featured: true,
-    sku: "LAU-HOG-JAR-001",
-    variantName: "Terracota",
-    attributes: { material: "Cerámica", color: "Terracota" },
-    priceInCents: 4150000n,
-    promotionalPriceInCents: null,
-    initialStock: 8,
-    minimumStock: 3,
-  },
-  {
-    slug: "cuenco-origen",
-    name: "Cuenco Origen",
-    shortDescription: "Un cuenco versátil de gres, modelado para el uso cotidiano.",
-    description:
-      "Gres de alta temperatura con esmalte satinado. Ideal para desayunos, picadas y esas cosas pequeñas que merecen su lugar.",
-    categorySlug: "mesa-y-hogar",
-    featured: true,
-    sku: "LAU-HOG-CUE-001",
-    variantName: "Arena",
-    attributes: { material: "Gres", color: "Arena" },
-    priceInCents: 1890000n,
-    promotionalPriceInCents: null,
-    initialStock: 21,
-    minimumStock: 6,
-  },
-  {
-    slug: "cepillo-lino",
-    name: "Cepillo Lino",
-    shortDescription: "Madera y fibras vegetales para transformar un gesto simple.",
-    description:
-      "Cepillo corporal de mango suave y fibras firmes. Pensado para guardarse a la vista y durar mucho tiempo.",
-    categorySlug: "cuidado-personal",
-    featured: true,
-    sku: "LAU-CUI-CEP-001",
-    variantName: "Única",
-    attributes: { material: "Madera y fibras vegetales" },
-    priceInCents: 2240000n,
-    promotionalPriceInCents: 1990000n,
-    initialStock: 3,
-    minimumStock: 5,
-  },
-] as const;
+  priceInCents: 450000n,
+  promotionalPriceInCents: null,
+  initialStock: Number(initialStock),
+  minimumStock: 0,
+}));
 
 async function seedAuthorization(): Promise<string | null> {
   const createdPermissions = new Map<string, string>();
@@ -209,6 +179,14 @@ async function seedCatalog(adminUserId: string | null): Promise<void> {
     });
     categoryIds.set(category.slug, saved.id);
   }
+  await prisma.category.updateMany({
+    where: { slug: { notIn: categories.map(({ slug }) => slug) } },
+    data: { isActive: false },
+  });
+  await prisma.product.updateMany({
+    where: { slug: { in: ["mate-calden", "jarra-tierra", "cuenco-origen", "cepillo-lino"] } },
+    data: { status: "INACTIVE" },
+  });
 
   const movements = new RecordInventoryMovement(
     new PrismaInventoryUnitOfWork(prisma),
@@ -236,6 +214,7 @@ async function seedCatalog(adminUserId: string | null): Promise<void> {
 
     const categoryId = categoryIds.get(item.categorySlug);
     if (!categoryId) throw new Error(`Categoría no encontrada: ${item.categorySlug}`);
+    await prisma.productCategory.deleteMany({ where: { productId: product.id } });
     await prisma.productCategory.upsert({
       where: { productId_categoryId: { productId: product.id, categoryId } },
       update: {},

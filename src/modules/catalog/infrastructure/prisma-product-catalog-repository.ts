@@ -66,6 +66,21 @@ export class PrismaProductCatalogRepository
     });
   }
 
+  async listFragrances() {
+    const variants = await this.prisma.productVariant.findMany({
+      where: { isActive: true, isDefault: true, product: { status: "ACTIVE" } },
+      select: { attributes: true },
+    });
+    const fragrances = new Map<string, string>();
+    for (const variant of variants) {
+      const attributes = toStringRecord(variant.attributes);
+      const key = attributes.fraganciaKey;
+      const name = attributes.fragancia;
+      if (key && name && !fragrances.has(key)) fragrances.set(key, name);
+    }
+    return [...fragrances].map(([key, name]) => ({ key, name })).sort((left, right) => left.name.localeCompare(right.name, "es"));
+  }
+
   queryProducts(input: ListCatalogProductsInput = {}) {
     return this.prisma.product.findMany({
       where: publicProductWhere(input),
@@ -128,7 +143,15 @@ function mapProduct(row: ProductRow): CatalogProduct {
 function publicProductWhere(input: ListCatalogProductsInput): Prisma.ProductWhereInput {
   return {
     status: "ACTIVE",
-    variants: { some: { isActive: true, isDefault: true } },
+    variants: {
+      some: {
+        isActive: true,
+        isDefault: true,
+        ...(input.fragranceKey
+          ? { attributes: { path: ["fraganciaKey"], equals: input.fragranceKey } }
+          : {}),
+      },
+    },
     ...(input.featured === undefined ? {} : { featured: input.featured }),
     ...(input.categorySlug
       ? {

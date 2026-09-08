@@ -2,6 +2,7 @@ import type { CatalogProduct } from "../domain/product";
 
 export type ListCatalogProductsInput = Readonly<{
   categorySlug?: string;
+  fragranceKey?: string;
   featured?: boolean;
   limit?: number;
   page?: number;
@@ -25,9 +26,12 @@ export type CatalogCategory = Readonly<{
   description: string | null;
 }>;
 
+export type CatalogFragrance = Readonly<{ key: string; name: string }>;
+
 export interface ProductCatalogRepository {
   listProducts(input?: ListCatalogProductsInput): Promise<CatalogProduct[]>;
   listProductPage(input: ListCatalogProductsInput): Promise<CatalogProductPage>;
   findBySlug(slug: string): Promise<CatalogProduct | null>;
   listCategories(): Promise<CatalogCategory[]>;
+  listFragrances(): Promise<CatalogFragrance[]>;
 }

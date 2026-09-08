@@ -44,6 +44,9 @@ selecciona otra en la misma transacción. El email queda inmutable en esta fase.
 - `ProductVariant`: unidad vendible. Contiene SKU único y normalizado (`A-Z`,
   números, `.`, `_`, `-`), atributos JSON, precios, estado y marca de variante por
   defecto.
+- La fragancia del catálogo se guarda en los atributos de la variante como
+  `fragancia` (nombre visible) y `fraganciaKey` (clave normalizada compartida entre
+  categorías). No requiere una entidad ni una migración adicional.
 - `ProductImage`: varias imágenes ordenadas y con texto alternativo.
 - `Category`: árbol opcional por `parentId`, slug único y orden.
 - `ProductCategory`: relación N:M explícita para permitir orden y metadatos futuros.
