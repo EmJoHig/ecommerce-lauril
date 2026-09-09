@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { CartIndicator } from "@/modules/cart/presentation/cart-indicator";
 import { getCurrentCustomer } from "@/modules/customers/presentation/customer-session";
@@ -6,7 +7,6 @@ import { getPublicStoreSettings } from "@/modules/store-settings/infrastructure/
 
 export default async function StoreLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const [customer, settings] = await Promise.all([getCurrentCustomer(), getPublicStoreSettings()]);
-  const brandMark = settings.storeName.charAt(0).toUpperCase();
   return (
     <div className="store-shell">
       <div className="announcement">
@@ -16,10 +16,10 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
       </div>
       <header className="store-header">
         <Link className="brand" href="/" aria-label={`${settings.storeName}, inicio`}>
-          <span className="brand__mark">{brandMark}</span>
-          <span className="brand__name">{settings.storeName}<small>Objetos que hacen bien</small></span>
+          <Image alt={settings.storeName} className="brand__logo" height={70} priority src="/brand/lauril-logo.png" width={92} />
         </Link>
         <nav aria-label="Navegación principal" className="store-nav">
+          <Link href="/">Inicio</Link>
           <Link href="/productos">Productos</Link>
           <Link href="/#colecciones">Colecciones</Link>
           <Link href="/#historia">Nuestra historia</Link>
@@ -28,7 +28,7 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
           <form action="/productos" className="header-search" role="search"><label className="sr-only" htmlFor="header-search">Buscar productos</label><input id="header-search" name="buscar" placeholder="Buscar productos" type="search" /><button aria-label="Buscar" type="submit"><SearchIcon /></button></form>
           {customer ? <Link aria-label="Ir a mi cuenta" className="header-account" href="/mi-cuenta"><AccountIcon /><span>Mi cuenta</span></Link> : <Link aria-label="Ingresar a mi cuenta" className="header-account" href="/login"><AccountIcon /><span>Ingresar</span></Link>}
           <CartIndicator />
-          <details className="store-mobile-nav"><summary aria-label="Abrir menú"><MenuIcon /></summary><nav aria-label="Navegación mobile"><Link href="/productos">Productos</Link><Link href="/#colecciones">Colecciones</Link><Link href="/#historia">Nuestra historia</Link>{customer ? <><Link href="/mi-cuenta">Mi cuenta</Link><form action={logoutCustomerAction}><button type="submit">Cerrar sesión</button></form></> : <><Link href="/login">Ingresar</Link><Link href="/registro">Crear cuenta</Link></>}</nav></details>
+          <details className="store-mobile-nav"><summary aria-label="Abrir menú"><MenuIcon /></summary><nav aria-label="Navegación mobile"><Link href="/">Inicio</Link><Link href="/productos">Productos</Link><Link href="/#colecciones">Colecciones</Link><Link href="/#historia">Nuestra historia</Link>{customer ? <><Link href="/mi-cuenta">Mi cuenta</Link><form action={logoutCustomerAction}><button type="submit">Cerrar sesión</button></form></> : <><Link href="/login">Ingresar</Link><Link href="/registro">Crear cuenta</Link></>}</nav></details>
         </div>
       </header>
       <main>{children}</main>
@@ -40,7 +40,7 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
       </section>
       <footer className="store-footer">
         <div>
-          <p className="brand brand--footer"><span className="brand__mark">{brandMark}</span> {settings.storeName}</p>
+          <Link className="brand brand--footer" href="/" aria-label={`${settings.storeName}, inicio`}><Image alt={settings.storeName} className="brand__logo brand__logo--footer" height={91} src="/brand/lauril-logo.png" width={120} /></Link>
           {settings.publicDescription ? <p>{settings.publicDescription}</p> : null}
         </div>
         <div>

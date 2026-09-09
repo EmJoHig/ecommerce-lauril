@@ -17,7 +17,7 @@ export function ProductCard({ product, storeName }: { product: CatalogProduct; s
         <Image
           alt={product.imageAlt ?? product.name}
           fill
-          sizes="(max-width: 720px) 100vw, (max-width: 1100px) 50vw, 33vw"
+          sizes="(max-width: 430px) 50vw, (max-width: 960px) 50vw, (max-width: 1280px) 33vw, 25vw"
           src={product.imageUrl ?? "/product-placeholder.svg"}
         />
         {hasOffer ? <span className="pill">Oferta</span> : product.featured ? <span className="pill">Destacado</span> : null}
