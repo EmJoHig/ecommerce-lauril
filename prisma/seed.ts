@@ -1,19 +1,16 @@
 import "dotenv/config";
 
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/modules/auth/domain/password";
 import { RecordInventoryMovement } from "../src/modules/inventory/application/record-inventory-movement";
 import { PrismaInventoryUnitOfWork } from "../src/modules/inventory/infrastructure/prisma-inventory-unit-of-work";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL es obligatoria para ejecutar el seed.");
+const mongodbUri = process.env.MONGODB_URI;
+if (!mongodbUri) {
+  throw new Error("MONGODB_URI es obligatoria para ejecutar el seed.");
 }
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: databaseUrl }),
-});
+const prisma = new PrismaClient();
 
 const permissions = [
   ["admin.access", "Acceder al panel"],
@@ -242,6 +239,7 @@ async function seedCatalog(adminUserId: string | null): Promise<void> {
         productId: product.id,
         name: item.variantName,
         attributes: item.attributes,
+        fragranceKey: item.attributes.fraganciaKey,
         priceInCents: item.priceInCents,
         promotionalPriceInCents: item.promotionalPriceInCents,
         isDefault: true,
@@ -252,6 +250,7 @@ async function seedCatalog(adminUserId: string | null): Promise<void> {
         sku: item.sku,
         name: item.variantName,
         attributes: item.attributes,
+        fragranceKey: item.attributes.fraganciaKey,
         priceInCents: item.priceInCents,
         promotionalPriceInCents: item.promotionalPriceInCents,
         isDefault: true,
@@ -276,7 +275,7 @@ async function seedCatalog(adminUserId: string | null): Promise<void> {
       },
       select: { id: true },
     });
-    if (!seededMovement && inventory.stockOnHand === 0) {
+    if (!seededMovement && inventory.stockOnHand === 0 && item.initialStock !== 0) {
       await movements.execute({
         inventoryId: inventory.id,
         type: "RECEIPT",
@@ -296,10 +295,25 @@ async function seedShipping(): Promise<void> {
   }
 }
 
+async function seedStoreSettings(): Promise<void> {
+  await prisma.storeSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      id: 1,
+      storeName: "Lauril",
+      publicEmail: "hola@lauril.com.ar",
+      businessAddress: "Buenos Aires, Argentina",
+      publicDescription: "Objetos elegidos para acompañar tus rituales cotidianos.",
+    },
+  });
+}
+
 async function main(): Promise<void> {
   const adminUserId = await seedAuthorization();
   await seedCatalog(adminUserId);
   await seedShipping();
+  await seedStoreSettings();
   console.info(
     adminUserId
       ? "Seed completado con catálogo y administrador."

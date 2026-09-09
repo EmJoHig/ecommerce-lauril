@@ -15,7 +15,7 @@ Priorizar cambios precisos y pequeños antes que exploración amplia del reposit
 - `src/app`: rutas, layouts y presentación con Next.js App Router.
 - `src/modules`: módulos de negocio.
 - `src/shared`: utilidades y contratos transversales.
-- `prisma`: esquema, migraciones y seed.
+- `prisma`: esquema MongoDB y seed.
 - `tests`: pruebas.
 - `docs`: documentación funcional y técnica.
 
@@ -72,7 +72,7 @@ Consultar para:
 
 - Prisma;
 - esquema;
-- migraciones;
+- `db push`;
 - índices;
 - constraints;
 - transacciones;
@@ -159,17 +159,18 @@ No modificar directamente `Inventory` desde presentación.
 
 ## Base de datos
 
-PostgreSQL es la fuente de verdad persistente.
+MongoDB Atlas es la única fuente de verdad persistente.
 
 Prisma es un detalle de infraestructura.
 
 Para cambios de esquema:
 
-- crear una migración nueva;
-- nunca modificar una migración ya aplicada;
-- conservar constraints e índices existentes salvo razón explícita.
+- actualizar `prisma/schema.prisma`;
+- aplicar `npm run db:push` en el entorno correspondiente;
+- conservar índices e invariantes existentes salvo razón explícita;
+- mantener idempotente `scripts/ensure-mongodb-indexes.ts` para índices parciales.
 
-No crear migraciones si la tarea no modifica el esquema.
+MongoDB no utiliza Prisma Migrate ni migraciones SQL.
 
 No modificar `seed.ts` salvo que sea realmente necesario.
 
@@ -308,7 +309,7 @@ No ejecutar todos los tests si existe una prueba específica para el comportamie
 Ejecutar solamente las validaciones relacionadas con:
 
 - schema;
-- migración;
+- `db push` e índices MongoDB;
 - repositorio afectado;
 - tests relacionados.
 
@@ -338,7 +339,7 @@ Durante el trabajo local:
 - máximo 10 tests dirigidos;
 - typecheck cuando corresponda;
 - lint solamente si es relevante;
-- Prisma/migraciones si fueron modificados.
+- Prisma/`db push` si fueron modificados.
 
 Después del push, GitHub CI valida:
 - lint;

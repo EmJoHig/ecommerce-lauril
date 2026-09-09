@@ -53,7 +53,7 @@ export class PrismaAdminAccessRepository implements AdminAccessRepository {
           metadata: { roleIds: input.roleIds }, createdAt: input.occurredAt,
         } });
         return user;
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      });
     } catch (error) {
       if (error instanceof NotFoundError) throw error;
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
@@ -65,6 +65,11 @@ export class PrismaAdminAccessRepository implements AdminAccessRepository {
 
   async setStatus(input: Parameters<AdminAccessRepository["setStatus"]>[0]): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      await tx.sequence.upsert({
+        where: { id: "lock:admin-status" },
+        update: { value: { increment: 1n } },
+        create: { id: "lock:admin-status", value: 1n },
+      });
       const target = await tx.user.findFirst({
         where: { id: input.userId, roles: { some: { role: { permissions: { some: { permission: { code: "admin.access" } } } } } } },
         select: { status: true },
@@ -85,7 +90,7 @@ export class PrismaAdminAccessRepository implements AdminAccessRepository {
         actorUserId: input.actorUserId, action: "admin.status_change", entityType: "User", entityId: input.userId,
         metadata: { fromStatus: target.status, toStatus: input.status }, createdAt: input.occurredAt,
       } });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
 
   async updateRoles(input: Parameters<AdminAccessRepository["updateRoles"]>[0]): Promise<void> {
@@ -100,6 +105,6 @@ export class PrismaAdminAccessRepository implements AdminAccessRepository {
         actorUserId: input.actorUserId, action: "admin.roles_change", entityType: "User", entityId: input.userId,
         metadata: { roleIds: input.roleIds }, createdAt: input.occurredAt,
       } });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
 }

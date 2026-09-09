@@ -2,12 +2,13 @@
 
 ## Convenciones
 
-- PostgreSQL es la fuente de verdad; Prisma gestiona esquema y migraciones.
-- UUID para claves primarias expuestas. Fechas `timestamptz` en UTC.
+- MongoDB Atlas es la única fuente de verdad persistente; Prisma gestiona el schema
+  y el acceso a las colecciones.
+- UUID `String` para claves primarias expuestas, mapeadas a `_id`. Fechas en UTC.
 - Importes como `bigint` en centavos (`priceInCents`). El código usa `bigint`.
 - Email y slugs se normalizan a minúsculas; SKU se normaliza a mayúsculas antes de
-  persistir. PostgreSQL también rechaza valores fuera de ese formato.
-- Restricciones SQL protegen invariantes además de la validación de aplicación.
+  persistir. Los casos de uso vuelven a validar estos formatos en servidor.
+- Índices únicos y transacciones MongoDB complementan las invariantes de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
 ## Modelo implementado hasta Fase 7
@@ -44,24 +45,24 @@ selecciona otra en la misma transacción. El email queda inmutable en esta fase.
 - `ProductVariant`: unidad vendible. Contiene SKU único y normalizado (`A-Z`,
   números, `.`, `_`, `-`), atributos JSON, precios, estado y marca de variante por
   defecto.
-- La fragancia del catálogo se guarda en los atributos de la variante como
-  `fragancia` (nombre visible) y `fraganciaKey` (clave normalizada compartida entre
-  categorías). No requiere una entidad ni una migración adicional.
+- La fragancia se conserva en los atributos de la variante como `fragancia`
+  (nombre visible) y `fraganciaKey`; esta última también se proyecta en un campo
+  indexable para filtrar sin depender de JSON path, no soportado por Prisma MongoDB.
 - `ProductImage`: varias imágenes ordenadas y con texto alternativo.
 - `Category`: árbol opcional por `parentId`, slug único y orden.
 - `ProductCategory`: relación N:M explícita para permitir orden y metadatos futuros.
 
 Todo producto creado por la aplicación debe tener exactamente una variante por
-defecto. PostgreSQL impide más de una mediante un índice único parcial. La
+defecto. MongoDB impide más de una mediante un índice único parcial. La
 eliminación física de una variante con referencias históricas no estará permitida.
 El caso de uso exige además que esa variante sea activa. Productos operativos se
 retiran del catálogo mediante `INACTIVE` o `ARCHIVED`, no por borrado físico.
 
-La jerarquía de categorías se protege en una transacción serializable con advisory
-lock y recorrido recursivo de ancestros. `parentId` usa `ON DELETE RESTRICT`: las
+La jerarquía de categorías se protege en una transacción MongoDB mediante un lock
+documental y un recorrido iterativo de ancestros. La relación usa `NoAction`: las
 categorías se desactivan y no se eliminan físicamente desde la administración. La
 imagen principal es la primera por `sortOrder`; los binarios viven fuera de
-PostgreSQL. Un producto admite hasta 30 referencias de imagen en total.
+MongoDB. Un producto admite hasta 30 referencias de imagen en total.
 
 ### Inventario
 
@@ -89,21 +90,21 @@ Invariantes:
 
 El precio observado no es una cotización ni una fuente autoritativa: cada lectura
 y mutación obtiene el precio efectivo actual de `ProductVariant`. La cantidad se
-limita entre 1 y 999 tanto en dominio como mediante constraint SQL. Las claves
-foráneas impiden eliminar una variante referenciada y eliminan los items al
-eliminar físicamente un carrito durante una futura limpieza.
+limita entre 1 y 999 en dominio/aplicación. Las relaciones Prisma preservan las
+acciones referenciales al operar mediante el cliente; las eliminaciones críticas
+se coordinan dentro de transacciones.
 
 Los carritos expiran 30 días después de la última mutación por defecto. El índice
 `(status, expiresAt)` prepara una tarea futura de limpieza; esta fase no ejecuta
 purga automática. El token crudo nunca se persiste y el UUID interno nunca se usa
-como credencial pública. Una constraint XOR exige exactamente un propietario. Un
+como credencial pública. La aplicación exige exactamente un propietario (XOR). Un
 índice único parcial impide dos carritos `ACTIVE` del mismo cliente. Durante una
 adopción se elimina el token invitado; durante un merge el origen queda
 `ABANDONED` y el destino conserva las líneas consolidadas.
 
 ### Pedidos
 
-- `Order`: UUID interno, número `bigserial` público desde 10001, carrito único,
+- `Order`: UUID interno, número público secuencial desde 10001, carrito único,
   cliente opcional o hash de acceso invitado (XOR), clave de checkout hasheada,
   comprador/dirección/método snapshot, estado, importes y vencimiento UTC.
 - `OrderItem`: referencia opcional a variante más snapshot obligatorio de nombre,
@@ -113,13 +114,15 @@ adopción se elimina el token invitado; durante un merge el origen queda
 - `OrderNote`: contenido interno, pedido, administrador autor y fecha. No forma
   parte de consultas públicas; su contenido no se copia a snapshots del cliente.
 
-La máquina de estados comienza en `PENDING_PAYMENT` y contempla `PAID`,
+El número público se obtiene de un documento contador transaccional y comienza en
+10001, porque MongoDB no soporta `autoincrement()`. La máquina de estados comienza
+en `PENDING_PAYMENT` y contempla `PAID`,
 `PREPARING`, `READY_TO_SHIP`, `SHIPPED`, `DELIVERED`, `CANCELLED`,
 `PAYMENT_REJECTED`, `REFUNDED` y `PARTIALLY_REFUNDED`. Fase 6 permite únicamente
 transiciones operativas explícitas y cancelación pendiente; `PAID` y estados de
 pago/reembolso quedan reservados a una integración futura.
 
-`checkoutKeyHash` y `cartId` únicos aportan idempotencia. Una constraint verifica
+`checkoutKeyHash` y `cartId` únicos aportan idempotencia. La aplicación verifica
 `total = itemsSubtotal + shipping - discount`; descuento es cero en esta fase.
 Los pedidos invitados exigen hash de acceso y los de cliente no lo guardan.
 
@@ -142,8 +145,8 @@ e idempotentes mediante `reservationReleasedAt`.
 ### Configuración de tienda implementada en Fase 10
 
 `StoreSettings` conserva una única fila (`id = 1`) con la identidad comercial,
-los datos públicos de contacto, redes sociales y una descripción breve. La base
-protege el carácter single-store mediante un `CHECK` sobre la clave primaria.
+los datos públicos de contacto, redes sociales y una descripción breve. El ID fijo
+`1`, el repositorio y el seed idempotente preservan el carácter single-store.
 
 ### Pagos
 
@@ -178,11 +181,11 @@ se deriva de pagos, no de un único campo mutable sin historial.
 ## Índices principales previstos
 
 - catálogo: producto por `(status, publishedAt)`, `(status, updatedAt)`, destacado,
-  categoría/producto, SKU y slug únicos; búsqueda textual se evaluará con
-  `pg_trgm` o `tsvector` si el volumen lo justifica.
-- inventario: variante única, índice parcial para el predicado de bajo stock
-  `stockOnHand - stockReserved <= minimumStock`, movimientos por `(inventoryId,
-  createdAt)` y `(referenceType, referenceId)`.
+  categoría/producto, SKU y slug únicos; Atlas Search se evaluará solo si el volumen
+  lo justifica.
+- inventario: variante única, movimientos por `(inventoryId, createdAt)` y
+  `(referenceType, referenceId)`. El predicado calculado de bajo stock se evalúa
+  en aplicación porque MongoDB no admite ese índice relacional parcial.
 - pedidos: número único, `(customerId, createdAt)`, `(status, createdAt)` y
   `(shippingMethodId, createdAt)`.
 - notas de pedido: `(orderId, createdAt)` y `(actorUserId, createdAt)`.
@@ -190,28 +193,17 @@ se deriva de pagos, no de un único campo mutable sin historial.
 - pagos/eventos: referencias externas e idempotencia únicas.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
-## Migraciones y seed
+## Sincronización y seed
 
-- Desarrollo: `npm run db:migrate -- --name <cambio>`.
-- Producción: `npm run db:migrate:deploy`.
-- El seed crea permisos/rol base y catálogo demostrativo de forma idempotente. Si
-  el administrador ya existe, no reemplaza su contraseña ni reactiva su cuenta.
+- MongoDB no utiliza Prisma Migrate ni migraciones SQL. Desarrollo y despliegue
+  ejecutan `npm run db:push`.
+- `db:push` sincroniza el schema Prisma y luego crea de forma idempotente los
+  índices parciales que Prisma Schema no puede expresar.
+- El seed crea permisos, rol base, catálogo, inventario, métodos de entrega y
+  `StoreSettings` de forma idempotente. Si el administrador ya existe, no reemplaza
+  su contraseña ni reactiva su cuenta.
 - El administrador inicial solo se crea si se proveen `SEED_ADMIN_EMAIL` y
   `SEED_ADMIN_PASSWORD`; nunca existe una credencial predeterminada en Git.
-- La migración `20260831203000_phase2_catalog_management` agrega el índice de la
-  consulta administrativa `(status, updated_at)` sin modificar migraciones previas.
-- `npm run db:verify` comprueba invariantes y mínimos del seed sin exigir cantidades
-  exactas, por lo que sigue siendo válido después de operar el catálogo.
-- La migración `20260901023000_phase4_customers` crea clientes y direcciones,
-  vincula carritos y agrega constraints/índices parciales sin modificar historial.
-- La migración `20260901110000_phase5_checkout_orders_shipping` agrega métodos de
-  entrega, pedidos, snapshots, historial, idempotencia y constraints monetarias.
-- La migración `20260901200000_phase6_admin_order_management` agrega notas internas
-  con autor/constraints e índices para estado, entrega y trazabilidad operativa.
-- La migración `20260902010000_phase7_backoffice_consolidation` agrega notas
-  privadas de cliente, longitud protegida en PostgreSQL e índices por cliente y
-  autor. Los permisos de clientes, usuarios, roles y auditoría se agregan mediante
-  el seed idempotente.
-- La migración `20260907120000_phase10_store_settings` crea la configuración
-  comercial single-store e inicializa los valores públicos que antes estaban
-  definidos en el código.
+- `npm run db:verify` comprueba conexión, versión de índices e invariantes de datos
+  sin exigir cantidades exactas, por lo que sigue siendo válido después de operar
+  el catálogo.

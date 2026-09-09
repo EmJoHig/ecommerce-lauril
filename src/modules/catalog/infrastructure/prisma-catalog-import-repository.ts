@@ -17,7 +17,11 @@ export class PrismaCatalogImportRepository implements CatalogImportRepository {
   async importProducts(rows: CatalogImportRow[], actorUserId: string): Promise<CatalogImportResult> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
-        await transaction.$executeRaw`SELECT pg_advisory_xact_lock(963258741)`;
+        await transaction.sequence.upsert({
+          where: { id: "lock:catalog-import" },
+          update: { value: { increment: 1n } },
+          create: { id: "lock:catalog-import", value: 1n },
+        });
         const categoryIds = await synchronizeCategories(transaction);
         const existingVariants = await transaction.productVariant.findMany({
           where: { sku: { in: rows.map(({ sku }) => sku) } },
@@ -110,7 +114,7 @@ export class PrismaCatalogImportRepository implements CatalogImportRepository {
           categories: new Set(rows.map((row) => row.categorySlug)).size,
           fragrances: new Set(rows.map((row) => row.fragranceKey)).size,
         };
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      });
     } catch (error) {
       throw mapImportPersistenceError(error);
     }
@@ -154,6 +158,7 @@ function variantData(row: CatalogImportRow) {
   return {
     name: "Única",
     attributes: { fragancia: row.fragrance, fraganciaKey: row.fragranceKey },
+    fragranceKey: row.fragranceKey,
     priceInCents: row.priceInCents,
     promotionalPriceInCents: row.promotionalPriceInCents,
     costInCents: null,

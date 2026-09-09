@@ -55,7 +55,6 @@ export class PrismaCartRepository implements CartRepository {
     try {
       return await this.prisma.$transaction(
         async (prismaTransaction) => work(createTransaction(prismaTransaction)),
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
       throw mapCartPersistenceError(error);
@@ -66,7 +65,7 @@ export class PrismaCartRepository implements CartRepository {
 function createTransaction(transaction: Transaction): CartTransaction {
   return {
     findCartByTokenHash: async (tokenHash) => {
-      const cart = await transaction.cart.findUnique({
+      const cart = await transaction.cart.findFirst({
         where: { guestTokenHash: tokenHash },
         select: { id: true, guestTokenHash: true, customerId: true, status: true, expiresAt: true, version: true },
       });

@@ -1,6 +1,5 @@
 import "dotenv/config";
 
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CheckoutService } from "../src/modules/orders/application/checkout-service";
 import { PrismaOrderRepository } from "../src/modules/orders/infrastructure/prisma-order-repository";
@@ -10,10 +9,10 @@ import { PrismaShippingRepository } from "../src/modules/shipping/infrastructure
 const job = "expire-pending-orders";
 
 try {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) throw new Error("DATABASE_URL es obligatoria.");
+  const mongodbUri = process.env.MONGODB_URI;
+  if (!mongodbUri) throw new Error("MONGODB_URI es obligatoria.");
 
-  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+  const prisma = new PrismaClient();
   let expired: number;
   try {
     const repository = new PrismaOrderRepository(prisma);

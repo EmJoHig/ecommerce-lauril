@@ -3,7 +3,7 @@
 ## Implementación de Fase 5
 
 `ShippingProvider` es el puerto de cotización y `CustomShippingProvider` su primer
-adaptador. Lee métodos administrables desde PostgreSQL y devuelve cotizaciones en
+adaptador. Lee métodos administrables desde MongoDB y devuelve cotizaciones en
 centavos; el checkout nunca acepta un costo enviado por el navegador.
 
 Tipos disponibles:

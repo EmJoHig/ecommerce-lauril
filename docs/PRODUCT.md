@@ -77,5 +77,5 @@ externos permanecen fuera del alcance actual.
 - Pruebas unitarias para reglas y pruebas de integración para persistencia e
   integraciones.
 - SEO técnico, buen rendimiento móvil y accesibilidad WCAG 2.2 AA como objetivo.
-- Despliegue reproducible en Render; PostgreSQL administrado y objetos fuera del
+- Despliegue reproducible en Render; MongoDB Atlas y objetos fuera del
   filesystem efímero de la aplicación.

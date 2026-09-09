@@ -31,29 +31,25 @@ export class PrismaInventoryAdminRepository implements InventoryAdminRepository 
   }
 
   private async listLowStock(query: InventoryAdminQuery): Promise<AdminPage<InventoryAdminRow>> {
-    const search = query.search ?? null;
-    const pattern = query.search ? `%${query.search}%` : null;
-    const rows = await this.prisma.$queryRaw<Array<{
-      id: string; product_id: string; variant_id: string; product_name: string; variant_name: string; sku: string;
-      stock_on_hand: number; stock_reserved: number; minimum_stock: number; updated_at: Date; total_count: bigint;
-    }>>(Prisma.sql`
-      SELECT i.id, p.id AS product_id, v.id AS variant_id, p.name AS product_name, v.name AS variant_name, v.sku,
-             i.stock_on_hand, i.stock_reserved, i.minimum_stock, i.updated_at, count(*) OVER() AS total_count
-      FROM inventory i
-      JOIN product_variants v ON v.id = i.variant_id
-      JOIN products p ON p.id = v.product_id
-      WHERE i.stock_on_hand - i.stock_reserved <= i.minimum_stock
-        AND (${search}::text IS NULL OR p.name ILIKE ${pattern} OR v.name ILIKE ${pattern} OR v.sku ILIKE ${pattern})
-      ORDER BY i.updated_at DESC, i.id DESC
-      OFFSET ${(query.page - 1) * query.pageSize} LIMIT ${query.pageSize}
-    `);
-    const items = rows.map((row) => ({
-      id: row.id, productId: row.product_id, variantId: row.variant_id, productName: row.product_name,
-      variantName: row.variant_name, sku: row.sku, stockOnHand: row.stock_on_hand, stockReserved: row.stock_reserved,
-      stockAvailable: calculateAvailableStock(row.stock_on_hand, row.stock_reserved), minimumStock: row.minimum_stock,
-      isLowStock: true, updatedAt: row.updated_at,
-    }));
-    return adminPage(items, Number(rows[0]?.total_count ?? 0n), query);
+    const where: Prisma.InventoryWhereInput = query.search ? { variant: { OR: [
+      { sku: { contains: query.search, mode: "insensitive" } },
+      { name: { contains: query.search, mode: "insensitive" } },
+      { product: { name: { contains: query.search, mode: "insensitive" } } },
+    ] } } : {};
+    const rows = await this.prisma.inventory.findMany({
+      where,
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      include: inventoryInclude,
+    });
+    const lowStockRows = rows.filter(({ stockOnHand, stockReserved, minimumStock }) =>
+      isLowStock(stockOnHand, stockReserved, minimumStock),
+    );
+    const offset = (query.page - 1) * query.pageSize;
+    return adminPage(
+      lowStockRows.slice(offset, offset + query.pageSize).map(mapInventory),
+      lowStockRows.length,
+      query,
+    );
   }
 
   async listMovements(query: InventoryMovementQuery): Promise<AdminPage<InventoryMovementRow>> {

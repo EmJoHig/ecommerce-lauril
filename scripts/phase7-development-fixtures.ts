@@ -1,14 +1,14 @@
 import "dotenv/config";
 
 import { createHash, randomUUID } from "node:crypto";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/modules/auth/domain/password";
+import { nextOrderNumber } from "../src/modules/orders/infrastructure/next-order-number";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL es obligatoria.");
-assertLocalDatabase(databaseUrl);
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+const mongodbUri = process.env.MONGODB_URI;
+if (!mongodbUri) throw new Error("MONGODB_URI es obligatoria.");
+assertLocalDatabase(mongodbUri);
+const prisma = new PrismaClient();
 const command = process.argv[2];
 const fixtureEmails = ["phase7-admin@test.local", "phase7-limited@test.local", "phase7-customer@test.local"] as const;
 
@@ -37,8 +37,9 @@ async function main(): Promise<void> {
   const now = new Date();
   const cart = await prisma.cart.create({ data: { customerId: customerUser.customer.id, status: "CONVERTED", expiresAt: new Date(now.getTime() + 86_400_000) } });
   const price = variant.promotionalPriceInCents ?? variant.priceInCents;
+  const number = await nextOrderNumber(prisma);
   const order = await prisma.order.create({ data: {
-    cartId: cart.id, customerId: customerUser.customer.id, shippingMethodId: pickup.id, checkoutKeyHash: sha256(randomUUID()), status: "CANCELLED",
+    number, cartId: cart.id, customerId: customerUser.customer.id, shippingMethodId: pickup.id, checkoutKeyHash: sha256(randomUUID()), status: "CANCELLED",
     buyerFirstName: "Cliente", buyerLastName: "Manual", buyerEmail: fixtureEmails[2], buyerPhone: "+54 11 5555-0707", shippingMethodName: pickup.name,
     shippingMethodType: pickup.type, shippingRequiresAddress: false, itemsSubtotalInCents: price, shippingAmountInCents: 0n, totalInCents: price,
     paymentExpiresAt: new Date(now.getTime() + 900_000), reservationReleasedAt: now,
@@ -78,7 +79,9 @@ async function cleanup(): Promise<void> {
 
 function assertLocalDatabase(value: string): void {
   if (process.env.NODE_ENV === "production") throw new Error("Los fixtures FASE 7 están deshabilitados en producción.");
-  if (!["localhost", "127.0.0.1", "::1"].includes(new URL(value).hostname)) throw new Error("Los fixtures FASE 7 solo pueden ejecutarse contra PostgreSQL local.");
+  if (new URL(value).pathname !== "/lauril_ecommerce") {
+    throw new Error("Los fixtures FASE 7 solo pueden ejecutarse contra la base lauril_ecommerce.");
+  }
 }
 
 function sha256(value: string): string { return createHash("sha256").update(value).digest("hex"); }

@@ -194,7 +194,6 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
           });
           return { id: product.id };
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
       throw mapPersistenceError(error);
@@ -332,7 +331,6 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
             removedObjectKeys: removedImages.map(({ objectKey }) => objectKey),
           };
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
       throw mapPersistenceError(error);
@@ -381,7 +379,6 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
             },
           });
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
       throw mapPersistenceError(error);
@@ -429,25 +426,11 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
     try {
       return await this.prisma.$transaction(
         async (transaction) => {
-          await transaction.$executeRaw`SELECT pg_advisory_xact_lock(741852963)`;
+          await acquireTransactionLock(transaction, "category-tree");
           const current = await transaction.category.findUnique({ where: { id: command.id } });
           if (!current) throw new NotFoundError("Categoría inexistente.");
           await assertParentExists(transaction, command.parentId);
-          if (command.parentId) {
-            const cycle = await transaction.$queryRaw<Array<{ cycle: boolean }>>`
-              WITH RECURSIVE ancestors AS (
-                SELECT id, parent_id FROM categories WHERE id = ${command.parentId}::uuid
-                UNION ALL
-                SELECT category.id, category.parent_id
-                FROM categories category
-                JOIN ancestors ON category.id = ancestors.parent_id
-              )
-              SELECT EXISTS(SELECT 1 FROM ancestors WHERE id = ${command.id}::uuid) AS cycle
-            `;
-            if (cycle[0]?.cycle) {
-              throw new ConflictError("La categoría padre generaría un ciclo en la jerarquía.");
-            }
-          }
+          await assertNoCategoryCycle(transaction, command.id, command.parentId);
           await transaction.category.update({
             where: { id: command.id },
             data: categoryData(command),
@@ -463,7 +446,6 @@ export class PrismaCatalogAdminRepository implements CatalogAdminRepository {
           });
           return { id: command.id };
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
       throw mapPersistenceError(error);
@@ -526,6 +508,37 @@ async function assertParentExists(transaction: Transaction, parentId: string | n
   if (!parentId) return;
   const parent = await transaction.category.findUnique({ where: { id: parentId }, select: { id: true } });
   if (!parent) throw new ValidationError("La categoría padre seleccionada no existe.");
+}
+
+async function assertNoCategoryCycle(
+  transaction: Transaction,
+  categoryId: string,
+  parentId: string | null,
+): Promise<void> {
+  const visited = new Set([categoryId]);
+  let currentId = parentId;
+  while (currentId) {
+    if (visited.has(currentId)) {
+      throw new ConflictError("La categoría padre generaría un ciclo en la jerarquía.");
+    }
+    visited.add(currentId);
+    const current = await transaction.category.findUnique({
+      where: { id: currentId },
+      select: { parentId: true },
+    });
+    if (!current) {
+      throw new ValidationError("La categoría padre seleccionada no existe.");
+    }
+    currentId = current.parentId;
+  }
+}
+
+function acquireTransactionLock(transaction: Transaction, id: string): Promise<unknown> {
+  return transaction.sequence.upsert({
+    where: { id: `lock:${id}` },
+    update: { value: { increment: 1n } },
+    create: { id: `lock:${id}`, value: 1n },
+  });
 }
 
 function categoryData(command: SaveCategoryCommand) {

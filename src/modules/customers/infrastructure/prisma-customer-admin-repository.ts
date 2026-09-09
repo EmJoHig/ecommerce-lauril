@@ -62,7 +62,7 @@ export class PrismaCustomerAdminRepository implements CustomerAdminRepository {
         entityId: input.customerId, metadata: { fields: ["firstName", "lastName", "phone", "document"] }, createdAt: input.occurredAt,
       } });
       return true;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
     return exists ? this.find(input.customerId) : null;
   }
 
@@ -77,7 +77,7 @@ export class PrismaCustomerAdminRepository implements CustomerAdminRepository {
         metadata: { fromStatus: current.status, toStatus: input.status }, createdAt: input.occurredAt,
       } });
       return true;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
     return changed ? this.find(input.customerId) : null;
   }
 
@@ -90,7 +90,7 @@ export class PrismaCustomerAdminRepository implements CustomerAdminRepository {
         createdAt: input.occurredAt,
       } });
       return true;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
     return created ? this.find(input.customerId) : null;
   }
 }

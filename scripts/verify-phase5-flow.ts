@@ -1,6 +1,5 @@
 import "dotenv/config";
 
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CartService } from "../src/modules/cart/application/cart-service";
 import { createGuestCartToken, hashGuestCartToken } from "../src/modules/cart/domain/guest-cart-token";
@@ -11,9 +10,9 @@ import { PrismaOrderRepository } from "../src/modules/orders/infrastructure/pris
 import { CustomShippingProvider } from "../src/modules/shipping/application/custom-shipping-provider";
 import { PrismaShippingRepository } from "../src/modules/shipping/infrastructure/prisma-shipping-repository";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL es obligatoria.");
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+const mongodbUri = process.env.MONGODB_URI;
+if (!mongodbUri) throw new Error("MONGODB_URI es obligatoria.");
+const prisma = new PrismaClient();
 const orderIds: string[] = [];
 const cartHashes: string[] = [];
 

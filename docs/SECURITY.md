@@ -45,7 +45,7 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
 - React escapa texto por defecto; HTML enriquecido requiere sanitizador y política
   explícita antes de habilitarse.
 - Precios, descuentos, envío, totales, rol y estados se recalculan en servidor.
-- Consultas parametrizadas mediante Prisma; SQL crudo solo con revisión.
+- Consultas mediante Prisma; no se ejecuta SQL en runtime.
 - Protección CSRF mediante cookies SameSite, comprobación de origen en mutaciones
   sensibles y tokens cuando el flujo lo necesite.
 
@@ -53,7 +53,7 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
 
 - Cookie opaca de 256 bits, `HttpOnly`, `SameSite=Lax`, `Path=/`, prioridad alta y
   `Secure` en producción; no contiene precio, stock, UUID ni datos personales.
-- PostgreSQL almacena únicamente SHA-256 del token. Cambiar un UUID o `variantId`
+- MongoDB almacena únicamente SHA-256 del token. Cambiar un UUID o `variantId`
   no concede acceso: todas las mutaciones vuelven a resolver el carrito desde la
   cookie y acotan el artículo por pertenencia.
 - Las Server Actions aceptan solamente variante y cantidad, validan nuevamente en
@@ -85,10 +85,10 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
 
 ## Checkout y pedidos
 
-- Checkout recalcula precio, stock y envío desde PostgreSQL y acepta únicamente
+- Checkout recalcula precio, stock y envío desde MongoDB y acepta únicamente
   IDs, cantidades indirectas del carrito y datos de contacto/dirección validados.
 - Una clave CSPRNG se persiste sólo como SHA-256; `cartId` y clave son únicos. La
-  transacción serializable y `Inventory.version` evitan doble reserva y sobreventa.
+  transacción MongoDB y `Inventory.version` evitan doble reserva y sobreventa.
 - El pedido autenticado exige `customerId` derivado de sesión. El invitado exige
   una cookie opaca `HttpOnly`, `SameSite=Lax`, `Secure` en producción y restringida
   a su ruta; conocer el número de pedido no concede acceso.
@@ -107,7 +107,11 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
 
 ## Secretos y datos
 
-- `.env` está ignorado; `.env.example` contiene nombres y ejemplos no sensibles.
+- `.env` está ignorado; `.env.example` contiene nombres sin credenciales.
+- `MONGODB_URI` solo se guarda en `.env` o en el gestor seguro del proveedor.
+- El usuario `lauril_ecommerce_app` tiene `readWrite` únicamente sobre
+  `lauril_ecommerce`; Network Access se limita a las IP necesarias y nunca se abre
+  automáticamente a `0.0.0.0/0`.
 - Tokens de Mercado Pago, S3 y email solo en variables de entorno de Render.
 - Logs excluyen contraseñas, cookies, tokens, firmas y payloads personales completos.
 - TLS en tránsito, backups cifrados del proveedor y mínimo privilegio para DB/S3.
@@ -124,7 +128,7 @@ evita usando endpoints configurados, no URLs arbitrarias recibidas del cliente.
 
 - Versiones fijadas por lockfile; actualizar con revisión y ejecutar auditoría.
 - CI ejecuta lint, typecheck, tests y build.
-- Migraciones con usuario restringido y despliegue controlado.
+- `db push` e índices MongoDB se ejecutan con usuario restringido y despliegue controlado.
 - Health checks no exponen configuración interna.
 - Alertas para errores de autenticación, webhooks y transiciones imposibles.
 

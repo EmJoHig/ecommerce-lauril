@@ -1,7 +1,6 @@
 import "dotenv/config";
 
 import { createHash } from "node:crypto";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CartService } from "../src/modules/cart/application/cart-service";
 import { createGuestCartToken, hashGuestCartToken } from "../src/modules/cart/domain/guest-cart-token";
@@ -11,13 +10,14 @@ import { CheckoutService } from "../src/modules/orders/application/checkout-serv
 import { createCheckoutKey } from "../src/modules/orders/domain/checkout-key";
 import { PrismaOrderAdminRepository } from "../src/modules/orders/infrastructure/prisma-order-admin-repository";
 import { PrismaOrderRepository } from "../src/modules/orders/infrastructure/prisma-order-repository";
+import { nextOrderNumber } from "../src/modules/orders/infrastructure/next-order-number";
 import { CustomShippingProvider } from "../src/modules/shipping/application/custom-shipping-provider";
 import { PrismaShippingRepository } from "../src/modules/shipping/infrastructure/prisma-shipping-repository";
 import { ValidationError, NotFoundError } from "../src/shared/domain/errors";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL es obligatoria.");
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+const mongodbUri = process.env.MONGODB_URI;
+if (!mongodbUri) throw new Error("MONGODB_URI es obligatoria.");
+const prisma = new PrismaClient();
 const orderIds: string[] = [];
 const cartIds: string[] = [];
 
@@ -108,8 +108,9 @@ async function createSyntheticPaidOrder(input: {
   const createdAt = new Date();
   const unitPrice = input.variant.promotionalPriceInCents ?? input.variant.priceInCents;
   const cart = await prisma.cart.create({ data: { guestTokenHash, status: "CONVERTED", expiresAt: new Date(createdAt.getTime() + 86_400_000) } });
+  const number = await nextOrderNumber(prisma);
   const order = await prisma.order.create({ data: {
-    cartId: cart.id, customerId: null, shippingMethodId: input.methodId, checkoutKeyHash: sha256(`checkout-${marker}`), guestAccessTokenHash: guestTokenHash,
+    number, cartId: cart.id, customerId: null, shippingMethodId: input.methodId, checkoutKeyHash: sha256(`checkout-${marker}`), guestAccessTokenHash: guestTokenHash,
     status: "PAID", buyerFirstName: "Synthetic", buyerLastName: "Fase Seis", buyerEmail: `phase6-synthetic-${marker}@test.local`, buyerPhone: "+54 11 5555-0602",
     shippingMethodName: input.methodName, shippingMethodType: input.methodType, shippingRequiresAddress: input.requiresAddress,
     shippingRecipientFirstName: input.requiresAddress ? "Synthetic" : null, shippingRecipientLastName: input.requiresAddress ? "Fase Seis" : null,

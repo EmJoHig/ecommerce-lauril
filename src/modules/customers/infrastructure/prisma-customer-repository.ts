@@ -62,7 +62,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
           },
         });
         return mapCustomer(customer);
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      });
     } catch (error) {
       throw mapPersistenceError(error);
     }
@@ -181,7 +181,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
         },
       });
       return true;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
 
   async findById(customerId: string): Promise<CustomerRecord | null> {
@@ -243,7 +243,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
       });
       await auditAddress(tx, customer.userId, "customer.address_created", address.id);
       return address;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
 
   async updateAddress(customerId: string, addressId: string, input: CustomerAddressInput): Promise<CustomerAddressRecord | null> {
@@ -261,7 +261,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
       });
       await auditAddress(tx, customer.userId, "customer.address_updated", address.id);
       return address;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
 
   async deleteAddress(customerId: string, addressId: string): Promise<boolean> {
@@ -276,7 +276,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
       }
       await auditAddress(tx, customer.userId, "customer.address_deleted", addressId);
       return true;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
 
   async setDefaultAddress(customerId: string, addressId: string): Promise<boolean> {
@@ -288,7 +288,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
       await tx.customerAddress.update({ where: { id: addressId }, data: { isDefault: true } });
       await auditAddress(tx, customer.userId, "customer.address_defaulted", addressId);
       return true;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    });
   }
 }
 

@@ -10,7 +10,7 @@ const optionalUrl = () =>
   z.preprocess(emptyStringAsUndefined, z.string().url().optional());
 
 const serverEnvSchema = z.object({
-  DATABASE_URL: z.string().url(),
+  MONGODB_URI: z.string().url(),
   APP_URL: z.string().url().default("http://localhost:3000"),
   SESSION_COOKIE_NAME: z.string().min(1).default("lauril_session"),
   SESSION_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),

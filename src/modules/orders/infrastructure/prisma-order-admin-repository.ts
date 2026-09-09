@@ -189,9 +189,7 @@ export class PrismaOrderAdminRepository implements OrderAdminRepository {
 
   private async run<T>(work: (tx: Transaction) => Promise<T>): Promise<T> {
     try {
-      return await this.prisma.$transaction(work, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
+      return await this.prisma.$transaction(work);
     } catch (error) {
       if (error instanceof ConflictError) throw error;
       if (error instanceof Error && "code" in error && String(error.code) === "P2034") {

@@ -1,6 +1,5 @@
 import "dotenv/config";
 
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CartService } from "../src/modules/cart/application/cart-service";
 import { hashGuestCartToken } from "../src/modules/cart/domain/guest-cart-token";
@@ -8,12 +7,10 @@ import { PrismaCartRepository } from "../src/modules/cart/infrastructure/prisma-
 import { RecordInventoryMovement } from "../src/modules/inventory/application/record-inventory-movement";
 import { PrismaInventoryUnitOfWork } from "../src/modules/inventory/infrastructure/prisma-inventory-unit-of-work";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL es obligatoria.");
+const mongodbUri = process.env.MONGODB_URI;
+if (!mongodbUri) throw new Error("MONGODB_URI es obligatoria.");
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: databaseUrl }),
-});
+const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
   const variants = await prisma.productVariant.findMany({

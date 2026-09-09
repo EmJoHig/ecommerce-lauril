@@ -1,7 +1,6 @@
 import "dotenv/config";
 
 import { createHash, randomUUID } from "node:crypto";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CartService } from "../src/modules/cart/application/cart-service";
 import { createGuestCartToken, hashGuestCartToken } from "../src/modules/cart/domain/guest-cart-token";
@@ -11,13 +10,14 @@ import { CheckoutService } from "../src/modules/orders/application/checkout-serv
 import { createCheckoutKey } from "../src/modules/orders/domain/checkout-key";
 import { PrismaOrderAdminRepository } from "../src/modules/orders/infrastructure/prisma-order-admin-repository";
 import { PrismaOrderRepository } from "../src/modules/orders/infrastructure/prisma-order-repository";
+import { nextOrderNumber } from "../src/modules/orders/infrastructure/next-order-number";
 import { CustomShippingProvider } from "../src/modules/shipping/application/custom-shipping-provider";
 import { PrismaShippingRepository } from "../src/modules/shipping/infrastructure/prisma-shipping-repository";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL es obligatoria.");
-assertLocalDevelopmentDatabase(databaseUrl);
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+const mongodbUri = process.env.MONGODB_URI;
+if (!mongodbUri) throw new Error("MONGODB_URI es obligatoria.");
+assertLocalDevelopmentDatabase(mongodbUri);
+const prisma = new PrismaClient();
 const command = process.argv[2];
 
 async function main(): Promise<void> {
@@ -51,8 +51,9 @@ async function createPaidFixture(
   const guestTokenHash = sha256(`phase6-manual-${label}-${marker}`);
   const unitPrice = variant.promotionalPriceInCents ?? variant.priceInCents;
   const cart = await prisma.cart.create({ data: { guestTokenHash, status: "CONVERTED", expiresAt: new Date(createdAt.getTime() + 86_400_000) } });
+  const number = await nextOrderNumber(prisma);
   const order = await prisma.order.create({ data: {
-    cartId: cart.id, shippingMethodId: method.id, checkoutKeyHash: sha256(`checkout-${marker}`), guestAccessTokenHash: guestTokenHash,
+    number, cartId: cart.id, shippingMethodId: method.id, checkoutKeyHash: sha256(`checkout-${marker}`), guestAccessTokenHash: guestTokenHash,
     status: "PAID", buyerFirstName: "Manual", buyerLastName: label === "pickup" ? "Retiro" : "Envío", buyerEmail: `phase6-manual-${label}@test.local`, buyerPhone: "+54 11 5555-0611",
     shippingMethodName: method.name, shippingMethodType: method.type, shippingRequiresAddress: method.requiresAddress,
     shippingRecipientFirstName: method.requiresAddress ? "Manual" : null, shippingRecipientLastName: method.requiresAddress ? "Envío" : null,
@@ -88,8 +89,9 @@ async function cleanup(): Promise<void> {
 
 function assertLocalDevelopmentDatabase(value: string): void {
   if (process.env.NODE_ENV === "production") throw new Error("Los fixtures FASE 6 están deshabilitados en producción.");
-  const hostname = new URL(value).hostname;
-  if (!["localhost", "127.0.0.1", "::1"].includes(hostname)) throw new Error("Los fixtures FASE 6 solo pueden ejecutarse contra PostgreSQL local.");
+  if (new URL(value).pathname !== "/lauril_ecommerce") {
+    throw new Error("Los fixtures FASE 6 solo pueden ejecutarse contra la base lauril_ecommerce.");
+  }
 }
 
 function sha256(value: string): string { return createHash("sha256").update(value).digest("hex"); }

@@ -148,7 +148,7 @@ function publicProductWhere(input: ListCatalogProductsInput): Prisma.ProductWher
         isActive: true,
         isDefault: true,
         ...(input.fragranceKey
-          ? { attributes: { path: ["fraganciaKey"], equals: input.fragranceKey } }
+          ? { fragranceKey: input.fragranceKey }
           : {}),
       },
     },
