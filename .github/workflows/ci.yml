@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/lauril_ci?schema=public
+      MONGODB_URI: mongodb://localhost:27017/lauril_ci
       NEXT_TELEMETRY_DISABLED: "1"
 
     steps:

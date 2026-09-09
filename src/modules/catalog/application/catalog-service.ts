@@ -5,6 +5,7 @@ import type {
 } from "./product-catalog-repository";
 import type { CatalogProduct } from "../domain/product";
 import { normalizeSlug } from "../domain/product";
+import { fragranceKey } from "./catalog-import";
 
 export class CatalogService {
   constructor(private readonly products: ProductCatalogRepository) {}
@@ -25,6 +26,14 @@ export class CatalogService {
     });
   }
 
+  listFilteredProductPage(input: Omit<ListCatalogProductsInput, "fragranceKey"> & { fragrance?: string }) {
+    const { fragrance, ...query } = input;
+    return this.listProductPage({
+      ...query,
+      ...(fragrance?.trim() ? { fragranceKey: fragranceKey(fragrance).slice(0, 160) } : {}),
+    });
+  }
+
   getProduct(slug: string): Promise<CatalogProduct | null> {
     try {
       return this.products.findBySlug(normalizeSlug(slug));
@@ -35,5 +44,9 @@ export class CatalogService {
 
   listCategories(): Promise<CatalogCategory[]> {
     return this.products.listCategories();
+  }
+
+  listFragrances() {
+    return this.products.listFragrances();
   }
 }

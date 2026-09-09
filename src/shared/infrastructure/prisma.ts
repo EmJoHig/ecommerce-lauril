@@ -1,6 +1,5 @@
 import "server-only";
 
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 import { getServerEnv } from "./env";
 
@@ -15,10 +14,8 @@ export function getPrisma(): PrismaClient {
     return prismaGlobal.laurilPrisma;
   }
 
-  const adapter = new PrismaPg({
-    connectionString: getServerEnv().DATABASE_URL,
-  });
-  const client = new PrismaClient({ adapter });
+  getServerEnv();
+  const client = new PrismaClient();
   prismaGlobal.laurilPrisma = client;
 
   return client;

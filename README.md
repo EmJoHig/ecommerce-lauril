@@ -1,7 +1,7 @@
 # Lauril Ecommerce
 
 Ecommerce propio, single-store y construido como monolito modular con Next.js,
-TypeScript, PostgreSQL, Prisma y Tailwind CSS.
+TypeScript, MongoDB Atlas, Prisma y Tailwind CSS.
 
 La Fase 7 incluye catálogo, carrito, cuentas, checkout, métodos propios de entrega,
 pedidos, reserva temporal y un backoffice consolidado para clientes, inventario,
@@ -12,28 +12,27 @@ transportistas externos ni facturación. El alcance está en
 ## Requisitos
 
 - Node.js 20.19 o superior (probado con Node 24).
-- Docker Desktop para PostgreSQL local, o una instancia PostgreSQL accesible.
 - npm 10 o superior.
+- Acceso a `Cluster-lauril` en MongoDB Atlas desde la IP de desarrollo.
 
 ## Puesta en marcha
 
 1. Copiar `.env.example` como `.env` y reemplazar los valores de desarrollo.
-2. Definir una contraseña local de PostgreSQL y, si se desea acceder al panel,
-   `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` (mínimo 12 caracteres y máximo 72
-   bytes UTF-8).
+2. Configurar `MONGODB_URI` con acceso a `lauril_ecommerce` y, si se desea acceder
+   al panel, `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` (mínimo 12 caracteres y
+   máximo 72 bytes UTF-8).
 3. Ejecutar:
 
 ```bash
-docker compose up -d postgres
 npm install
-npm run db:migrate:deploy
+npm run db:push
 npm run db:seed
 npm run dev
 ```
 
 Abrir `http://localhost:3000` para la tienda y `http://localhost:3000/admin` para
 la administración. El health check superficial está en `/api/health`; agregar
-`?deep=1` también verifica PostgreSQL.
+`?deep=1` también verifica MongoDB Atlas.
 
 Rutas principales de Fases 2 a 7:
 
@@ -57,7 +56,7 @@ efímero.
 
 ```bash
 npm run db:generate
-npm run db:migrate -- --name nombre_del_cambio
+npm run db:push
 npm run db:seed
 npm run db:verify
 npm run db:verify:phase2
@@ -72,13 +71,15 @@ npm run db:studio
 Para una prueba manual local de Fase 6 se pueden crear pedidos sintéticos
 `PENDING_PAYMENT` y `PAID` con `npm run db:fixtures:phase6`, y eliminarlos con
 `npm run db:fixtures:phase6:cleanup`. El script rechaza producción y bases no
-locales; no existe una vía equivalente en la interfaz.
+de desarrollo contra `lauril_ecommerce`; no existe una vía equivalente en la interfaz.
 
 Los fixtures de Fase 7 para cliente, pedido y permisos del backoffice se crean con
 `PHASE7_FIXTURE_PASSWORD=<valor> npm run db:fixtures:phase7` y se eliminan con
-`npm run db:fixtures:phase7:cleanup`; también están restringidos a PostgreSQL local.
+`npm run db:fixtures:phase7:cleanup`; también están deshabilitados en producción y
+restringidos a la base lógica `lauril_ecommerce`.
 
-En producción se ejecuta `npm run db:migrate:deploy`, nunca `migrate dev`.
+MongoDB no usa Prisma Migrate. Los cambios de schema se sincronizan con
+`npm run db:push`, que también asegura los índices parciales requeridos.
 
 ## Calidad
 
@@ -91,8 +92,8 @@ npm run build
 
 ## Variables de entorno
 
-- `DATABASE_URL`: conexión PostgreSQL; obligatoria al ejecutar la aplicación,
-  instalar dependencias, generar Prisma, migrar, ejecutar el seed o iniciar la app.
+- `MONGODB_URI`: conexión a MongoDB Atlas y a la base `lauril_ecommerce`;
+  obligatoria para sincronizar schema, ejecutar el seed o iniciar la app.
 - `APP_URL`: origen público de la tienda.
 - `SESSION_COOKIE_NAME`, `SESSION_TTL_DAYS`: configuración de sesión.
 - `CUSTOMER_SESSION_COOKIE_NAME`, `CUSTOMER_SESSION_TTL_DAYS`: sesión cliente.
@@ -116,6 +117,7 @@ Git.
 - [`docs/PRODUCT.md`](docs/PRODUCT.md): alcance funcional.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): módulos y dependencias.
 - [`docs/DATABASE.md`](docs/DATABASE.md): modelo, constraints e índices.
+- [`docs/MONGODB_ATLAS.md`](docs/MONGODB_ATLAS.md): aprovisionamiento y operación de Atlas.
 - [`docs/PAYMENTS.md`](docs/PAYMENTS.md): diseño futuro de Mercado Pago.
 - [`docs/SHIPPING.md`](docs/SHIPPING.md): abstracción de envíos.
 - [`docs/SECURITY.md`](docs/SECURITY.md): controles y pendientes.

@@ -1,6 +1,5 @@
 import "dotenv/config";
 
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { AuthService } from "../src/modules/auth/application/auth-service";
 import { PrismaAuthRepository } from "../src/modules/auth/infrastructure/prisma-auth-repository";
@@ -12,11 +11,11 @@ import { RecordInventoryMovement } from "../src/modules/inventory/application/re
 import { PrismaInventoryUnitOfWork } from "../src/modules/inventory/infrastructure/prisma-inventory-unit-of-work";
 import { ConflictError } from "../src/shared/domain/errors";
 
-const databaseUrl = requiredEnv("DATABASE_URL");
+const mongodbUri = requiredEnv("MONGODB_URI");
 const adminEmail = requiredEnv("SEED_ADMIN_EMAIL");
 const adminPassword = requiredEnv("SEED_ADMIN_PASSWORD");
 
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+const prisma = new PrismaClient();
 const storedObjects = new Set<string>();
 const storage: ObjectStorage = {
   store: async () => {

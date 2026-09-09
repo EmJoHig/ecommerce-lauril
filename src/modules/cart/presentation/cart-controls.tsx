@@ -1,27 +1,37 @@
 "use client";
 
-import { startTransition, useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import {
   clearCartAction,
   removeCartItemAction,
   updateCartItemAction,
 } from "./cart-actions";
 import { initialCartActionState } from "./cart-action-state";
+import { cartUpdatedEvent } from "./cart-events";
 
 export function CartQuantityControl({
   variantId,
   currentQuantity,
   maximum,
+  compact = false,
 }: Readonly<{
   variantId: string;
   currentQuantity: number;
   maximum: number;
+  compact?: boolean;
 }>) {
+  const router = useRouter();
   const [quantity, setQuantity] = useState(currentQuantity);
   const [state, action, pending] = useActionState(
     updateCartItemAction,
     initialCartActionState,
   );
+  useEffect(() => {
+    if (state.status !== "success") return;
+    window.dispatchEvent(new Event(cartUpdatedEvent));
+    router.refresh();
+  }, [router, state]);
   function submit(nextQuantity: number): void {
     const next = Math.min(Math.max(nextQuantity, 1), Math.max(maximum, 1));
     setQuantity(next);
@@ -32,7 +42,7 @@ export function CartQuantityControl({
   }
 
   return (
-    <div className="cart-quantity">
+    <div aria-busy={pending} className={compact ? "cart-quantity cart-quantity--compact" : "cart-quantity"}>
       <div>
         <button
           aria-label="Disminuir cantidad"
@@ -42,7 +52,7 @@ export function CartQuantityControl({
         >
           −
         </button>
-        <form action={action}>
+        <form action={action} className={compact ? "cart-quantity__compact-form" : undefined}>
           <input name="variantId" type="hidden" value={variantId} />
           <input
             aria-label="Cantidad"
@@ -51,10 +61,11 @@ export function CartQuantityControl({
             min={1}
             name="quantity"
             onChange={(event) => setQuantity(Number(event.target.value))}
+            readOnly={compact}
             type="number"
             value={quantity}
           />
-          <button disabled={pending} type="submit">Actualizar</button>
+          {compact ? null : <button disabled={pending} type="submit">Actualizar</button>}
         </form>
         <button
           aria-label="Aumentar cantidad"
@@ -65,23 +76,34 @@ export function CartQuantityControl({
           +
         </button>
       </div>
+      {pending ? <span className="cart-quantity__pending" role="status">Actualizando…</span> : null}
       {state.status === "error" ? <p className="action-error" role="alert">{state.message}</p> : null}
     </div>
   );
 }
 
-export function RemoveCartItemButton({ variantId }: { variantId: string }) {
+export function RemoveCartItemButton({ variantId, iconOnly = false }: { variantId: string; iconOnly?: boolean }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(
     removeCartItemAction,
     initialCartActionState,
   );
+  useEffect(() => {
+    if (state.status !== "success") return;
+    window.dispatchEvent(new Event(cartUpdatedEvent));
+    router.refresh();
+  }, [router, state]);
   return (
     <form action={action} className="cart-remove-form">
       <input name="variantId" type="hidden" value={variantId} />
-      <button disabled={pending} type="submit">{pending ? "Eliminando…" : "Eliminar"}</button>
+      <button aria-label={iconOnly ? "Eliminar producto del carrito" : undefined} className={iconOnly ? "cart-remove-button cart-remove-button--icon" : "cart-remove-button"} disabled={pending} type="submit">{iconOnly ? <TrashIcon /> : pending ? "Eliminando…" : "Eliminar"}</button>
       {state.status === "error" ? <span className="action-error" role="alert">{state.message}</span> : null}
     </form>
   );
+}
+
+function TrashIcon() {
+  return <svg aria-hidden="true" fill="none" height="18" viewBox="0 0 24 24" width="18"><path d="M4 7h16M9 7V4h6v3m3 0-1 13H7L6 7m4 4v5m4-5v5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7"/></svg>;
 }
 
 export function ClearCartButton() {

@@ -3,9 +3,13 @@ import Link from "next/link";
 import type { CatalogProduct } from "../domain/product";
 import { getLowestProductPrice } from "../domain/product";
 import { formatMoney } from "@/shared/domain/money";
+import { AddToCartButton } from "./add-to-cart-button";
 
 export function ProductCard({ product, storeName }: { product: CatalogProduct; storeName: string }) {
   const hasStock = product.variants.some((variant) => variant.availableStock > 0);
+  const purchaseVariant = product.variants.find((variant) => variant.isDefault && variant.availableStock > 0)
+    ?? product.variants.find((variant) => variant.availableStock > 0);
+  const hasOffer = product.variants.some((variant) => variant.promotionalPriceInCents !== null);
 
   return (
     <article className="product-card">
@@ -16,7 +20,7 @@ export function ProductCard({ product, storeName }: { product: CatalogProduct; s
           sizes="(max-width: 720px) 100vw, (max-width: 1100px) 50vw, 33vw"
           src={product.imageUrl ?? "/product-placeholder.svg"}
         />
-        {product.featured ? <span className="pill">Destacado</span> : null}
+        {hasOffer ? <span className="pill">Oferta</span> : product.featured ? <span className="pill">Destacado</span> : null}
       </Link>
       <div className="product-card__body">
         <p className="eyebrow">
@@ -29,11 +33,13 @@ export function ProductCard({ product, storeName }: { product: CatalogProduct; s
           {product.shortDescription ?? "Una pieza elegida para disfrutar todos los días."}
         </p>
         <div className="product-card__footer">
-          <strong>Desde {formatMoney(getLowestProductPrice(product))}</strong>
+          <div><small>{product.variants.length > 1 ? "Desde" : "Precio"}</small><strong>{formatMoney(getLowestProductPrice(product))}</strong></div>
           <span className={hasStock ? "stock stock--ok" : "stock stock--out"}>
             {hasStock ? "Disponible" : "Sin stock"}
           </span>
         </div>
+        {purchaseVariant ? <AddToCartButton variantId={purchaseVariant.id} /> : <button className="product-card__add" disabled type="button">Sin stock</button>}
+        <Link className="product-card__cta" href={`/producto/${product.slug}`}>Ver detalle <span aria-hidden="true">→</span></Link>
       </div>
     </article>
   );

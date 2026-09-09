@@ -8,23 +8,23 @@ import {
 
 export async function getAdminCatalogOverview() {
   const prisma = getPrisma();
-  const [productCount, activeProductCount, categoryCount, lowStockRows] =
+  const [productCount, activeProductCount, categoryCount, inventories] =
     await Promise.all([
       prisma.product.count({ where: { status: { not: "ARCHIVED" } } }),
       prisma.product.count({ where: { status: "ACTIVE" } }),
       prisma.category.count({ where: { isActive: true } }),
-      prisma.$queryRaw<Array<{ count: bigint }>>`
-        SELECT count(*)::bigint AS count
-        FROM inventory
-        WHERE stock_on_hand - stock_reserved <= minimum_stock
-      `,
+      prisma.inventory.findMany({
+        select: { stockOnHand: true, stockReserved: true, minimumStock: true },
+      }),
     ]);
 
   return {
     productCount,
     activeProductCount,
     categoryCount,
-    lowStockCount: Number(lowStockRows[0]?.count ?? 0n),
+    lowStockCount: inventories.filter(({ stockOnHand, stockReserved, minimumStock }) =>
+      isLowStock(stockOnHand, stockReserved, minimumStock),
+    ).length,
   };
 }
 

@@ -23,7 +23,8 @@ export default async function CartPage() {
       <section className="cart-page section">
         <div className="cart-heading">
           <p className="eyebrow">Tu selección</p>
-          <h1>Tu bolsa está vacía</h1>
+          <span aria-hidden="true" className="empty-cart-icon"><EmptyCartIcon /></span>
+          <h1>Tu carrito está vacío</h1>
           <p>Explorá el catálogo y guardá los productos que quieras comprar.</p>
           <Link className="button button--dark" href="/productos">Ver productos</Link>
         </div>
@@ -65,12 +66,18 @@ export default async function CartPage() {
         <aside className="cart-summary">
           <p className="eyebrow">Resumen</p>
           <div><span>Unidades</span><strong>{cart.itemCount}</strong></div>
-          <div className="cart-summary__total"><span>Subtotal</span><strong>{formatMoney(cart.subtotalInCents)}</strong></div>
+          <div><span>Subtotal</span><strong>{formatMoney(cart.subtotalInCents)}</strong></div>
+          <div><span>Envío</span><strong>A definir en checkout</strong></div>
+          <div className="cart-summary__total"><span>Total parcial</span><strong>{formatMoney(cart.subtotalInCents)}</strong></div>
           <p>Los precios y el stock se validan nuevamente en el servidor. El carrito no reserva unidades.</p>
-          <Link className="button button--primary button--wide" href="/checkout">Continuar al checkout</Link>
+          <Link className="button button--primary button--wide" href="/checkout">Iniciar compra</Link>
           <ClearCartButton />
         </aside>
       </div>
     </section>
   );
+}
+
+function EmptyCartIcon() {
+  return <svg fill="none" height="34" viewBox="0 0 24 24" width="34"><path d="M5 8h14l-1 12H6L5 8Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.6"/><path d="M9 9V6a3 3 0 0 1 6 0v3" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6"/></svg>;
 }

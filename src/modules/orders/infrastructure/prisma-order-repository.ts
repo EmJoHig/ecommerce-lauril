@@ -13,6 +13,7 @@ import type {
   PendingOrderRecord,
 } from "../application/order-repository";
 import { mapShippingMethod } from "@/modules/shipping/infrastructure/prisma-shipping-repository";
+import { nextOrderNumber } from "./next-order-number";
 
 const checkoutCartInclude = {
   items: {
@@ -149,7 +150,6 @@ export class PrismaOrderRepository implements OrderRepository {
     try {
       return await this.prisma.$transaction(
         async (tx) => work(createTransaction(tx)),
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
     } catch (error) {
       throw mapPersistenceError(error);
@@ -187,8 +187,10 @@ function createTransaction(tx: Transaction): CheckoutTransaction {
       return updated.count === 1;
     },
     createOrder: async (input) => {
+      const number = await nextOrderNumber(tx);
       const row = await tx.order.create({
         data: {
+          number,
           cartId: input.cartId,
           customerId: input.customerId,
           shippingMethodId: input.shippingMethodId,

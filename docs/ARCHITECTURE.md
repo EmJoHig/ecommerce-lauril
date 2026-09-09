@@ -3,7 +3,7 @@
 ## Estilo
 
 Monolito modular desplegable como una sola aplicación Next.js y una única base
-PostgreSQL. Evita la latencia y operación de microservicios, mientras conserva
+MongoDB Atlas. Evita la latencia y operación de microservicios, mientras conserva
 límites que permiten extraer un módulo solo si existe una necesidad comprobada.
 
 ```text
@@ -12,7 +12,7 @@ Browser
       -> application use cases
           -> domain rules and ports
               <- infrastructure adapters (Prisma, Mercado Pago, S3, email)
-                  -> PostgreSQL / external providers
+                  -> MongoDB Atlas / external providers
 ```
 
 La composición de dependencias ocurre cerca de infraestructura. Las dependencias
@@ -59,7 +59,6 @@ src/
     presentation/            componentes visuales reutilizables
 prisma/
   schema.prisma
-  migrations/
   seed.ts
 tests/
 ```
@@ -78,14 +77,14 @@ reservan para interacción local. Server Actions y Route Handlers:
 4. transforman el resultado a una respuesta/redirección.
 
 Nunca reciben como autoritativos precio, descuento, costo de envío, rol ni estado.
-Las páginas dinámicas que consultan PostgreSQL se marcan explícitamente para no
+Las páginas dinámicas que consultan MongoDB Atlas se marcan explícitamente para no
 conectar a la base durante el build.
 
 ## Datos y consistencia
 
 - Prisma es un detalle de infraestructura. Los tipos Prisma no atraviesan el
   límite del módulo hacia componentes o reglas puras.
-- Una transacción serializable crea el pedido, sus snapshots e historial, reserva
+- Una transacción MongoDB crea el pedido, sus snapshots e historial, reserva
   `stockReserved` y convierte el carrito. La reserva no es movimiento físico.
 - Se usa concurrencia optimista (`Inventory.version`) y actualizaciones
   condicionales para evitar sobreventa.
@@ -138,7 +137,7 @@ formulario y producción no expone el token mientras no exista proveedor real.
 
 Cada mutación de dirección deriva `customerId` de la sesión y consulta por
 `(addressId, customerId)`. La dirección predeterminada se mantiene en una
-transacción serializable y un índice parcial impide más de una por cliente.
+transacción MongoDB y un índice parcial impide más de una por cliente.
 
 ## Imágenes
 
@@ -157,8 +156,8 @@ movimiento inicial y auditoría es atómica. Los ajustes de stock usan el caso d
 de inventario, compuesto desde infraestructura, y registran movimiento y auditoría
 en la misma transacción.
 
-Las categorías serializan cambios jerárquicos con un advisory lock transaccional y
-validan ancestros mediante una consulta recursiva, evitando ciclos incluso ante
+Las categorías serializan cambios jerárquicos con un lock documental transaccional y
+validan ancestros mediante consultas Prisma iterativas, evitando ciclos incluso ante
 escrituras concurrentes. Productos y variantes se desactivan o archivan; no se
 eliminan físicamente desde la administración.
 
@@ -170,13 +169,13 @@ eliminan físicamente desde la administración.
 consulta Prisma directamente.
 
 El propietario anónimo se demuestra con un token CSPRNG de 256 bits almacenado en
-cookie `HttpOnly`, `SameSite=Lax` y `Secure` en producción. PostgreSQL conserva
+cookie `HttpOnly`, `SameSite=Lax` y `Secure` en producción. MongoDB conserva
 solo SHA-256 del token; el UUID interno del carrito nunca se envía al navegador.
 Cada mutación obtiene el carrito por ese hash y restringe artículos al carrito
 encontrado, evitando IDOR por sustitución de IDs.
 
 Los casos de uso disponibles son lectura, agregar, cambiar cantidad, eliminar y
-vaciar. Las mutaciones usan transacciones serializables para que dos pestañas no
+vaciar. Las mutaciones usan transacciones MongoDB para que dos pestañas no
 creen líneas duplicadas ni pierdan actualizaciones silenciosamente. Un conflicto
 concurrente se devuelve como error recuperable para reintentar.
 
@@ -190,10 +189,10 @@ disponible usa la regla de `inventory`; no se reserva, modifica ni genera
 ## Carrito autenticado y fusión en Fase 4
 
 `Cart` tiene exactamente un propietario: hash de token invitado o `customerId`.
-PostgreSQL garantiza un solo carrito `ACTIVE` por cliente. Las acciones resuelven
+Un índice parcial MongoDB garantiza un solo carrito `ACTIVE` por cliente. Las acciones resuelven
 primero la sesión cliente y nunca aceptan `customerId` desde el navegador.
 
-En registro/login, el merge se ejecuta en una transacción serializable con hasta
+En registro/login, el merge se ejecuta en una transacción MongoDB con hasta
 tres reintentos ante conflicto. Para cada variante se suman las cantidades, se
 vuelve a leer producto, variante, precio e inventario y se limita a
 `min(suma, stockAvailable, 999)`. Las líneas inactivas o sin stock se omiten y el
@@ -202,7 +201,7 @@ snapshot se actualiza al precio efectivo. El origen invitado se vacía y marca
 cantidades ajustadas u omitidas.
 
 La fusión no reserva stock ni genera `InventoryMovement`. El carrito cliente se
-resuelve por sesión y permanece en PostgreSQL después de logout, reinicio o una
+resuelve por sesión y permanece en MongoDB después de logout, reinicio o una
 sesión posterior.
 
 ## Checkout, envíos y pedidos en Fase 5
@@ -210,7 +209,7 @@ sesión posterior.
 `CheckoutService` coordina `orders`, `cart`, `shipping`, `customers` e `inventory`
 a través de puertos. La presentación entrega identidad, clave de idempotencia,
 método y datos de comprador/dirección; el caso de uso vuelve a leer carrito,
-producto, variante, precio e inventario dentro de una transacción serializable.
+producto, variante, precio e inventario dentro de una transacción MongoDB.
 `PrismaOrderRepository` concentra las consultas y escrituras Prisma.
 
 `CustomShippingProvider` cotiza `ShippingMethod` activos. `PICKUP` y
@@ -231,7 +230,7 @@ reserva una sola vez, marca `CANCELLED` y agrega historial.
 ### Job operativo de expiración
 
 Un scheduler externo debe ejecutar periódicamente `npm run db:expire-orders` en
-el artefacto de la aplicación con `DATABASE_URL` configurada. El comando no es
+el artefacto de la aplicación con `MONGODB_URI` configurada. El comando no es
 interactivo, procesa hasta 100 pedidos vencidos por ejecución y termina; conviene
 programarlo con una frecuencia menor al tiempo de reserva y evitar ejecuciones
 solapadas. No requiere endpoint HTTP, proceso web, cola ni worker permanente.
@@ -241,18 +240,18 @@ JSON con `job`, `status` y `expired`. Ante un fallo devuelve código `1` y un JS
 mínimo sin credenciales, tokens, datos personales ni detalles internos del error.
 Las ejecuciones repetidas son seguras: cada pedido vuelve a validar estado y
 vencimiento, y la liberación de `stockReserved`, cancelación e historial ocurren
-en una transacción serializable con compare-and-set de la versión de inventario.
+en una transacción MongoDB con compare-and-set de la versión de inventario.
 
 Los clientes acceden sólo a pedidos vinculados a su sesión. Un invitado recibe una
 cookie `HttpOnly` restringida a `/pedido/<número>` con el token opaco del carrito;
-PostgreSQL conserva únicamente su hash. El número humano no autoriza por sí solo.
+MongoDB conserva únicamente su hash. El número humano no autoriza por sí solo.
 
 ## Operación administrativa de pedidos en Fase 6
 
 `OrderAdminService` concentra filtros, validación de comandos, notas y decisiones
 de transición; depende de `OrderAdminRepository`. `PrismaOrderAdminRepository`
 implementa consultas, compare-and-set, historial, auditoría y liberación de reserva
-en transacciones serializables. Páginas y Server Actions no importan Prisma.
+en transacciones MongoDB. Páginas y Server Actions no importan Prisma.
 
 La máquina de estados está en dominio y distingue fuente `ADMIN`, `SYSTEM` o
 `PAYMENT`. Administración permite `PENDING_PAYMENT -> CANCELLED`, y para pedidos
@@ -284,19 +283,20 @@ de solo lectura y elimina claves sensibles de metadatos antes de enviarlos a UI.
 
 ## Despliegue
 
-La aplicación puede ejecutarse con el runtime Node de Render y PostgreSQL
-administrado. `prisma migrate deploy` se ejecuta como pre-deploy command y la
-aplicación con `npm run start`. La imagen Docker de producción se incorpora al
-endurecer el despliegue; Compose en desarrollo solo levanta PostgreSQL.
+La aplicación puede ejecutarse con el runtime Node de Render y MongoDB Atlas.
+`npm run db:push` sincroniza el schema y los índices en un paso operativo
+controlado; la aplicación se inicia con `npm run start`. Desarrollo se conecta
+directamente a Atlas y no necesita PostgreSQL ni Docker para la base.
 
 ## Decisiones explícitas
 
 - App Router en lugar de Pages Router.
 - Monolito modular, no microservicios ni multi-tenancy preventivo.
-- Identificadores UUID y nombres SQL `snake_case` mediante `@map`/`@@map`.
+- Identificadores UUID y nombres de campos/colecciones `snake_case` mediante
+  `@map`/`@@map`.
 - Importes enteros en unidad mínima, nunca `number` decimal para cálculos.
 - SKU normalizado en mayúsculas y slug normalizado en minúsculas, con validación
-  tanto en dominio como en PostgreSQL.
+  tanto en dominio como mediante índices únicos MongoDB.
 - Stock por variante con una variante por defecto obligatoria a nivel de caso de
   uso; no hay stock duplicado en `Product`.
 - Estados y archivo lógico para registros históricos.
