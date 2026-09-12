@@ -11,7 +11,7 @@ Browser
   -> Next.js presentation (pages, route handlers, server actions)
       -> application use cases
           -> domain rules and ports
-              <- infrastructure adapters (Prisma, Mercado Pago, S3, email)
+              <- infrastructure adapters (Prisma, S3, email; Mercado Pago futuro)
                   -> MongoDB Atlas / external providers
 ```
 
@@ -133,7 +133,7 @@ valida DTOs, resuelve sesión e invoca casos de uso.
 La recuperación invalida tokens anteriores, utiliza CSPRNG, persiste solo SHA-256,
 permite un único uso y revoca todas las sesiones al cambiar la contraseña.
 `EmailSender` desacopla la entrega: desarrollo devuelve un enlace de preview al
-formulario y producción no expone el token mientras no exista proveedor real.
+formulario y producción usa `ResendEmailSender` sin exponer el token.
 
 Cada mutación de dirección deriva `customerId` de la sesión y consulta por
 `(addressId, customerId)`. La dirección predeterminada se mantiene en una
@@ -144,8 +144,9 @@ transacción MongoDB y un índice parcial impide más de una por cliente.
 `ProductImage` guarda clave de objeto, URL pública/servida, texto alternativo y
 orden; la primera imagen por `sortOrder` es la principal. `ObjectStorage` desacopla
 el caso de uso del proveedor. En desarrollo, `LocalObjectStorage` escribe en
-`public/uploads/catalog`, ruta ignorada por Git. Producción deberá usar un adaptador
-S3 compatible: los binarios no se guardarán en el disco efímero de Render.
+`public/uploads/catalog`, ruta ignorada por Git. En producción la composición
+exige `S3ObjectStorage`, compatible con Cloudflare R2; los binarios no se guardan
+en el disco efímero de Render.
 
 ## Catálogo en Fase 2
 
@@ -160,6 +161,12 @@ Las categorías serializan cambios jerárquicos con un lock documental transacci
 validan ancestros mediante consultas Prisma iterativas, evitando ciclos incluso ante
 escrituras concurrentes. Productos y variantes se desactivan o archivan; no se
 eliminan físicamente desde la administración.
+
+La importación administrativa de catálogo acepta `.xlsx`, genera una plantilla,
+valida y previsualiza antes de confirmar. La persistencia crea o actualiza por SKU
+dentro de una única transacción, sincroniza las categorías comerciales, conserva
+las invariantes y movimientos de inventario y registra auditoría. `fragranceKey`
+proyecta la fragancia normalizada en un campo indexable para el filtro público.
 
 ## Carrito en Fase 3
 
@@ -287,6 +294,9 @@ La aplicación puede ejecutarse con el runtime Node de Render y MongoDB Atlas.
 `npm run db:push` sincroniza el schema y los índices en un paso operativo
 controlado; la aplicación se inicia con `npm run start`. Desarrollo se conecta
 directamente a Atlas y no necesita PostgreSQL ni Docker para la base.
+Producción utiliza almacenamiento S3-compatible —Cloudflare R2 es el objetivo
+documentado—, Resend para email y un scheduler de Render para ejecutar
+`npm run db:expire-orders`.
 
 ## Decisiones explícitas
 

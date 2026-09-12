@@ -58,6 +58,7 @@ npm run db:push
 npm run db:seed
 npm run db:verify
 npm run db:studio
+npm run db:expire-orders
 npm run dev
 ```
 
@@ -76,3 +77,5 @@ local, Compose ni Docker como requisito de base de datos.
 `db:verify` realiza un ping no destructivo y comprueba seed, índices aplicados,
 relaciones e invariantes de catálogo, inventario, carrito y pedidos. Prisma Studio
 se abre con `npm run db:studio` y utiliza la misma `MONGODB_URI`.
+`db:expire-orders` libera de forma idempotente las reservas vencidas y requiere el
+replica set provisto por Atlas para su transacción.

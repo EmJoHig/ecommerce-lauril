@@ -11,7 +11,7 @@
 - Índices únicos y transacciones MongoDB complementan las invariantes de aplicación.
 - Índices compuestos siguen patrones reales de consulta; no se indexa cada campo.
 
-## Modelo implementado hasta Fase 7
+## Modelo implementado
 
 ### Identidad y autorización
 
@@ -126,6 +126,10 @@ pago/reembolso quedan reservados a una integración futura.
 `total = itemsSubtotal + shipping - discount`; descuento es cero en esta fase.
 Los pedidos invitados exigen hash de acceso y los de cliente no lo guardan.
 
+`Sequence` mantiene documentos internos para el contador de pedidos, locks
+transaccionales y la versión de los índices adicionales; no representa una entidad
+comercial ni se expone a la presentación.
+
 ### Reservas
 
 La creación aumenta `Inventory.stockReserved` con control de versión sin alterar
@@ -140,13 +144,13 @@ e idempotentes mediante `reservationReleasedAt`.
 - `PICKUP`, `FLAT_RATE`, `LOCAL_DELIVERY` y `TO_COORDINATE` están disponibles.
 - El pedido conserva un snapshot; editar o desactivar el método no altera historia.
 
-## Modelo objetivo por fases
-
 ### Configuración de tienda implementada en Fase 10
 
 `StoreSettings` conserva una única fila (`id = 1`) con la identidad comercial,
 los datos públicos de contacto, redes sociales y una descripción breve. El ID fijo
 `1`, el repositorio y el seed idempotente preservan el carácter single-store.
+
+## Modelo objetivo por fases
 
 ### Pagos
 
@@ -193,6 +197,12 @@ se deriva de pagos, no de un único campo mutable sin historial.
 - pagos/eventos: referencias externas e idempotencia únicas.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
+Además de los índices expresables en Prisma Schema, el script
+`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente cinco índices
+únicos parciales activos: una variante predeterminada por producto, una dirección
+predeterminada por cliente, un carrito activo por cliente y unicidad para los
+hashes opcionales de carrito invitado y acceso a pedido invitado.
+
 ## Sincronización y seed
 
 - MongoDB no utiliza Prisma Migrate ni migraciones SQL. Desarrollo y despliegue
@@ -204,6 +214,6 @@ se deriva de pagos, no de un único campo mutable sin historial.
   su contraseña ni reactiva su cuenta.
 - El administrador inicial solo se crea si se proveen `SEED_ADMIN_EMAIL` y
   `SEED_ADMIN_PASSWORD`; nunca existe una credencial predeterminada en Git.
-- `npm run db:verify` comprueba conexión, versión de índices e invariantes de datos
-  sin exigir cantidades exactas, por lo que sigue siendo válido después de operar
-  el catálogo.
+- `npm run db:verify` comprueba conexión, presencia mínima del seed, versión de
+  índices e invariantes de catálogo, inventario, carrito, pedidos y
+  `StoreSettings`; no modifica datos.
