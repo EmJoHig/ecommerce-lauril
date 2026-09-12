@@ -114,6 +114,9 @@ export class PrismaCatalogImportRepository implements CatalogImportRepository {
           categories: new Set(rows.map((row) => row.categorySlug)).size,
           fragrances: new Set(rows.map((row) => row.fragranceKey)).size,
         };
+            }, {
+        maxWait: 5_000,
+        timeout: 45_000,
       });
     } catch (error) {
       throw mapImportPersistenceError(error);
@@ -240,11 +243,36 @@ function requiredCategoryId(categoryIds: Map<string, string>, slug: string): str
 }
 
 function mapImportPersistenceError(error: unknown): Error {
-  if (error instanceof Error && "code" in error && error.code === "P2034") {
-    return new ConflictError("El catálogo cambió durante la importación; validá el archivo nuevamente.");
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+      return new ConflictError(
+        "Un SKU o slug ya está en uso; no se importó ninguna fila.",
+      );
+    }
+
+    if (error.code === "P2034") {
+      return new ConflictError(
+        "El catálogo cambió durante la importación; validá el archivo nuevamente.",
+      );
+    }
+
+    if (error.code === "P2031") {
+      return new ValidationError(
+        "MongoDB no pudo iniciar la transacción de importación. Verificá que MONGODB_URI apunte al cluster MongoDB Atlas y no a una instancia MongoDB standalone.",
+      );
+    }
   }
-  if (error instanceof Error && "code" in error && error.code === "P2002") {
-    return new ConflictError("Un SKU o slug ya está en uso; no se importó ninguna fila.");
+
+  if (
+    error instanceof Prisma.PrismaClientUnknownRequestError &&
+    error.message.includes("Transactions are not supported by this deployment")
+  ) {
+    return new ValidationError(
+      "MongoDB no pudo iniciar la transacción de importación. Verificá que MONGODB_URI apunte al cluster MongoDB Atlas y no a una instancia MongoDB standalone.",
+    );
   }
-  return error instanceof Error ? error : new Error("Error de persistencia desconocido.");
+
+  return error instanceof Error
+    ? error
+    : new Error("Error de persistencia desconocido.");
 }
