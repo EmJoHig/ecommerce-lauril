@@ -59,15 +59,26 @@ export async function catalogImportAction(formData: FormData): Promise<CatalogIm
       fileName: file.name,
       result,
     };
-  } catch (error) {
+   } catch (error) {
+    console.error("[catalog-import] Error al importar catálogo", error);
     return actionError(toActionMessage(error));
   }
 }
 
 function toActionMessage(error: unknown): string {
-  if (error instanceof z.ZodError) return error.issues[0]?.message ?? "Datos inválidos.";
-  if (error instanceof DomainError) return error.message;
-  return "No se pudo procesar el Excel. Verificá que sea un archivo .xlsx válido.";
+  if (error instanceof z.ZodError) {
+    return error.issues[0]?.message ?? "Datos inválidos.";
+  }
+
+  if (error instanceof DomainError) {
+    return error.message;
+  }
+
+  if (process.env.NODE_ENV !== "production" && error instanceof Error) {
+    return `Error al guardar la importación: ${error.message}`;
+  }
+
+  return "No se pudo guardar la importación en la base de datos.";
 }
 
 function actionError(message: string): CatalogImportActionState {
