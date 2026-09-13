@@ -186,25 +186,31 @@ Estado: completada y validada.
 ## Fase 12 — Infraestructura productiva, integraciones y datos reales
 
 Objetivo: validar y formalizar la infraestructura productiva ya desplegada antes
-del hardening y los pagos. La existencia del VPS no completa esta fase: sus
-procedimientos y verificaciones continúan pendientes de validación formal.
+del hardening y los pagos. La validación del VPS quedó completada en Fase 12A;
+las integraciones productivas y los datos reales continúan en Fases 12B y 12C.
 
 ### Fase 12A — Validación del VPS productivo
 
-- Validar la aplicación Next.js en el VPS definitivo.
-- Validar PM2 como process manager y su recuperación automática después de un reboot.
-- Validar Nginx como reverse proxy, el dominio configurado y HTTPS.
-- Confirmar MongoDB Atlas como única persistencia.
-- Confirmar secretos y variables fuera del repositorio, incluida `APP_URL` productiva.
-- Validar `/api/health` y `/api/health?deep=1`.
-- Documentar acceso a logs y diagnóstico operativo sin exponer datos sensibles.
-- Formalizar un procedimiento reproducible de deploy desde Git.
-- Formalizar un procedimiento de rollback.
-- Definir y comprobar backups básicos de Atlas y de la configuración necesaria
-  para reconstruir la infraestructura.
-- Ejecutar `npm run db:push` de forma controlada para sincronizar schema e índices.
-- Ejecutar `npm run db:verify`.
-- No utilizar PostgreSQL ni Prisma Migrate.
+Estado: completada y validada.
+
+- Aplicación Next.js operativa en el VPS definitivo.
+- Producción desplegada desde `main`.
+- Working tree productivo limpio y sincronizado.
+- PM2 validado como process manager con Node 22.23.2 y PM2 7.0.4.
+- `pm2-root.service` habilitado mediante systemd y `pm2 save` realizado.
+- Reboot real validado: `pm2-root.service` quedó `active (running)` y
+  `pm2 resurrect` restauró `lauril-ecommerce` automáticamente en estado `online`.
+- Nginx activo y configuración válida.
+- Dominio y HTTPS operativos.
+- MongoDB Atlas validado como única persistencia.
+- `npm run db:verify` aprobado sin inconsistencias.
+- `/api/health` validado con `status: ok`.
+- `/api/health?deep=1` validado con `status: ok` y `database: reachable`.
+- Backup automático semanal del VPS disponible.
+- `db:push` se reserva para despliegues que incluyan cambios reales de schema o índices.
+
+Las mejoras operativas adicionales no bloqueantes se registran en una sección
+independiente y no condicionan el avance a Fase 12B.
 
 ### Fase 12B — Integraciones productivas
 
@@ -231,6 +237,17 @@ procedimientos y verificaciones continúan pendientes de validación formal.
 - Verificar funcionamiento móvil básico en producción.
 
 Mercado Pago continúa fuera de alcance y se implementará en Fase 14.
+
+## Pendientes operativos no bloqueantes
+
+Estas tareas son mejoras de operación y mantenimiento. No forman parte del
+criterio de cierre de Fase 12A, no bloquean ninguna fase y se realizarán
+únicamente cuando el responsable del proyecto decida priorizarlas.
+
+- Normalizar la versión de Node y PM2 por defecto de las sesiones SSH.
+- Implementar un backup lógico independiente de MongoDB Atlas.
+- Formalizar un runbook de deploy.
+- Formalizar un runbook de rollback.
 
 ## Fase 13 — Hardening de seguridad
 
