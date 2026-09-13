@@ -1,4 +1,7 @@
 import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { LocalObjectStorage } from "@/modules/catalog/infrastructure/local-object-storage";
 import { createObjectStorage } from "@/modules/catalog/infrastructure/object-storage-composition";
@@ -88,6 +91,53 @@ describe("ObjectStorage", () => {
     const storage = createObjectStorage(productionEnv);
 
     expect(storage).toBeInstanceOf(LocalObjectStorage);
+  });
+
+  it("usa public/uploads como raíz predeterminada y conserva la URL pública", async () => {
+    const workingDirectory = await mkdtemp(path.join(tmpdir(), "lauril-storage-default-"));
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(workingDirectory);
+    try {
+      const storage = createObjectStorage({});
+      const stored = await storage.store({
+        bytes: new Uint8Array([1, 2, 3]),
+        fileName: "producto.png",
+        contentType: "image/png",
+      });
+
+      expect(stored.objectKey).toMatch(/^local\/catalog\/[0-9a-f-]+\.png$/);
+      expect(stored.url).toBe(`/uploads/catalog/${path.basename(stored.objectKey)}`);
+      await expect(readFile(path.join(workingDirectory, "public", "uploads", "catalog", path.basename(stored.objectKey))))
+        .resolves.toEqual(Buffer.from([1, 2, 3]));
+    } finally {
+      cwd.mockRestore();
+      await rm(workingDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("escribe y elimina en LOCAL_UPLOAD_ROOT sin cambiar objectKey ni URL", async () => {
+    const uploadRoot = await mkdtemp(path.join(tmpdir(), "lauril-storage-custom-"));
+    try {
+      const storage = createObjectStorage({
+        OBJECT_STORAGE_DRIVER: "local",
+        LOCAL_UPLOAD_ROOT: uploadRoot,
+      });
+      const stored = await storage.store({
+        bytes: new Uint8Array([4, 5, 6]),
+        fileName: "producto.webp",
+        contentType: "image/webp",
+      });
+      const storedPath = path.join(uploadRoot, "catalog", path.basename(stored.objectKey));
+
+      expect(stored.objectKey).toMatch(/^local\/catalog\/[0-9a-f-]+\.webp$/);
+      expect(stored.url).toBe(`/uploads/catalog/${path.basename(stored.objectKey)}`);
+      await expect(readFile(storedPath)).resolves.toEqual(Buffer.from([4, 5, 6]));
+
+      await storage.delete(stored.objectKey);
+
+      await expect(readFile(storedPath)).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(uploadRoot, { recursive: true, force: true });
+    }
   });
 
   it("falla claramente si falta configuración para el driver S3", () => {

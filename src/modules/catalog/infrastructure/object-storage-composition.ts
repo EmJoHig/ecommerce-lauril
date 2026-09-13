@@ -11,6 +11,7 @@ type ObjectStorageEnv = Partial<Pick<
   | "S3_ACCESS_KEY_ID"
   | "S3_SECRET_ACCESS_KEY"
   | "S3_PUBLIC_BASE_URL"
+  | "LOCAL_UPLOAD_ROOT"
 >> & { OBJECT_STORAGE_DRIVER?: string };
 
 const requiredS3Variables = [
@@ -24,7 +25,7 @@ const requiredS3Variables = [
 
 export function createObjectStorage(env: ObjectStorageEnv): ObjectStorage {
   const driver = env.OBJECT_STORAGE_DRIVER ?? "local";
-  if (driver === "local") return new LocalObjectStorage();
+  if (driver === "local") return new LocalObjectStorage(env.LOCAL_UPLOAD_ROOT);
   if (driver !== "s3") {
     throw new Error(
       `OBJECT_STORAGE_DRIVER inválido: ${driver}. Valores soportados: local, s3`,

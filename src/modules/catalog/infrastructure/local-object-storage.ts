@@ -7,10 +7,14 @@ import type { ObjectStorage, ObjectUpload, StoredObject } from "../application/o
 import { validateCatalogImageUpload } from "./catalog-image-upload";
 
 export class LocalObjectStorage implements ObjectStorage {
+  constructor(
+    private readonly root = path.join(process.cwd(), "public", "uploads"),
+  ) {}
+
   async store(upload: ObjectUpload): Promise<StoredObject> {
     const extension = validateCatalogImageUpload(upload);
     const fileName = `${randomUUID()}.${extension}`;
-    const directory = path.join(process.cwd(), "public", "uploads", "catalog");
+    const directory = path.join(this.root, "catalog");
     await mkdir(directory, { recursive: true });
     await writeFile(path.join(directory, fileName), upload.bytes, { flag: "wx" });
     return {
@@ -23,7 +27,7 @@ export class LocalObjectStorage implements ObjectStorage {
     if (!objectKey.startsWith("local/catalog/")) return;
     const fileName = path.basename(objectKey);
     try {
-      await unlink(path.join(process.cwd(), "public", "uploads", "catalog", fileName));
+      await unlink(path.join(this.root, "catalog", fileName));
     } catch (error) {
       if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
     }

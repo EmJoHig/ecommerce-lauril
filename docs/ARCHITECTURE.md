@@ -143,10 +143,11 @@ transacción MongoDB y un índice parcial impide más de una por cliente.
 
 `ProductImage` guarda clave de objeto, URL pública/servida, texto alternativo y
 orden; la primera imagen por `sortOrder` es la principal. `ObjectStorage` desacopla
-el caso de uso del proveedor. Actualmente, `LocalObjectStorage` escribe en
-`public/uploads/catalog`, ruta ignorada por Git, tanto en desarrollo como en
-producción. `S3ObjectStorage`, compatible con Cloudflare R2, permanece disponible
-para una activación futura mediante `OBJECT_STORAGE_DRIVER=s3`.
+el caso de uso del proveedor. `LocalObjectStorage` escribe por defecto en
+`<process.cwd()>/public/uploads/catalog`, ruta ignorada por Git. La raíz física
+puede configurarse con `LOCAL_UPLOAD_ROOT` sin alterar las URLs públicas
+`/uploads/...`. `S3ObjectStorage`, compatible con Cloudflare R2, permanece
+disponible para una activación futura mediante `OBJECT_STORAGE_DRIVER=s3`.
 
 ## Catálogo en Fase 2
 

@@ -55,9 +55,11 @@ Rutas principales implementadas:
   backoffice según permisos.
 - `/admin/configuracion` para identidad y contacto públicos de la tienda.
 
-Las imágenes se guardan actualmente en `public/uploads/catalog`, tanto en
-desarrollo como en producción. Esa ruta está ignorada por Git. El adaptador
-S3-compatible permanece disponible para una activación futura.
+Las imágenes locales se guardan por defecto en `public/uploads/catalog`, ruta
+ignorada por Git. `LOCAL_UPLOAD_ROOT` permite configurar otra raíz física sin
+cambiar las URLs públicas `/uploads/...`; producción usa almacenamiento persistente
+fuera del proyecto. El adaptador S3-compatible permanece disponible para una
+activación futura.
 
 ## Producción
 
@@ -130,6 +132,8 @@ npm run build
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: administrador inicial opcional.
 - `OBJECT_STORAGE_DRIVER`: selecciona `local` o `s3`; el valor predeterminado y
   vigente en todos los entornos es `local`.
+- `LOCAL_UPLOAD_ROOT`: raíz física opcional para el driver local; si se omite usa
+  `<process.cwd()>/public/uploads`.
 - `S3_*`: obligatorias solamente con `OBJECT_STORAGE_DRIVER=s3`; el adaptador
   S3-compatible queda reservado para una activación futura.
 - `RESEND_API_KEY`, `EMAIL_FROM`: obligatorias en producción para enviar emails
