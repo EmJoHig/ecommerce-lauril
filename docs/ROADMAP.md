@@ -215,15 +215,18 @@ independiente y no condicionan el avance a Fase 12B.
 
 ### Fase 12B — Integraciones productivas
 
-- La activación y el smoke test de Cloudflare R2 quedan postergados; mientras
-  tanto, producción utiliza `LocalObjectStorage`.
-- Resend ya está configurado; validar entrega real.
-- Validar end-to-end la recuperación de contraseña después del último fix.
-- Confirmar o configurar la ejecución automática de `npm run db:expire-orders`.
-- Usar un scheduler propio del host —cron, systemd timer u otro mecanismo
-  adecuado— sin fijar todavía una alternativa mientras no exista una decisión operativa.
-- Definir frecuencia UTC y evitar ejecuciones solapadas.
-- Incorporar observabilidad mínima del job.
+Estado: completada y validada.
+
+- Producción utiliza `LocalObjectStorage` con `OBJECT_STORAGE_DRIVER=local`; las
+  imágenes persisten en `/var/lib/lauril/uploads` y Nginx sirve `/uploads/`.
+  Se validaron en producción la creación y edición de productos, la subida y
+  persistencia reales de imágenes y su visualización correcta.
+- El adaptador S3-compatible con Cloudflare R2 continúa implementado pero
+  inactivo. Su activación queda postergada como pendiente operativo no bloqueante.
+- Resend está configurado y se validó la entrega real mediante la recuperación
+  de contraseña.
+- La recuperación de contraseña se validó end-to-end: solicitud, recepción del
+  correo, enlace, cambio de contraseña y login posterior.
 
 ### Fase 12C — Datos reales y smoke test
 
@@ -242,13 +245,21 @@ Mercado Pago continúa fuera de alcance y se implementará en Fase 14.
 ## Pendientes operativos no bloqueantes
 
 Estas tareas son mejoras de operación y mantenimiento. No forman parte del
-criterio de cierre de Fase 12A, no bloquean ninguna fase y se realizarán
-únicamente cuando el responsable del proyecto decida priorizarlas.
+criterio de cierre de Fase 12B, no bloquean Fase 12B, Fase 12C ni fases
+posteriores y se realizarán únicamente cuando el responsable del proyecto decida
+iniciarlas.
 
 - Normalizar la versión de Node y PM2 por defecto de las sesiones SSH.
 - Implementar un backup lógico independiente de MongoDB Atlas.
 - Formalizar un runbook de deploy.
 - Formalizar un runbook de rollback.
+- Activar en el futuro Cloudflare R2/S3 en reemplazo del almacenamiento local.
+- Automatizar `npm run db:expire-orders`. El comando manual continúa disponible,
+  pero actualmente no existe cron, systemd timer ni otro scheduler activo.
+- Elegir el scheduler adecuado —cron, systemd timer u otro mecanismo—.
+- Definir la frecuencia de ejecución en UTC.
+- Evitar ejecuciones solapadas.
+- Incorporar observabilidad mínima del job.
 
 ## Fase 13 — Hardening de seguridad
 
