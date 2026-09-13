@@ -29,7 +29,7 @@ export default async function CheckoutPage() {
       <div className="cart-heading"><p className="eyebrow">Compra segura</p><h1>Checkout</h1><p>Confirmá tus datos y el método de entrega.</p></div>
       <CheckoutForm
         addresses={preparation.addresses.map((address) => ({ id: address.id, label: address.label, summary: `${address.street} ${address.streetNumber}, ${address.city}`, isDefault: address.isDefault }))}
-        authenticatedBuyer={preparation.buyer ? { name: `${preparation.buyer.firstName} ${preparation.buyer.lastName}`, email: preparation.buyer.email, phone: preparation.buyer.phone } : null}
+        authenticatedBuyer={preparation.buyer ? { firstName: preparation.buyer.firstName, lastName: preparation.buyer.lastName, email: preparation.buyer.email, phone: preparation.buyer.phone } : null}
         checkoutKey={createCheckoutKey()}
         items={preparation.items.map((item) => ({ sku: item.sku, productName: item.productName, variantName: item.variantName, quantity: item.quantity, unitPrice: formatMoney(item.unitPriceInCents), subtotal: formatMoney(item.subtotalInCents) }))}
         itemsSubtotal={formatMoney(preparation.itemsSubtotalInCents)}
