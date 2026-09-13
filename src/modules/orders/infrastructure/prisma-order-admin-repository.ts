@@ -11,6 +11,7 @@ import type {
   AdminOrderTransitionCommand,
   OrderAdminRepository,
 } from "../application/order-admin-repository";
+import { reservationNotReleasedWhere } from "./prisma-order-filters";
 
 const adminDetailInclude = {
   items: { orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }] },
@@ -155,7 +156,7 @@ export class PrismaOrderAdminRepository implements OrderAdminRepository {
         if (released.count !== 1) throw new ConflictError("El inventario cambió durante la cancelación.");
       }
       const cancelled = await tx.order.updateMany({
-        where: { id: order.id, status: "PENDING_PAYMENT", reservationReleasedAt: null },
+        where: { id: order.id, status: "PENDING_PAYMENT", ...reservationNotReleasedWhere },
         data: { status: "CANCELLED", reservationReleasedAt: command.changedAt, updatedAt: command.changedAt },
       });
       if (cancelled.count !== 1) throw new ConflictError("El pedido cambió durante la cancelación.");
