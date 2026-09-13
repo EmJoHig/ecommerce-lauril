@@ -22,6 +22,7 @@ const serverEnvSchema = z.object({
   ORDER_RESERVATION_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
   BCRYPT_COST: z.coerce.number().int().min(10).max(15).default(12),
   OBJECT_STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+  LOCAL_UPLOAD_ROOT: optionalText(),
   S3_ENDPOINT: optionalUrl(),
   S3_REGION: optionalText(),
   S3_BUCKET: optionalText(),
