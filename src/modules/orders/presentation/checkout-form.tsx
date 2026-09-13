@@ -31,7 +31,7 @@ export function CheckoutForm({
   itemsSubtotal,
 }: Readonly<{
   checkoutKey: string;
-  authenticatedBuyer: { name: string; email: string; phone: string } | null;
+  authenticatedBuyer: { firstName: string; lastName: string; email: string; phone: string } | null;
   addresses: Address[];
   quotes: Quote[];
   items: Array<{ sku: string; productName: string; variantName: string; quantity: number; unitPrice: string; subtotal: string }>;
@@ -51,13 +51,18 @@ export function CheckoutForm({
           <p className="eyebrow">1 · Comprador</p>
           <h2>Datos de contacto</h2>
           {authenticatedBuyer ? (
-            <div className="checkout-buyer"><strong>{authenticatedBuyer.name}</strong><span>{authenticatedBuyer.email}</span><span>{authenticatedBuyer.phone}</span></div>
+            <div className="form-grid form-grid--two">
+              <Field label="Nombre"><input autoComplete="given-name" readOnly value={authenticatedBuyer.firstName} /></Field>
+              <Field label="Apellido"><input autoComplete="family-name" readOnly value={authenticatedBuyer.lastName} /></Field>
+              <Field label="Email"><input autoComplete="email" readOnly type="email" value={authenticatedBuyer.email} /></Field>
+              <Field label="Teléfono"><input autoComplete="tel" readOnly value={authenticatedBuyer.phone} /></Field>
+            </div>
           ) : (
             <div className="form-grid form-grid--two">
-              <Field error={state.fieldErrors?.firstName} label="Nombre"><input autoComplete="given-name" name="firstName" /></Field>
-              <Field error={state.fieldErrors?.lastName} label="Apellido"><input autoComplete="family-name" name="lastName" /></Field>
-              <Field error={state.fieldErrors?.email} label="Email"><input autoComplete="email" name="email" type="email" /></Field>
-              <Field error={state.fieldErrors?.phone} label="Teléfono"><input autoComplete="tel" name="phone" /></Field>
+              <Field error={state.fieldErrors?.firstName} label="Nombre"><input autoComplete="given-name" defaultValue={state.values?.firstName} maxLength={100} name="firstName" required /></Field>
+              <Field error={state.fieldErrors?.lastName} label="Apellido"><input autoComplete="family-name" defaultValue={state.values?.lastName} maxLength={100} name="lastName" required /></Field>
+              <Field error={state.fieldErrors?.email} label="Email"><input autoComplete="email" defaultValue={state.values?.email} maxLength={320} name="email" required type="email" /></Field>
+              <Field error={state.fieldErrors?.phone} label="Teléfono"><input autoComplete="tel" defaultValue={state.values?.phone} maxLength={30} minLength={6} name="phone" pattern="[+()0-9 .-]+" required /></Field>
             </div>
           )}
         </section>
@@ -83,10 +88,10 @@ export function CheckoutForm({
             <label><input checked={addressMode === "new"} name="addressMode" onChange={() => setAddressMode("new")} type="radio" value="new" /> Cargar otra dirección</label>
           </div> : <input name="addressMode" type="hidden" value="new" />}
           {addressMode === "saved" && addresses.length > 0 ? <label className="form-field">Dirección
-            <select defaultValue={addresses.find((address) => address.isDefault)?.id ?? addresses[0]?.id} name="savedAddressId">
+            <select defaultValue={state.values?.savedAddressId || addresses.find((address) => address.isDefault)?.id || addresses[0]?.id} name="savedAddressId">
               {addresses.map((address) => <option key={address.id} value={address.id}>{address.label} · {address.summary}</option>)}
             </select>
-          </label> : <AddressFields errors={state.fieldErrors} />}
+          </label> : <AddressFields errors={state.fieldErrors} values={state.values} />}
         </section> : null}
       </div>
 
@@ -105,21 +110,21 @@ export function CheckoutForm({
   );
 }
 
-function AddressFields({ errors }: { errors: Readonly<Record<string, string>> | undefined }) {
+function AddressFields({ errors, values }: { errors: Readonly<Record<string, string>> | undefined; values: typeof initialCheckoutActionState.values }) {
   return <div className="form-grid form-grid--two">
-    <Field error={errors?.recipientFirstName} label="Nombre del receptor"><input autoComplete="given-name" name="recipientFirstName" /></Field>
-    <Field error={errors?.recipientLastName} label="Apellido del receptor"><input autoComplete="family-name" name="recipientLastName" /></Field>
-    <Field error={errors?.shippingPhone} label="Teléfono"><input autoComplete="tel" name="shippingPhone" /></Field>
-    <Field error={errors?.street} label="Calle"><input autoComplete="address-line1" name="street" /></Field>
-    <Field error={errors?.streetNumber} label="Número"><input name="streetNumber" /></Field>
-    <Field error={errors?.floorApartment} label="Piso / departamento"><input autoComplete="address-line2" name="floorApartment" /></Field>
-    <Field error={errors?.city} label="Localidad"><input autoComplete="address-level2" name="city" /></Field>
-    <Field error={errors?.province} label="Provincia"><input autoComplete="address-level1" name="province" /></Field>
-    <Field error={errors?.postalCode} label="Código postal"><input autoComplete="postal-code" name="postalCode" /></Field>
-    <Field error={errors?.references} label="Referencias"><textarea maxLength={500} name="references" rows={3} /></Field>
+    <Field error={errors?.recipientFirstName} label="Nombre del receptor"><input autoComplete="given-name" defaultValue={values?.recipientFirstName} name="recipientFirstName" /></Field>
+    <Field error={errors?.recipientLastName} label="Apellido del receptor"><input autoComplete="family-name" defaultValue={values?.recipientLastName} name="recipientLastName" /></Field>
+    <Field error={errors?.shippingPhone} label="Teléfono"><input autoComplete="tel" defaultValue={values?.shippingPhone} name="shippingPhone" /></Field>
+    <Field error={errors?.street} label="Calle"><input autoComplete="address-line1" defaultValue={values?.street} name="street" /></Field>
+    <Field error={errors?.streetNumber} label="Número"><input defaultValue={values?.streetNumber} name="streetNumber" /></Field>
+    <Field error={errors?.floorApartment} label="Piso / departamento"><input autoComplete="address-line2" defaultValue={values?.floorApartment} name="floorApartment" /></Field>
+    <Field error={errors?.city} label="Localidad"><input autoComplete="address-level2" defaultValue={values?.city} name="city" /></Field>
+    <Field error={errors?.province} label="Provincia"><input autoComplete="address-level1" defaultValue={values?.province} name="province" /></Field>
+    <Field error={errors?.postalCode} label="Código postal"><input autoComplete="postal-code" defaultValue={values?.postalCode} name="postalCode" /></Field>
+    <Field error={errors?.references} label="Referencias"><textarea defaultValue={values?.references} maxLength={500} name="references" rows={3} /></Field>
   </div>;
 }
 
-function Field({ label, error, children }: { label: string; error: string | undefined; children: React.ReactNode }) {
+function Field({ label, error, children }: { label: string; error?: string | undefined; children: React.ReactNode }) {
   return <label className="form-field">{label}{children}{error ? <small className="field-error">{error}</small> : null}</label>;
 }
