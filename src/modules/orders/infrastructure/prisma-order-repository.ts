@@ -14,6 +14,7 @@ import type {
 } from "../application/order-repository";
 import { mapShippingMethod } from "@/modules/shipping/infrastructure/prisma-shipping-repository";
 import { nextOrderNumber } from "./next-order-number";
+import { reservationNotReleasedWhere } from "./prisma-order-filters";
 
 const checkoutCartInclude = {
   items: {
@@ -139,7 +140,11 @@ export class PrismaOrderRepository implements OrderRepository {
 
   listExpiredPendingOrderIds(now: Date, limit: number): Promise<ReadonlyArray<string>> {
     return this.prisma.order.findMany({
-      where: { status: "PENDING_PAYMENT", paymentExpiresAt: { lte: now }, reservationReleasedAt: null },
+      where: {
+        status: "PENDING_PAYMENT",
+        paymentExpiresAt: { lte: now },
+        ...reservationNotReleasedWhere,
+      },
       orderBy: { paymentExpiresAt: "asc" },
       take: limit,
       select: { id: true },
@@ -219,6 +224,7 @@ function createTransaction(tx: Transaction): CheckoutTransaction {
           discountAmountInCents: input.totals.discountAmountInCents,
           totalInCents: input.totals.totalInCents,
           paymentExpiresAt: input.paymentExpiresAt,
+          reservationReleasedAt: null,
           items: { create: [...input.items] },
           statusHistory: {
             create: {
@@ -276,7 +282,7 @@ function createTransaction(tx: Transaction): CheckoutTransaction {
           id: orderId,
           status: "PENDING_PAYMENT",
           paymentExpiresAt: { lte: expiredAt },
-          reservationReleasedAt: null,
+          ...reservationNotReleasedWhere,
         },
         data: { status: "CANCELLED", reservationReleasedAt: expiredAt },
       });
