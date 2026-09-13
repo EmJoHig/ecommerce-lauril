@@ -3,7 +3,7 @@
 Ecommerce propio, single-store y construido como monolito modular con Next.js,
 TypeScript, MongoDB Atlas, Prisma y Tailwind CSS.
 
-Las Fases 1 a 11 y la Fase 12A están completadas y validadas: incluyen catálogo
+Las Fases 1 a 12 están completadas y validadas: incluyen catálogo
 con importación Excel y filtro por fragancia, carrito, cuentas, checkout, métodos
 propios de entrega,
 pedidos, reserva temporal, configuración single-store, backoffice consolidado,
@@ -70,12 +70,12 @@ repositorio, en el entorno productivo. MongoDB Atlas es la única persistencia;
 ObjectStorage usa actualmente el driver local y Resend continúa como proveedor
 de email productivo.
 
-La Fase 12A quedó validada mediante un reboot real del VPS, con restauración
-automática de la aplicación por systemd/PM2, Nginx activo, health checks
-aprobados y MongoDB Atlas reachable. Las Fases 12B y 12C continúan pendientes.
+La Fase 12 quedó completada y validada: incluyó el reboot real del VPS con
+restauración automática de la aplicación por systemd/PM2, las integraciones
+productivas, los datos reales y el smoke test público, administrativo y mobile.
 
-La ejecución automática de `npm run db:expire-orders` todavía debe confirmarse y
-formalizarse mediante un scheduler propio del host.
+La automatización de `npm run db:expire-orders` continúa como pendiente operativo
+no bloqueante; actualmente no existe cron, systemd timer ni otro scheduler activo.
 
 ## Desarrollo de base de datos
 
