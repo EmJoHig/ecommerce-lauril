@@ -17,6 +17,7 @@ const guestHashes: string[] = [];
 
 class PreviewEmailSender implements EmailSender {
   token: string | null = null;
+  sendContactMessage() { return Promise.resolve(); }
   sendPasswordReset(input: Parameters<EmailSender["sendPasswordReset"]>[0]) {
     this.token = input.token;
     return Promise.resolve({ developmentPreviewUrl: `http://localhost:3000/restablecer-clave#token=${input.token}` });

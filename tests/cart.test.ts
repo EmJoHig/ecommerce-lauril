@@ -49,10 +49,10 @@ function variant(overrides: Partial<CartVariantRecord> = {}): CartVariantRecord 
 }
 
 describe("cart domain", () => {
-  it("calcula subtotales monetarios e itemCount sin floating point", () => {
+  it("calcula subtotales monetarios y cuenta líneas distintas", () => {
     expect(calculateLineSubtotal(410000n, 3)).toBe(1230000n);
     expect(calculateCartSubtotal([1230000n, 250050n])).toBe(1480050n);
-    expect(calculateCartItemCount([3, 2])).toBe(5);
+    expect(calculateCartItemCount([3, 2])).toBe(2);
   });
 
   it("genera identificadores invitados impredecibles y persiste solo su hash", () => {
@@ -69,7 +69,7 @@ describe("anonymous cart use cases", () => {
   it("agrega una variante usando precio y stock actuales del servidor", async () => {
     const repository = new MemoryCartRepository([variant({ promotionalPriceInCents: 399000n })]);
     const cart = await new CartService(repository).addItem({ tokenHash: tokenA, variantId, quantity: 2 }, now);
-    expect(cart).toMatchObject({ itemCount: 2, subtotalInCents: 798000n, hasIssues: false });
+    expect(cart).toMatchObject({ itemCount: 1, subtotalInCents: 798000n, hasIssues: false });
     expect(cart.items).toHaveLength(1);
     expect(cart.items[0]).toMatchObject({ variantId, quantity: 2, unitPriceInCents: 399000n });
   });
@@ -92,7 +92,7 @@ describe("anonymous cart use cases", () => {
     await service.addItem({ tokenHash: tokenA, variantId, quantity: 1 }, now);
     await service.addItem({ tokenHash: tokenA, variantId: secondVariantId, quantity: 1 }, now);
     const updated = await service.updateItemQuantity({ tokenHash: tokenA, variantId, quantity: 4 }, now);
-    expect(updated.itemCount).toBe(5);
+    expect(updated.itemCount).toBe(2);
     const removed = await service.removeItem(tokenA, secondVariantId, now);
     expect(removed.items.map(({ variantId: id }) => id)).toEqual([variantId]);
     expect((await service.clearCart(tokenA, now)).items).toEqual([]);
@@ -141,7 +141,7 @@ describe("anonymous cart use cases", () => {
     await service.addItem({ tokenHash: tokenA, variantId, quantity: 1 }, now);
     await service.addItem({ tokenHash: tokenB, variantId, quantity: 3 }, now);
     expect((await service.getCart(tokenA, now)).itemCount).toBe(1);
-    expect((await service.getCart(tokenB, now)).itemCount).toBe(3);
+    expect((await service.getCart(tokenB, now)).itemCount).toBe(1);
   });
 
   it("rechaza cantidades inválidas", async () => {
@@ -158,7 +158,7 @@ describe("authenticated cart and merge", () => {
     await service.addItem({ tokenHash: tokenA, variantId, quantity: 2 }, now);
     const merge = await service.mergeGuestCart(customerA, tokenA, now);
     expect(merge).toMatchObject({ merged: true, adjustedLines: 0, removedLines: 0 });
-    expect((await service.getCustomerCart(customerA, now)).itemCount).toBe(2);
+    expect((await service.getCustomerCart(customerA, now)).itemCount).toBe(1);
     expect((await service.getCart(tokenA, now)).itemCount).toBe(0);
   });
 
@@ -196,7 +196,7 @@ describe("authenticated cart and merge", () => {
     const repository = new MemoryCartRepository([variant()]);
     await new CartService(repository).addCustomerItem({ customerId: customerA, variantId, quantity: 2 }, now);
     await new CartService(repository).addCustomerItem({ customerId: customerB, variantId, quantity: 1 }, now);
-    expect((await new CartService(repository).getCustomerCart(customerA, now)).itemCount).toBe(2);
+    expect((await new CartService(repository).getCustomerCart(customerA, now)).itemCount).toBe(1);
     expect((await new CartService(repository).getCustomerCart(customerB, now)).itemCount).toBe(1);
   });
 });

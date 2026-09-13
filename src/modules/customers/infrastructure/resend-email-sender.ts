@@ -44,6 +44,36 @@ export class ResendEmailSender implements EmailSender {
 
     return { developmentPreviewUrl: null };
   }
+
+  async sendContactMessage(input: Parameters<EmailSender["sendContactMessage"]>[0]): Promise<void> {
+    const response = await this.httpClient("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: this.config.from,
+        to: ["lauril.quimica66@gmail.com"],
+        reply_to: input.email,
+        subject: `Consulta web de ${input.name}`,
+        text: contactMessageText(input),
+        html: contactMessageHtml(input),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`No se pudo enviar el mensaje de contacto (Resend HTTP ${response.status}).`);
+    }
+  }
+}
+
+function contactMessageText(input: Parameters<EmailSender["sendContactMessage"]>[0]): string {
+  return [`Nombre: ${input.name}`, `Email: ${input.email}`, `Teléfono: ${input.phone ?? "No informado"}`, "", input.message].join("\n");
+}
+
+function contactMessageHtml(input: Parameters<EmailSender["sendContactMessage"]>[0]): string {
+  return `<p><strong>Nombre:</strong> ${escapeHtml(input.name)}</p><p><strong>Email:</strong> ${escapeHtml(input.email)}</p><p><strong>Teléfono:</strong> ${escapeHtml(input.phone ?? "No informado")}</p><p>${escapeHtml(input.message).replace(/\n/g, "<br>")}</p>`;
 }
 
 function passwordResetText(name: string, resetUrl: URL, expiresAt: Date): string {

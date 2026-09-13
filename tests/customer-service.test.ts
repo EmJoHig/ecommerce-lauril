@@ -62,15 +62,17 @@ describe("customer password recovery", () => {
     const repository = new MemoryCustomerRepository();
     const sender = new MemoryEmailSender();
     const service = createService(repository, sender);
-    await service.register(registration(), context, now);
+    const originalSession = await service.register(registration(), context, now);
     const delivery = await service.requestPasswordReset("cliente@lauril.test", context, now);
     expect(delivery.developmentPreviewUrl).toContain("#token=");
     expect(sender.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(repository.resets.has(hashSessionToken(sender.token!))).toBe(true);
     expect(repository.resets.has(sender.token!)).toBe(false);
     await service.resetPassword({ token: sender.token!, password: "Nueva-clave-456", passwordConfirmation: "Nueva-clave-456" }, null, now);
+    expect(await service.findSession(originalSession.token, now)).toBeNull();
     await expect(service.resetPassword({ token: sender.token!, password: "Otra-clave-789", passwordConfirmation: "Otra-clave-789" }, null, now)).rejects.toThrow("ya fue utilizado");
     await expect(service.login({ email: "cliente@lauril.test", password: "Nueva-clave-456" }, context, now)).resolves.toBeDefined();
+    await expect(service.login({ email: "cliente@lauril.test", password: "Clave-segura-123" }, context, now)).rejects.toBeInstanceOf(UnauthorizedError);
   });
 
   it("rechaza token vencido y no revela si el email existe", async () => {
@@ -80,6 +82,9 @@ describe("customer password recovery", () => {
     await service.register(registration(), context, now);
     await service.requestPasswordReset("cliente@lauril.test", context, now);
     await expect(service.resetPassword({ token: sender.token!, password: "Nueva-clave-456", passwordConfirmation: "Nueva-clave-456" }, null, new Date("2026-09-01T13:00:00Z"))).rejects.toThrow("venció");
+    await expect(service.resetPassword({ token: "a".repeat(43), password: "Nueva-clave-456", passwordConfirmation: "Nueva-clave-456" }, null, now)).rejects.toThrow("inválido");
+    await expect(service.login({ email: "cliente@lauril.test", password: "Clave-segura-123" }, context, now)).resolves.toBeDefined();
+    await expect(service.login({ email: "cliente@lauril.test", password: "Nueva-clave-456" }, context, now)).rejects.toBeInstanceOf(UnauthorizedError);
     await expect(service.requestPasswordReset("ausente@lauril.test", context, now)).resolves.toEqual({ developmentPreviewUrl: null });
   });
 });
@@ -140,6 +145,7 @@ function createService(repository: MemoryCustomerRepository, sender = new Memory
 
 class MemoryEmailSender implements EmailSender {
   token: string | null = null;
+  sendContactMessage() { return Promise.resolve(); }
   sendPasswordReset(input: Parameters<EmailSender["sendPasswordReset"]>[0]) {
     this.token = input.token;
     return Promise.resolve({ developmentPreviewUrl: `http://localhost/restablecer-clave#token=${input.token}` });

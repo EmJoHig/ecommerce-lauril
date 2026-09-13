@@ -13,4 +13,8 @@ export class CustomerEmailSender implements EmailSender {
       developmentPreviewUrl: this.exposeDevelopmentPreview ? url.toString() : null,
     });
   }
+
+  async sendContactMessage(): Promise<void> {
+    return Promise.resolve();
+  }
 }

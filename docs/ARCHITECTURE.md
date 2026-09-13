@@ -11,7 +11,7 @@ Browser
   -> Next.js presentation (pages, route handlers, server actions)
       -> application use cases
           -> domain rules and ports
-              <- infrastructure adapters (Prisma, Mercado Pago, S3, email)
+              <- infrastructure adapters (Prisma, S3, email; Mercado Pago futuro)
                   -> MongoDB Atlas / external providers
 ```
 
@@ -104,8 +104,8 @@ payloads completos de pagos.
 
 El endpoint `/api/health` comprueba proceso y, opcionalmente, conectividad mediante
 un servicio de infraestructura; el Route Handler no accede a Prisma. En producción
-se usarán logs de stdout/stderr, health checks de Render y un servicio externo de
-captura de errores.
+se utilizan logs del proceso administrado por PM2 y health checks a través de
+Nginx; la captura externa de errores permanece como evolución operativa.
 
 ## Autenticación
 
@@ -133,7 +133,7 @@ valida DTOs, resuelve sesión e invoca casos de uso.
 La recuperación invalida tokens anteriores, utiliza CSPRNG, persiste solo SHA-256,
 permite un único uso y revoca todas las sesiones al cambiar la contraseña.
 `EmailSender` desacopla la entrega: desarrollo devuelve un enlace de preview al
-formulario y producción no expone el token mientras no exista proveedor real.
+formulario y producción usa `ResendEmailSender` sin exponer el token.
 
 Cada mutación de dirección deriva `customerId` de la sesión y consulta por
 `(addressId, customerId)`. La dirección predeterminada se mantiene en una
@@ -144,8 +144,9 @@ transacción MongoDB y un índice parcial impide más de una por cliente.
 `ProductImage` guarda clave de objeto, URL pública/servida, texto alternativo y
 orden; la primera imagen por `sortOrder` es la principal. `ObjectStorage` desacopla
 el caso de uso del proveedor. En desarrollo, `LocalObjectStorage` escribe en
-`public/uploads/catalog`, ruta ignorada por Git. Producción deberá usar un adaptador
-S3 compatible: los binarios no se guardarán en el disco efímero de Render.
+`public/uploads/catalog`, ruta ignorada por Git. En producción la composición
+exige `S3ObjectStorage`, compatible con Cloudflare R2; los binarios no se guardan
+en el filesystem local del VPS.
 
 ## Catálogo en Fase 2
 
@@ -160,6 +161,12 @@ Las categorías serializan cambios jerárquicos con un lock documental transacci
 validan ancestros mediante consultas Prisma iterativas, evitando ciclos incluso ante
 escrituras concurrentes. Productos y variantes se desactivan o archivan; no se
 eliminan físicamente desde la administración.
+
+La importación administrativa de catálogo acepta `.xlsx`, genera una plantilla,
+valida y previsualiza antes de confirmar. La persistencia crea o actualiza por SKU
+dentro de una única transacción, sincroniza las categorías comerciales, conserva
+las invariantes y movimientos de inventario y registra auditoría. `fragranceKey`
+proyecta la fragancia normalizada en un campo indexable para el filtro público.
 
 ## Carrito en Fase 3
 
@@ -229,8 +236,10 @@ reserva una sola vez, marca `CANCELLED` y agrega historial.
 
 ### Job operativo de expiración
 
-Un scheduler externo debe ejecutar periódicamente `npm run db:expire-orders` en
-el artefacto de la aplicación con `MONGODB_URI` configurada. El comando no es
+Un scheduler propio del host debe ejecutar periódicamente `npm run db:expire-orders`
+en el artefacto de la aplicación con `MONGODB_URI` configurada. Todavía debe
+confirmarse si esa automatización está activa y no se ha decidido entre cron,
+systemd timer u otro mecanismo adecuado. El comando no es
 interactivo, procesa hasta 100 pedidos vencidos por ejecución y termina; conviene
 programarlo con una frecuencia menor al tiempo de reserva y evitar ejecuciones
 solapadas. No requiere endpoint HTTP, proceso web, cola ni worker permanente.
@@ -283,10 +292,17 @@ de solo lectura y elimina claves sensibles de metadatos antes de enviarlos a UI.
 
 ## Despliegue
 
-La aplicación puede ejecutarse con el runtime Node de Render y MongoDB Atlas.
-`npm run db:push` sincroniza el schema y los índices en un paso operativo
-controlado; la aplicación se inicia con `npm run start`. Desarrollo se conecta
-directamente a Atlas y no necesita PostgreSQL ni Docker para la base.
+La aplicación está desplegada en el VPS definitivo. Next.js se ejecuta bajo PM2 y
+Nginx actúa como reverse proxy para el dominio con HTTPS. El deploy actual se
+realiza desde Git; variables y secretos se mantienen fuera del repositorio en el
+entorno productivo. `npm run db:push` sincroniza schema e índices de forma
+controlada y `npm run db:verify` valida la persistencia.
+
+Producción utiliza MongoDB Atlas, Cloudflare R2 mediante el adaptador
+S3-compatible y Resend. El scheduler propio del host para
+`npm run db:expire-orders` permanece pendiente de confirmación o configuración.
+Desarrollo se conecta directamente a Atlas y no necesita PostgreSQL ni Docker para
+la base.
 
 ## Decisiones explícitas
 

@@ -3,9 +3,12 @@
 Ecommerce propio, single-store y construido como monolito modular con Next.js,
 TypeScript, MongoDB Atlas, Prisma y Tailwind CSS.
 
-La Fase 7 incluye catálogo, carrito, cuentas, checkout, métodos propios de entrega,
-pedidos, reserva temporal y un backoffice consolidado para clientes, inventario,
-ventas, administradores y auditoría. No incluye Mercado Pago, pagos, promociones,
+Las Fases 1 a 11 están completadas: incluyen catálogo con importación Excel y
+filtro por fragancia, carrito, cuentas, checkout, métodos propios de entrega,
+pedidos, reserva temporal, configuración single-store, backoffice consolidado,
+ObjectStorage S3-compatible, email productivo mediante Resend y el job operativo
+de expiración. El storefront público ya incorpora los ajustes visuales y
+responsive actuales. No incluye Mercado Pago, pagos, promociones,
 transportistas externos ni facturación. El alcance está en
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -34,9 +37,11 @@ Abrir `http://localhost:3000` para la tienda y `http://localhost:3000/admin` par
 la administración. El health check superficial está en `/api/health`; agregar
 `?deep=1` también verifica MongoDB Atlas.
 
-Rutas principales de Fases 2 a 7:
+Rutas principales implementadas:
 
 - `/admin/productos`, `/admin/categorias` y `/admin/stock` para la operación.
+- `/admin/productos/importar` para validar, previsualizar y confirmar importaciones
+  `.xlsx` de catálogo.
 - `/productos`, `/categorias/[slug]` y `/producto/[slug]` para la tienda.
 - `/carrito` para consultar y modificar el carrito persistente.
 - `/registro`, `/login` y `/recuperar-clave` para identidad de clientes.
@@ -47,10 +52,22 @@ Rutas principales de Fases 2 a 7:
 - `/admin/stock/movimientos` para trazabilidad inmutable del inventario.
 - `/admin/administradores`, `/admin/roles` y `/admin/auditoria` para gobierno del
   backoffice según permisos.
+- `/admin/configuracion` para identidad y contacto públicos de la tienda.
 
 Las imágenes subidas en desarrollo se guardan en `public/uploads/catalog`, que
-está ignorado por Git. No usar ese adaptador en Render porque su filesystem es
-efímero.
+está ignorado por Git. El VPS productivo utiliza Cloudflare R2 mediante el
+adaptador S3-compatible; no usar allí el almacenamiento local.
+
+## Producción
+
+La aplicación está desplegada en el VPS definitivo: Next.js se ejecuta mediante
+PM2 y Nginx actúa como reverse proxy para el dominio con HTTPS. El deploy actual
+se realiza desde Git y las variables y secretos se configuran fuera del
+repositorio, en el entorno productivo. MongoDB Atlas es la única persistencia;
+Cloudflare R2 y Resend son los proveedores productivos configurados.
+
+La ejecución automática de `npm run db:expire-orders` todavía debe confirmarse y
+formalizarse mediante un scheduler propio del host.
 
 ## Desarrollo de base de datos
 
@@ -80,6 +97,8 @@ restringidos a la base lógica `lauril_ecommerce`.
 
 MongoDB no usa Prisma Migrate. Los cambios de schema se sincronizan con
 `npm run db:push`, que también asegura los índices parciales requeridos.
+MongoDB Atlas es la única persistencia actual: no se requiere PostgreSQL local,
+Docker ni Compose para la base de datos.
 
 ## Calidad
 
@@ -103,10 +122,12 @@ npm run build
 - `ORDER_RESERVATION_MINUTES`: vigencia de la reserva pendiente; 15 por defecto.
 - `BCRYPT_COST`: costo bcrypt entre 10 y 15.
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: administrador inicial opcional.
-- `S3_*`: reservadas para el futuro adaptador S3 compatible; el adaptador local no
-  necesita variables adicionales.
+- `S3_*`: obligatorias en producción para el adaptador S3-compatible (Cloudflare
+  R2 es el objetivo documentado); el adaptador local de desarrollo no las necesita.
 - `RESEND_API_KEY`, `EMAIL_FROM`: obligatorias en producción para enviar emails
-  transaccionales mediante Resend; desarrollo y test conservan el sender local.
+  transaccionales mediante Resend; desarrollo usa Resend si ambas están
+  configuradas y, en caso contrario, conserva el preview local. Test usa el sender
+  local.
 
 No hay credenciales predeterminadas en el repositorio. `.env` está ignorado por
 Git.

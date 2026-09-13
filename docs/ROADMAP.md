@@ -1,8 +1,14 @@
 # Roadmap
 
-Cada fase termina con migraciones reproducibles, seed actualizado, documentación,
-lint, typecheck, tests y build exitosos. Una fase no habilita automáticamente la
-siguiente.
+En la arquitectura vigente, cada fase que cambia persistencia termina con schema
+e índices MongoDB sincronizables mediante `npm run db:push`, seed actualizado
+cuando corresponde, documentación y validaciones exitosas. `npm run db:verify`
+valida la persistencia. Una fase no habilita automáticamente la siguiente.
+
+Las menciones a PostgreSQL en las fases antiguas describen exclusivamente el
+estado histórico original de esas fases. No son instrucciones vigentes: la única
+persistencia actual es MongoDB Atlas y no se utiliza Prisma Migrate ni migraciones
+SQL.
 
 ## Fase 1 — Fundación, catálogo e inventario
 
@@ -86,7 +92,7 @@ Estado: completada y validada.
 - Cancelación `PENDING_PAYMENT` transaccional, liberación idempotente de reserva y
   auditoría; estados pagados no se cancelan sin un futuro flujo de reembolso.
 - Permisos `orders.read`/`orders.write`, fixtures exclusivamente locales y
-  verificador PostgreSQL de la operación completa.
+  verificador de persistencia de la operación completa.
 
 Mercado Pago continúa expresamente postergado. `PAID` no puede asignarse desde la
 interfaz administrativa.
@@ -143,13 +149,17 @@ Estado: completada y validada.
 - Descripción pública breve.
 - Administración de configuración comercial.
 - Consumo de configuración desde tienda pública y metadata.
-- La lectura dinámica de configuración no requiere PostgreSQL durante el build.
+- La lectura dinámica de configuración no conecta a MongoDB Atlas durante el build.
 
 ## Fase 11 — Adaptadores productivos
+
+Estado: completada y validada.
 
 Objetivo: reemplazar dependencias exclusivamente locales o de desarrollo por implementaciones aptas para producción.
 
 ### Fase 11A — ObjectStorage productivo
+
+Estado: completada y validada.
 
 - Implementar adaptador S3-compatible detrás del contrato `ObjectStorage` existente.
 - Mantener el almacenamiento local exclusivamente para desarrollo.
@@ -157,6 +167,8 @@ Objetivo: reemplazar dependencias exclusivamente locales o de desarrollo por imp
 - No incorporar procesamiento avanzado de imágenes ni CDN salvo necesidad real.
 
 ### Fase 11B — EmailSender productivo
+
+Estado: completada y validada.
 
 - Implementar un proveedor real detrás del contrato `EmailSender`.
 - Recuperación de contraseña.
@@ -171,19 +183,54 @@ Estado: completada y validada.
 - Incorporar únicamente limpiezas operativas justificadas por casos de uso existentes.
 - Evitar introducir infraestructura distribuida de jobs sin necesidad.
 
-## Fase 12 — Staging y datos reales
+## Fase 12 — Infraestructura productiva, integraciones y datos reales
 
-- Crear y validar un entorno de staging.
-- PostgreSQL administrado.
-- Variables de entorno.
-- `prisma migrate deploy`.
-- Health check.
-- Object storage productivo.
-- Email productivo.
-- Scheduler operativo.
-- Backups básicos.
-- Cargar catálogo, imágenes y métodos de entrega reales de Lauril.
-- Validar el flujo completo sin pagos reales.
+Objetivo: validar y formalizar la infraestructura productiva ya desplegada antes
+del hardening y los pagos. La existencia del VPS no completa esta fase: sus
+procedimientos y verificaciones continúan pendientes de validación formal.
+
+### Fase 12A — Validación del VPS productivo
+
+- Validar la aplicación Next.js en el VPS definitivo.
+- Validar PM2 como process manager y su recuperación automática después de un reboot.
+- Validar Nginx como reverse proxy, el dominio configurado y HTTPS.
+- Confirmar MongoDB Atlas como única persistencia.
+- Confirmar secretos y variables fuera del repositorio, incluida `APP_URL` productiva.
+- Validar `/api/health` y `/api/health?deep=1`.
+- Documentar acceso a logs y diagnóstico operativo sin exponer datos sensibles.
+- Formalizar un procedimiento reproducible de deploy desde Git.
+- Formalizar un procedimiento de rollback.
+- Definir y comprobar backups básicos de Atlas y de la configuración necesaria
+  para reconstruir la infraestructura.
+- Ejecutar `npm run db:push` de forma controlada para sincronizar schema e índices.
+- Ejecutar `npm run db:verify`.
+- No utilizar PostgreSQL ni Prisma Migrate.
+
+### Fase 12B — Integraciones productivas
+
+- Cloudflare R2 ya está configurado; realizar un smoke test real de upload,
+  acceso público y delete.
+- Resend ya está configurado; validar entrega real.
+- Validar end-to-end la recuperación de contraseña después del último fix.
+- Confirmar o configurar la ejecución automática de `npm run db:expire-orders`.
+- Usar un scheduler propio del host —cron, systemd timer u otro mecanismo
+  adecuado— sin fijar todavía una alternativa mientras no exista una decisión operativa.
+- Definir frecuencia UTC y evitar ejecuciones solapadas.
+- Incorporar observabilidad mínima del job.
+
+### Fase 12C — Datos reales y smoke test
+
+- Cargar catálogo real de Lauril.
+- Cargar imágenes reales.
+- Configurar métodos de entrega reales.
+- Configurar datos comerciales reales de StoreSettings.
+- Validar flujo público completo sin pagos:
+  catálogo -> producto -> carrito -> cuenta/checkout -> pedido pendiente.
+- Validar backoffice:
+  cliente -> pedido -> reserva -> inventario -> expiración/liberación.
+- Verificar funcionamiento móvil básico en producción.
+
+Mercado Pago continúa fuera de alcance y se implementará en Fase 14.
 
 ## Fase 13 — Hardening de seguridad
 
@@ -216,7 +263,7 @@ No realizar refactors generales ni auditorías cosméticas.
 
 El retorno del navegador nunca confirma un pago.
 
-## Fase 15 — E2E y producción
+## Fase 15 — E2E y habilitación comercial
 
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.
@@ -230,17 +277,22 @@ El retorno del navegador nunca confirma un pago.
 - Email.
 - Expiración.
 - Responsive crítico.
-- Validación final en staging.
-- Migraciones y backup.
-- Procedimiento de rollback.
-- Publicación en producción.
-- Smoke test posterior al despliegue.
+- Validación final de la infraestructura productiva.
+- Sincronización controlada mediante `npm run db:push`, validación con
+  `npm run db:verify` y backup de Atlas.
+- Verificación del procedimiento de rollback.
+- Deploy final validado sobre la infraestructura existente.
+- Smoke test posterior al deploy.
+- Habilitación comercial con pagos.
 
 ## Fase 16 — Productividad avanzada de catálogo
 
 Prioridad posterior al lanzamiento.
 
-- Importación CSV/XLSX con preview y validación.
+La importación XLSX con plantilla, preview, validación atómica, actualización por
+SKU y normalización/filtro de fragancias ya está implementada antes de Fase 12 y
+no forma parte del alcance pendiente de esta fase.
+
 - Exportación.
 - Edición masiva.
 - Incrementos de precios.

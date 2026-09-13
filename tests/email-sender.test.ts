@@ -25,6 +25,21 @@ describe("EmailSender", () => {
     });
   });
 
+  it("usa Resend en development cuando las credenciales están configuradas", () => {
+    expect(createEmailSender({
+      NODE_ENV: "development",
+      APP_URL: "http://localhost:3000",
+      RESEND_API_KEY: "resend-test-key",
+      EMAIL_FROM: "Lauril <no-reply@example.com>",
+    })).toBeInstanceOf(ResendEmailSender);
+
+    expect(() => createEmailSender({
+      NODE_ENV: "development",
+      APP_URL: "http://localhost:3000",
+      RESEND_API_KEY: "resend-test-key",
+    })).toThrow("Configuración de email incompleta: EMAIL_FROM");
+  });
+
   it("usa el sender local sin exponer preview en test", async () => {
     const sender = createEmailSender({
       NODE_ENV: "test",
@@ -82,6 +97,22 @@ describe("EmailSender", () => {
     });
     expect(request?.body).toContain("https://lauril.example.com/restablecer-clave#token=token-seguro");
     expect(request?.body).toContain("Cliente &lt;Lauril&gt;");
+  });
+
+  it("envía el formulario de contacto a Lauril", async () => {
+    const httpClient = vi.fn<(input: string | URL | Request, request?: RequestInit) => Promise<Response>>()
+      .mockResolvedValue(new Response(JSON.stringify({ id: "email-id" }), { status: 200 }));
+    const sender = new ResendEmailSender({ apiKey: "resend-test-key", from: "Lauril <no-reply@example.com>", appUrl: "https://lauril.example.com" }, httpClient);
+
+    await sender.sendContactMessage({ name: "Ana <Cliente>", email: "ana@example.com", phone: "221 555 1234", message: "Quiero consultar por difusores." });
+
+    const [, request] = httpClient.mock.calls[0]!;
+    expect(JSON.parse(request?.body as string)).toMatchObject({
+      to: ["lauril.quimica66@gmail.com"],
+      reply_to: "ana@example.com",
+      subject: "Consulta web de Ana <Cliente>",
+    });
+    expect(request?.body).toContain("Ana &lt;Cliente&gt;");
   });
 
   it("reporta un rechazo del proveedor sin incluir su respuesta ni la clave", async () => {

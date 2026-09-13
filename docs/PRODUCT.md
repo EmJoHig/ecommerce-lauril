@@ -38,8 +38,10 @@ roles y permisos.
 
 - Mercado Pago Checkout Pro, detrás de `PaymentGateway`.
 - Envíos configurables, detrás de `ShippingProvider`.
-- Archivos e imágenes, detrás de `ObjectStorage`, preparado para S3 compatible.
-- Email transaccional, detrás de `EmailSender`.
+- Archivos e imágenes, detrás de `ObjectStorage`: local en desarrollo y
+  S3-compatible en producción, con Cloudflare R2 como objetivo operativo.
+- Email transaccional, detrás de `EmailSender`: implementación local fuera de
+  producción y Resend en producción.
 
 ## Principios funcionales
 
@@ -55,14 +57,15 @@ roles y permisos.
 
 ## Alcance actual
 
-Las Fases 1 a 4 entregan la fundación, catálogo, inventario, carrito y cuentas de
-cliente. La Fase 5 incorpora checkout cliente/invitado, métodos propios de entrega,
-pedidos con snapshots, reserva temporal de stock, expiración e idempotencia. La
-Fase 6 incorpora la operación administrativa de ventas: búsqueda y filtros,
-detalle, preparación, despacho/entrega, cancelación pendiente, historial con actor
-y notas internas. La Fase 7 consolida el backoffice: navegación unificada, inicio
-operativo, clientes y notas privadas, catálogo e inventario integrados,
-administradores/roles y auditoría de solo lectura.
+Las Fases 1 a 11 están completadas y validadas. El alcance actual incluye
+fundación, catálogo e inventario, carrito, cuentas, checkout cliente/invitado,
+métodos propios de entrega, pedidos con snapshots y reservas, operación de ventas,
+backoffice consolidado, storefront público responsive y configuración single-store.
+El catálogo permite importación `.xlsx` con plantilla, preview y validación antes
+de confirmar; crea o actualiza por SKU dentro de una transacción, registra los
+ajustes físicos de inventario y normaliza fragancias para su filtro público.
+También están implementados el ObjectStorage S3-compatible de producción, el
+EmailSender de Resend y el comando idempotente de expiración de pedidos.
 
 El carrito continúa sin reservar stock. La reserva comienza únicamente al crear
 un pedido `PENDING_PAYMENT`, incrementa `stockReserved` durante 15 minutos por
@@ -73,9 +76,11 @@ externos permanecen fuera del alcance actual.
 ## Criterios no funcionales
 
 - TypeScript estricto, validación server-side y errores consistentes.
-- Migraciones reproducibles, logs estructurados y auditoría de acciones críticas.
+- Schema e índices MongoDB sincronizables mediante `npm run db:push`, verificación
+  mediante `npm run db:verify`, logs estructurados y auditoría de acciones críticas.
 - Pruebas unitarias para reglas y pruebas de integración para persistencia e
   integraciones.
 - SEO técnico, buen rendimiento móvil y accesibilidad WCAG 2.2 AA como objetivo.
-- Despliegue reproducible en Render; MongoDB Atlas y objetos fuera del
-  filesystem efímero de la aplicación.
+- Despliegue reproducible en el VPS definitivo con PM2, Nginx, dominio y HTTPS;
+  MongoDB Atlas como persistencia y objetos en Cloudflare R2 fuera del filesystem
+  local de la aplicación.

@@ -329,8 +329,6 @@ Si afecta varios módulos o infraestructura central, ampliar las validaciones se
 
 ## Validación completa
 
-## Validación completa
-
 La validación completa del repositorio se delega preferentemente a GitHub CI.
 
 Codex no debe ejecutar automáticamente `npm test` ni toda la suite local al cerrar una fase.

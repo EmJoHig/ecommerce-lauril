@@ -1757,10 +1757,11 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-title) !important; }
 
 .navigation-loading { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 16px 42px rgb(56 12 15 / 22%); color: var(--brand-red-dark); display: flex; gap: .65rem; left: 50%; padding: .72rem 1rem; position: fixed; top: 1rem; transform: translateX(-50%); z-index: 500; }
 .navigation-loading__spinner { animation: lauril-spin 650ms linear infinite; border: 3px solid #f2d5d7; border-radius: 50%; border-top-color: var(--brand-red); display: block; height: 20px; width: 20px; }
-.page-loading { align-items: center; color: var(--brand-red-dark); display: flex; gap: .75rem; justify-content: center; min-height: 52vh; }
-.catalog-inline-loading { align-items: center; color: var(--brand-red); display: flex; font-size: .7rem; font-weight: 700; gap: .45rem; }
-.catalog-inline-loading::before { animation: lauril-spin 650ms linear infinite; border: 2px solid #f2d5d7; border-radius: 50%; border-top-color: var(--brand-red); content: ""; height: 14px; width: 14px; }
-.store-shell .public-filters[aria-busy="true"], .store-shell .catalog-toolbar form[aria-busy="true"] { opacity: .78; }
+.catalog-product-area { min-height: 52vh; position: relative; }
+.catalog-product-area.is-loading .catalog-product-area__content { display: none; }
+.catalog-results-loading { align-items: center; background: #fff; display: flex; justify-content: center; min-height: 52vh; position: relative; z-index: 20; }
+.catalog-inline-loading { align-items: center; background: #fff; border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 16px 42px rgb(56 12 15 / 22%); color: var(--brand-red-dark); display: inline-flex; font-size: .82rem; font-weight: 700; gap: .65rem; padding: .72rem 1rem; }
+.catalog-inline-loading::before { animation: lauril-spin 650ms linear infinite; border: 3px solid #f2d5d7; border-radius: 50%; border-top-color: var(--brand-red); content: ""; height: 20px; width: 20px; }
 
 @keyframes lauril-spin { to { transform: rotate(360deg); } }
 
@@ -1776,4 +1777,61 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-title) !important; }
 @media (prefers-reduced-motion: reduce) {
   .store-shell .brand:hover .brand__logo, .store-shell .footer-instagram:hover { transform: none; }
   .navigation-loading__spinner, .catalog-inline-loading::before { animation-duration: 1.4s; }
+}
+
+/* Catalog fragrance list, contact and quick actions */
+.store-shell .fragrance-filter { border: 0; display: grid; gap: .55rem; margin: 0; padding: 0; }
+.store-shell .fragrance-filter legend { border-bottom: 3px solid var(--brand-red); color: var(--ink); font-size: 1rem; font-weight: 800; margin-bottom: .8rem; padding: 0 0 .65rem; width: 100%; }
+.store-shell .fragrance-filter label { align-items: center; cursor: pointer; display: flex; flex-direction: row; font-size: .82rem; font-weight: 500; gap: .7rem; }
+.store-shell .public-filters .fragrance-filter input { appearance: none; background: #fff; border: 1.5px solid #302929; border-radius: 6px; flex: 0 0 21px; height: 21px; min-height: 21px; padding: 0; width: 21px; }
+.store-shell .public-filters .fragrance-filter input:checked { background: var(--brand-red); box-shadow: inset 0 0 0 4px #fff; }
+.store-shell .public-filters .fragrance-filter input:focus-visible { box-shadow: 0 0 0 3px rgb(181 18 27 / 16%), inset 0 0 0 4px #fff; outline: 0; }
+.store-shell .fragrance-filter__selected { display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .45rem; }
+.store-shell .fragrance-filter__selected a { align-items: center; background: #fff; border: 1px solid #2f2929; border-radius: 7px; color: var(--ink); display: inline-flex; font-size: .72rem; gap: .35rem; padding: .35rem .5rem; }
+.store-shell .fragrance-filter__selected a:hover { border-color: var(--brand-red); color: var(--brand-red); }
+.store-shell .fragrance-filter__selected span { font-size: 1rem; line-height: .8; }
+
+.store-shell .store-nav .contact-trigger { align-items: center; background: transparent; border: 0; border-radius: 10px; color: #fff; display: inline-flex; font-size: .78rem; font-weight: 700; min-height: 42px; padding: .55rem .8rem; transition: background 180ms ease, transform 180ms ease; }
+.store-shell .store-nav .contact-trigger:hover { background: rgb(255 255 255 / 16%); transform: translateY(-1px); }
+.store-shell .store-mobile-nav .contact-trigger { background: transparent; border: 0; color: inherit; font: inherit; padding: 0; text-align: left; }
+
+.contact-dialog { background: #fff; border: 0; border-radius: 20px; box-shadow: 0 30px 90px rgb(30 7 9 / 35%); color: var(--ink); max-height: calc(100dvh - 2rem); padding: 0; width: min(680px, calc(100vw - 2rem)); }
+.contact-dialog[open] { inset: 50% auto auto 50%; margin: 0; position: fixed; transform: translate(-50%, -50%); }
+.contact-dialog::backdrop { background: rgb(20 15 15 / 64%); backdrop-filter: blur(2px); }
+.contact-dialog > header { align-items: center; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 1.5rem 2rem; }
+.contact-dialog h2 { font-size: 1.75rem; font-weight: 500; margin: 0; }
+.contact-dialog > header button { background: transparent; border: 0; font-size: 2rem; font-weight: 300; line-height: 1; padding: .25rem; }
+.contact-dialog form { display: grid; gap: 1.25rem; padding: 1.6rem 2rem 0; }
+.contact-dialog label { color: #4d4545; display: grid; font-size: .75rem; gap: .45rem; }
+.contact-dialog input, .contact-dialog textarea { background: #fff; border: 1px solid #d9d2d2; border-radius: 8px; font: inherit; min-height: 48px; padding: .8rem; resize: vertical; width: 100%; }
+.contact-dialog textarea { min-height: 130px; }
+.contact-dialog input:focus, .contact-dialog textarea:focus { border-color: var(--brand-red); box-shadow: 0 0 0 4px rgb(181 18 27 / 9%); outline: 0; }
+.contact-dialog__row { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
+.contact-dialog__honeypot { height: 1px !important; left: -10000px; min-height: 0 !important; opacity: 0; position: fixed; width: 1px !important; }
+.contact-dialog__status { border-radius: 8px; font-size: .78rem; margin: 0; padding: .7rem .9rem; }
+.contact-dialog__status--success { background: #edf7ea; color: #2f6836; }
+.contact-dialog__status--error { background: var(--brand-red-soft); color: var(--brand-red-dark); }
+.contact-dialog form > footer { border-top: 1px solid var(--line); display: flex; justify-content: flex-end; margin-inline: -2rem; padding: 1.2rem 2rem 1.4rem; }
+.contact-dialog form > footer .button { margin-left: auto; min-width: 230px; }
+
+.store-shell .cart-trigger > svg { height: 23.1px; width: 23.1px; }
+.store-shell .cart-drawer__header h2 { align-items: center; display: flex; gap: .6rem; }
+.store-shell .cart-drawer__count { align-items: center; background: #ffd84d; border-radius: 999px; color: #17120a; display: inline-flex; font-family: var(--font-sans); font-size: .72rem; font-weight: 800; height: 1.55rem; justify-content: center; min-width: 1.55rem; padding-inline: .35rem; }
+
+.whatsapp-float { align-items: center; background: #38b654; border: 3px solid #fff; border-radius: 50%; bottom: 1.5rem; box-shadow: 0 12px 34px rgb(18 88 35 / 28%); color: #fff; display: flex; height: 64px; justify-content: center; position: fixed; right: 1.5rem; transition: box-shadow 180ms ease, transform 180ms ease; width: 64px; z-index: 180; }
+.whatsapp-float svg { height: 35px; width: 35px; }
+.whatsapp-float:hover { box-shadow: 0 16px 40px rgb(18 88 35 / 38%); color: #fff; transform: translateY(-4px) scale(1.04); }
+
+@media (max-width: 620px) {
+  .contact-dialog > header, .contact-dialog form { padding-left: 1.2rem; padding-right: 1.2rem; }
+  .contact-dialog form > footer { margin-inline: -1.2rem; padding-inline: 1.2rem; }
+  .contact-dialog__row { grid-template-columns: 1fr; }
+  .contact-dialog form > footer .button { width: 100%; }
+  .whatsapp-float { bottom: 1rem; height: 56px; right: 1rem; width: 56px; }
+  .store-shell .store-mobile-nav .contact-dialog > header button { background: transparent; color: var(--ink); font-size: 2rem; padding: .25rem; text-align: center; width: auto; }
+  .store-shell .store-mobile-nav .contact-dialog form > footer .button { background: var(--brand-red); color: #fff; padding: .8rem 1rem; text-align: center; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-shell .store-nav .contact-trigger:hover, .whatsapp-float:hover { transform: none; }
 }

@@ -103,14 +103,13 @@ export function CartDrawer({ cart }: { cart: CartDrawerView }) {
       <button
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label={`Abrir carrito con ${cart.itemCount} unidades`}
+        aria-label={`Abrir carrito con ${cart.itemCount} artículos`}
         className={`cart-trigger${bump ? " is-bumping" : ""}`}
         onClick={() => setOpen(true)}
         ref={triggerRef}
         type="button"
       >
         <CartIcon />
-        <span className="cart-trigger__label">Carrito</span>
         <span aria-hidden="true" className="cart-count">{cart.itemCount}</span>
       </button>
 
@@ -120,7 +119,7 @@ export function CartDrawer({ cart }: { cart: CartDrawerView }) {
           <header className="cart-drawer__header">
             <div>
               <p className="eyebrow">Tu selección</p>
-              <h2 id={titleId}>Mi carrito</h2>
+              <h2 id={titleId}>Mi carrito <span className="cart-drawer__count">{cart.itemCount}</span></h2>
             </div>
             <button aria-label="Cerrar carrito" className="cart-drawer__close" data-cart-close onClick={() => setOpen(false)} type="button">×</button>
           </header>

@@ -115,7 +115,10 @@ export class PrismaCustomerRepository implements CustomerRepository {
   async createPasswordReset(input: Parameters<CustomerRepository["createPasswordReset"]>[0]): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.passwordResetToken.updateMany({
-        where: { userId: input.userId, usedAt: null },
+        where: {
+          userId: input.userId,
+          OR: [{ usedAt: null }, { usedAt: { isSet: false } }],
+        },
         data: { usedAt: input.occurredAt },
       }),
       this.prisma.passwordResetToken.create({
@@ -123,6 +126,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
           userId: input.userId,
           tokenHash: input.tokenHash,
           expiresAt: input.expiresAt,
+          usedAt: null,
         },
       }),
       this.prisma.auditLog.create({
@@ -159,7 +163,11 @@ export class PrismaCustomerRepository implements CustomerRepository {
       });
       if (!token || token.usedAt || token.expiresAt <= input.occurredAt) return false;
       const consumed = await tx.passwordResetToken.updateMany({
-        where: { id: token.id, usedAt: null, expiresAt: { gt: input.occurredAt } },
+        where: {
+          id: token.id,
+          expiresAt: { gt: input.occurredAt },
+          OR: [{ usedAt: null }, { usedAt: { isSet: false } }],
+        },
         data: { usedAt: input.occurredAt },
       });
       if (consumed.count !== 1) return false;
@@ -168,7 +176,10 @@ export class PrismaCustomerRepository implements CustomerRepository {
         data: { passwordHash: input.passwordHash },
       });
       await tx.session.updateMany({
-        where: { userId: token.userId, revokedAt: null },
+        where: {
+          userId: token.userId,
+          OR: [{ revokedAt: null }, { revokedAt: { isSet: false } }],
+        },
         data: { revokedAt: input.occurredAt },
       });
       await tx.auditLog.create({

@@ -29,9 +29,9 @@ incluye en logs, documentación o reportes.
 
 El usuario de aplicación tiene `readWrite` únicamente sobre
 `lauril_ecommerce`. En desarrollo, Network Access admite solo la IP pública
-necesaria. No se habilita `0.0.0.0/0`. Para producción se debe autorizar el egreso
-estable del proveedor o utilizar conectividad privada, sin copiar la configuración
-del proyecto Tecnoclean.
+necesaria. No se habilita `0.0.0.0/0`. Para producción se debe autorizar únicamente
+el origen necesario del VPS o utilizar conectividad privada, sin documentar su IP
+ni copiar la configuración del proyecto Tecnoclean.
 
 ## Prisma
 
@@ -58,6 +58,7 @@ npm run db:push
 npm run db:seed
 npm run db:verify
 npm run db:studio
+npm run db:expire-orders
 npm run dev
 ```
 
@@ -76,3 +77,5 @@ local, Compose ni Docker como requisito de base de datos.
 `db:verify` realiza un ping no destructivo y comprueba seed, índices aplicados,
 relaciones e invariantes de catálogo, inventario, carrito y pedidos. Prisma Studio
 se abre con `npm run db:studio` y utiliza la misma `MONGODB_URI`.
+`db:expire-orders` libera de forma idempotente las reservas vencidas y requiere el
+replica set provisto por Atlas para su transacción.
