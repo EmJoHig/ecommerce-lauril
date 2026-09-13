@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductCard } from "@/modules/catalog/presentation/product-card";
 import { getCatalogService } from "@/modules/catalog/infrastructure/catalog-composition";
 import { getPublicStoreSettings } from "@/modules/store-settings/infrastructure/store-settings-composition";
+import { isLocalUploadUrl } from "@/shared/presentation/image-url";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export default async function HomePage() {
             }
             return (
             <Link className={`category-tile category-tile--${index + 1}`} href={`/categorias/${category.slug}`} key={category.id}>
-              <Image alt="" fill sizes="(max-width: 720px) 100vw, 33vw" src={image} />
+              <Image alt="" fill sizes="(max-width: 720px) 100vw, 33vw" src={image} unoptimized={isLocalUploadUrl(image)} />
               <span className="category-tile__veil" />
               <div><h3>{category.name}</h3><p>{category.description ?? "Fragancias para disfrutar todos los días."}</p><strong>Descubrir <span aria-hidden="true">→</span></strong></div>
             </Link>
