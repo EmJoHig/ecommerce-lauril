@@ -237,13 +237,17 @@ reserva una sola vez, marca `CANCELLED` y agrega historial.
 
 ### Job operativo de expiración
 
-Un scheduler propio del host debe ejecutar periódicamente `npm run db:expire-orders`
-en el artefacto de la aplicación con `MONGODB_URI` configurada. Todavía debe
-confirmarse si esa automatización está activa y no se ha decidido entre cron,
-systemd timer u otro mecanismo adecuado. El comando no es
-interactivo, procesa hasta 100 pedidos vencidos por ejecución y termina; conviene
-programarlo con una frecuencia menor al tiempo de reserva y evitar ejecuciones
-solapadas. No requiere endpoint HTTP, proceso web, cola ni worker permanente.
+La lógica de expiración está implementada y el comando
+`npm run db:expire-orders` continúa disponible para ejecución manual en el
+artefacto de la aplicación con `MONGODB_URI` configurada. Actualmente no existe
+cron, systemd timer ni otro scheduler activo. La automatización, incluida la
+elección del scheduler, la frecuencia UTC, la prevención de solapamientos y la
+observabilidad mínima, quedó postergada como pendiente operativo no bloqueante y
+se implementará únicamente cuando el responsable del proyecto decida iniciarla.
+Esto no bloquea Fase 12B, Fase 12C ni fases posteriores.
+
+El comando no es interactivo, procesa hasta 100 pedidos vencidos por ejecución y
+termina. No requiere endpoint HTTP, proceso web, cola ni worker permanente.
 
 En éxito, incluso si no hay pedidos para expirar, devuelve código `0` y una línea
 JSON con `job`, `status` y `expired`. Ante un fallo devuelve código `1` y un JSON
@@ -300,10 +304,10 @@ entorno productivo. `npm run db:push` sincroniza schema e índices de forma
 controlada y `npm run db:verify` valida la persistencia.
 
 Producción utiliza MongoDB Atlas, ObjectStorage local y Resend. El adaptador
-S3-compatible permanece disponible pero inactivo. El scheduler propio del host para
-`npm run db:expire-orders` permanece pendiente de confirmación o configuración.
-Desarrollo se conecta directamente a Atlas y no necesita PostgreSQL ni Docker para
-la base.
+S3-compatible permanece disponible pero inactivo. `npm run db:expire-orders`
+puede ejecutarse manualmente, pero no hay scheduler activo; su automatización es
+un pendiente operativo no bloqueante. Desarrollo se conecta directamente a Atlas
+y no necesita PostgreSQL ni Docker para la base.
 
 ## Decisiones explícitas
 
