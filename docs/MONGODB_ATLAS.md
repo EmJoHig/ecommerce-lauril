@@ -29,9 +29,9 @@ incluye en logs, documentación o reportes.
 
 El usuario de aplicación tiene `readWrite` únicamente sobre
 `lauril_ecommerce`. En desarrollo, Network Access admite solo la IP pública
-necesaria. No se habilita `0.0.0.0/0`. Para producción se debe autorizar el egreso
-estable del proveedor o utilizar conectividad privada, sin copiar la configuración
-del proyecto Tecnoclean.
+necesaria. No se habilita `0.0.0.0/0`. Para producción se debe autorizar únicamente
+el origen necesario del VPS o utilizar conectividad privada, sin documentar su IP
+ni copiar la configuración del proyecto Tecnoclean.
 
 ## Prisma
 

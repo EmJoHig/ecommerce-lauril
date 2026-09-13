@@ -55,8 +55,19 @@ Rutas principales implementadas:
 - `/admin/configuracion` para identidad y contacto públicos de la tienda.
 
 Las imágenes subidas en desarrollo se guardan en `public/uploads/catalog`, que
-está ignorado por Git. No usar ese adaptador en Render porque su filesystem es
-efímero.
+está ignorado por Git. El VPS productivo utiliza Cloudflare R2 mediante el
+adaptador S3-compatible; no usar allí el almacenamiento local.
+
+## Producción
+
+La aplicación está desplegada en el VPS definitivo: Next.js se ejecuta mediante
+PM2 y Nginx actúa como reverse proxy para el dominio con HTTPS. El deploy actual
+se realiza desde Git y las variables y secretos se configuran fuera del
+repositorio, en el entorno productivo. MongoDB Atlas es la única persistencia;
+Cloudflare R2 y Resend son los proveedores productivos configurados.
+
+La ejecución automática de `npm run db:expire-orders` todavía debe confirmarse y
+formalizarse mediante un scheduler propio del host.
 
 ## Desarrollo de base de datos
 
@@ -114,7 +125,9 @@ npm run build
 - `S3_*`: obligatorias en producción para el adaptador S3-compatible (Cloudflare
   R2 es el objetivo documentado); el adaptador local de desarrollo no las necesita.
 - `RESEND_API_KEY`, `EMAIL_FROM`: obligatorias en producción para enviar emails
-  transaccionales mediante Resend; desarrollo y test conservan el sender local.
+  transaccionales mediante Resend; desarrollo usa Resend si ambas están
+  configuradas y, en caso contrario, conserva el preview local. Test usa el sender
+  local.
 
 No hay credenciales predeterminadas en el repositorio. `.env` está ignorado por
 Git.

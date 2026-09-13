@@ -183,30 +183,38 @@ Estado: completada y validada.
 - Incorporar únicamente limpiezas operativas justificadas por casos de uso existentes.
 - Evitar introducir infraestructura distribuida de jobs sin necesidad.
 
-## Fase 12 — Staging y datos reales
+## Fase 12 — Infraestructura productiva, integraciones y datos reales
 
-Objetivo: ejecutar y validar Lauril Ecommerce fuera del entorno local usando infraestructura real, sin incorporar todavía Mercado Pago.
+Objetivo: validar y formalizar la infraestructura productiva ya desplegada antes
+del hardening y los pagos. La existencia del VPS no completa esta fase: sus
+procedimientos y verificaciones continúan pendientes de validación formal.
 
-### Fase 12A — Staging base
+### Fase 12A — Validación del VPS productivo
 
-- Desplegar la aplicación Next.js en Render.
-- Utilizar MongoDB Atlas como única persistencia.
-- Configurar `MONGODB_URI` mediante secretos del entorno.
+- Validar la aplicación Next.js en el VPS definitivo.
+- Validar PM2 como process manager y su recuperación automática después de un reboot.
+- Validar Nginx como reverse proxy, el dominio configurado y HTTPS.
+- Confirmar MongoDB Atlas como única persistencia.
+- Confirmar secretos y variables fuera del repositorio, incluida `APP_URL` productiva.
+- Validar `/api/health` y `/api/health?deep=1`.
+- Documentar acceso a logs y diagnóstico operativo sin exponer datos sensibles.
+- Formalizar un procedimiento reproducible de deploy desde Git.
+- Formalizar un procedimiento de rollback.
+- Definir y comprobar backups básicos de Atlas y de la configuración necesaria
+  para reconstruir la infraestructura.
 - Ejecutar `npm run db:push` de forma controlada para sincronizar schema e índices.
 - Ejecutar `npm run db:verify`.
-- Configurar `APP_URL` con la URL HTTPS de staging.
-- Validar `/api/health` y `/api/health?deep=1`.
-- Configurar las variables de sesiones y configuración operativa necesarias.
-- Crear/validar un administrador de staging mediante seed controlado.
 - No utilizar PostgreSQL ni Prisma Migrate.
 
-### Fase 12B — Integraciones productivas en staging
+### Fase 12B — Integraciones productivas
 
-- Configurar el ObjectStorage S3-compatible con Cloudflare R2.
-- Validar upload, acceso público y delete reales.
-- Configurar Resend.
-- Validar recuperación de contraseña y entrega real de email.
-- Configurar el scheduler real para `npm run db:expire-orders`.
+- Cloudflare R2 ya está configurado; realizar un smoke test real de upload,
+  acceso público y delete.
+- Resend ya está configurado; validar entrega real.
+- Validar end-to-end la recuperación de contraseña después del último fix.
+- Confirmar o configurar la ejecución automática de `npm run db:expire-orders`.
+- Usar un scheduler propio del host —cron, systemd timer u otro mecanismo
+  adecuado— sin fijar todavía una alternativa mientras no exista una decisión operativa.
 - Definir frecuencia UTC y evitar ejecuciones solapadas.
 - Incorporar observabilidad mínima del job.
 
@@ -220,7 +228,7 @@ Objetivo: ejecutar y validar Lauril Ecommerce fuera del entorno local usando inf
   catálogo -> producto -> carrito -> cuenta/checkout -> pedido pendiente.
 - Validar backoffice:
   cliente -> pedido -> reserva -> inventario -> expiración/liberación.
-- Verificar funcionamiento móvil básico en staging.
+- Verificar funcionamiento móvil básico en producción.
 
 Mercado Pago continúa fuera de alcance y se implementará en Fase 14.
 
@@ -255,7 +263,7 @@ No realizar refactors generales ni auditorías cosméticas.
 
 El retorno del navegador nunca confirma un pago.
 
-## Fase 15 — E2E y producción
+## Fase 15 — E2E y habilitación comercial
 
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.
@@ -269,12 +277,13 @@ El retorno del navegador nunca confirma un pago.
 - Email.
 - Expiración.
 - Responsive crítico.
-- Validación final en staging.
+- Validación final de la infraestructura productiva.
 - Sincronización controlada mediante `npm run db:push`, validación con
   `npm run db:verify` y backup de Atlas.
-- Procedimiento de rollback.
-- Publicación en producción.
-- Smoke test posterior al despliegue.
+- Verificación del procedimiento de rollback.
+- Deploy final validado sobre la infraestructura existente.
+- Smoke test posterior al deploy.
+- Habilitación comercial con pagos.
 
 ## Fase 16 — Productividad avanzada de catálogo
 

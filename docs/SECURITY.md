@@ -113,11 +113,12 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
   `lauril_ecommerce`; Network Access se limita a las IP necesarias y nunca se abre
   automáticamente a `0.0.0.0/0`.
 - Los futuros tokens de Mercado Pago, las credenciales S3/R2 y la API key de
-  Resend solo se configuran mediante variables de entorno de Render.
+  Resend solo se configuran mediante variables o secretos del entorno productivo
+  del VPS.
 - Logs excluyen contraseñas, cookies, tokens, firmas y payloads personales completos.
 - TLS en tránsito, backups cifrados del proveedor y mínimo privilegio para DB/S3.
 - Definir política de retención y proceso de exportación/eliminación de datos antes
-  de producción.
+  de la habilitación comercial con pagos.
 
 ## Integraciones y webhooks
 
@@ -130,12 +131,13 @@ evita usando endpoints configurados, no URLs arbitrarias recibidas del cliente.
 - Versiones fijadas por lockfile; actualizar con revisión y ejecutar auditoría.
 - CI ejecuta lint, typecheck, tests y build.
 - `db push` e índices MongoDB se ejecutan con usuario restringido y despliegue controlado.
-- Health checks no exponen configuración interna.
+- Nginx termina HTTPS y actúa como reverse proxy; PM2 administra el proceso Next.js.
+- Health checks y logs operativos no exponen configuración interna ni secretos.
 - Alertas para errores de autenticación, webhooks y transiciones imposibles.
 
-## Pendientes antes de producción
+## Pendientes de hardening y habilitación comercial
 
 Rate limiter compartido, CSP y cabeceras completas, rotación de secretos,
 Sentry/OpenTelemetry, política de privacidad, backups/restores probados, pruebas
 de autorización por permiso y revisión OWASP. La validación operativa de Resend y
-R2 en staging pertenece a Fase 12; el hardening adicional permanece en Fase 13.
+R2 en producción pertenece a Fase 12; el hardening adicional permanece en Fase 13.
