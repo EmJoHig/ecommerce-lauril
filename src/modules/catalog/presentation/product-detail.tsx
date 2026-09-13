@@ -6,6 +6,7 @@ import { useActionState, useEffect, useState } from "react";
 import { addCartItemAction } from "@/modules/cart/presentation/cart-actions";
 import { initialCartActionState } from "@/modules/cart/presentation/cart-action-state";
 import { cartOpenEvent, cartUpdatedEvent } from "@/modules/cart/presentation/cart-events";
+import { isLocalUploadUrl } from "@/shared/presentation/image-url";
 
 type VariantView = { id: string; sku: string; name: string; price: string; regularPrice: string | null; availableStock: number; isDefault: boolean };
 
@@ -32,7 +33,7 @@ export function ProductDetail({ name, images, variants }: Readonly<{
   const image = images.find((item) => item.id === imageId) ?? images[0];
   if (!variant) return null;
   return <div className="product-purchase-view">
-    <div><div className="product-detail__image"><Image alt={image?.altText ?? name} fill priority sizes="(max-width: 800px) 100vw, 56vw" src={image?.url ?? "/product-placeholder.svg"} /></div>{images.length > 1 ? <div className="product-thumbnails">{images.map((item) => <button aria-label={`Ver ${item.altText}`} className={item.id === image?.id ? "is-active" : ""} key={item.id} onClick={() => setImageId(item.id)} type="button"><Image alt="" fill sizes="72px" src={item.url} /></button>)}</div> : null}</div>
+    <div><div className="product-detail__image"><Image alt={image?.altText ?? name} fill priority sizes="(max-width: 800px) 100vw, 56vw" src={image?.url ?? "/product-placeholder.svg"} unoptimized={isLocalUploadUrl(image?.url)} /></div>{images.length > 1 ? <div className="product-thumbnails">{images.map((item) => <button aria-label={`Ver ${item.altText}`} className={item.id === image?.id ? "is-active" : ""} key={item.id} onClick={() => setImageId(item.id)} type="button"><Image alt="" fill sizes="72px" src={item.url} unoptimized={isLocalUploadUrl(item.url)} /></button>)}</div> : null}</div>
     <div className="variant-picker">
       <div className="product-detail__price">{variant.regularPrice ? <del>{variant.regularPrice}</del> : null}<strong>{variant.price}</strong></div>
       {/* {variants.length > 1 ? <fieldset><legend>Elegí una variante</legend>{variants.map((item) => <button aria-pressed={item.id === variant.id} className={item.id === variant.id ? "variant-option is-active" : "variant-option"} key={item.id} onClick={() => { setVariantId(item.id); setQuantity(1); }} type="button"><span>{item.name}</span><small>SKU {item.sku} · {item.availableStock > 0 ? `${item.availableStock} disponibles` : "Sin stock"}</small></button>)}</fieldset> : <div className="single-variant"><strong>{variant.name}</strong><small>SKU {variant.sku} · {variant.availableStock > 0 ? `${variant.availableStock} disponibles` : "Sin stock"}</small></div>} */}

@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useId, useMemo, useState } from "react";
+import { isLocalUploadUrl } from "@/shared/presentation/image-url";
 
 export type HeaderSearchItem = Readonly<{
   name: string;
@@ -46,7 +47,7 @@ export function HeaderSearch({ products }: { products: readonly HeaderSearchItem
     </form>
     {expanded ? <div className="header-search-results" id={resultsId} role="listbox">
       {results.length > 0 ? results.map((product) => <Link href={`/producto/${product.slug}`} key={product.slug} role="option">
-        <span className="header-search-results__image"><Image alt={product.imageAlt} fill sizes="52px" src={product.imageUrl ?? "/product-placeholder.svg"} /></span>
+        <span className="header-search-results__image"><Image alt={product.imageAlt} fill sizes="52px" src={product.imageUrl ?? "/product-placeholder.svg"} unoptimized={isLocalUploadUrl(product.imageUrl)} /></span>
         <strong>{product.name}</strong>
         <span aria-hidden="true">→</span>
       </Link>) : <p>No encontramos productos.</p>}

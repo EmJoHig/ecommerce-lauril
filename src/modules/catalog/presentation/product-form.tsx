@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { normalizeSlug } from "../domain/product";
+import { isLocalUploadUrl } from "@/shared/presentation/image-url";
 import { initialCatalogActionState } from "./catalog-action-state";
 import { saveProductAction } from "./catalog-actions";
 import { PendingButton } from "./pending-button";
@@ -214,7 +215,7 @@ export function ProductForm({
         <div className="image-editor-grid">
           {model.images.map((image, index) => (
             <article className="image-editor" key={image.id}>
-              <div className="image-editor__preview"><Image alt={image.altText} fill sizes="180px" src={image.url} /></div>
+              <div className="image-editor__preview"><Image alt={image.altText} fill sizes="180px" src={image.url} unoptimized={isLocalUploadUrl(image.url)} /></div>
               <span>{index === 0 ? "Principal" : `Posición ${index + 1}`}</span>
               <input aria-label="Texto alternativo" maxLength={250} onChange={(event) => setModel((current) => ({ ...current, images: current.images.map((item) => item.id === image.id ? { ...item, altText: event.target.value } : item) }))} value={image.altText} />
               <div><button disabled={index === 0} onClick={() => moveImage(index, -1)} type="button">←</button><button disabled={index === model.images.length - 1} onClick={() => moveImage(index, 1)} type="button">→</button><button onClick={() => setModel((current) => ({ ...current, images: current.images.filter((item) => item.id !== image.id) }))} type="button">Quitar</button></div>

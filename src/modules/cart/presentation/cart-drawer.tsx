@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
+import { isLocalUploadUrl } from "@/shared/presentation/image-url";
 import { CartQuantityControl, RemoveCartItemButton } from "./cart-controls";
 import { cartOpenEvent, cartUpdatedEvent } from "./cart-events";
 
@@ -139,7 +140,7 @@ export function CartDrawer({ cart }: { cart: CartDrawerView }) {
                   {cart.items.map((item) => (
                     <article className={item.availability === "AVAILABLE" ? "drawer-item" : "drawer-item drawer-item--issue"} key={item.id}>
                       <Link className="drawer-item__image" href={`/producto/${item.productSlug}`} onClick={() => setOpen(false)}>
-                        <Image alt={item.imageAlt} fill sizes="88px" src={item.imageUrl ?? "/product-placeholder.svg"} />
+                        <Image alt={item.imageAlt} fill sizes="88px" src={item.imageUrl ?? "/product-placeholder.svg"} unoptimized={isLocalUploadUrl(item.imageUrl)} />
                       </Link>
                       <div className="drawer-item__content">
                         <div className="drawer-item__heading">

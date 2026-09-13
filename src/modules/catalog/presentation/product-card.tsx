@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { CatalogProduct } from "../domain/product";
 import { getLowestProductPrice } from "../domain/product";
 import { formatMoney } from "@/shared/domain/money";
+import { isLocalUploadUrl } from "@/shared/presentation/image-url";
 import { AddToCartButton } from "./add-to-cart-button";
 
 export function ProductCard({ product, storeName, compact = false }: { product: CatalogProduct; storeName: string; compact?: boolean }) {
@@ -19,6 +20,7 @@ export function ProductCard({ product, storeName, compact = false }: { product: 
           fill
           sizes="(max-width: 430px) 50vw, (max-width: 960px) 50vw, (max-width: 1280px) 33vw, 25vw"
           src={product.imageUrl ?? "/product-placeholder.svg"}
+          unoptimized={isLocalUploadUrl(product.imageUrl)}
         />
         {!compact && (hasOffer ? <span className="pill">Oferta</span> : product.featured ? <span className="pill">Destacado</span> : null)}
       </Link>
