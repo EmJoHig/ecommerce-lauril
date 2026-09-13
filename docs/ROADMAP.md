@@ -187,8 +187,8 @@ Estado: completada y validada.
 ## Fase 12 — Infraestructura productiva, integraciones y datos reales
 
 Objetivo: validar y formalizar la infraestructura productiva ya desplegada antes
-del hardening y los pagos. La validación del VPS quedó completada en Fase 12A;
-las integraciones productivas y los datos reales continúan en Fases 12B y 12C.
+del hardening y los pagos. Las Fases 12A, 12B y 12C están completadas y validadas;
+por lo tanto, la Fase 12 está completada y validada.
 
 ### Fase 12A — Validación del VPS productivo
 
@@ -230,24 +230,34 @@ Estado: completada y validada.
 
 ### Fase 12C — Datos reales y smoke test
 
-- Cargar catálogo real de Lauril.
-- Cargar imágenes reales.
-- Configurar métodos de entrega reales.
-- Configurar datos comerciales reales de StoreSettings.
-- Validar flujo público completo sin pagos:
-  catálogo -> producto -> carrito -> cuenta/checkout -> pedido pendiente.
-- Validar backoffice:
-  cliente -> pedido -> reserva -> inventario -> expiración/liberación.
-- Verificar funcionamiento móvil básico en producción.
+Estado: completada y validada.
+
+- Se validaron en producción el catálogo, las categorías, los productos, los
+  precios, el stock y las imágenes reales de Lauril.
+- Se validaron los datos comerciales reales de `StoreSettings` y los métodos de
+  entrega configurados.
+- El flujo público sin pagos quedó validado de inicio a categoría, producto,
+  carrito, checkout, creación de pedido `PENDING_PAYMENT` y visualización del
+  pedido, tanto para checkout invitado como autenticado.
+- El checkout conserva datos, dirección, método de entrega y modo de dirección
+  ante errores de validación; para clientes autenticados usa datos personales
+  server-side autocompletados y de solo lectura, que siguen siendo autoritativos.
+- El pedido apareció correctamente en el backoffice y su reserva incrementó
+  `Inventory.stockReserved` sin modificar `stockOnHand`.
+- La liberación se validó mediante la cancelación administrativa del pedido:
+  disminuyó `stockReserved` y restauró el stock disponible. La corrección admite
+  tanto `reservationReleasedAt: null` como documentos donde el campo está ausente;
+  la misma compatibilidad se incorporó a `db:expire-orders`.
+- El smoke mobile básico recorrió el flujo público completo en producción sin
+  bloqueos responsive relevantes.
 
 Mercado Pago continúa fuera de alcance y se implementará en Fase 14.
 
 ## Pendientes operativos no bloqueantes
 
 Estas tareas son mejoras de operación y mantenimiento. No forman parte del
-criterio de cierre de Fase 12B, no bloquean Fase 12B, Fase 12C ni fases
-posteriores y se realizarán únicamente cuando el responsable del proyecto decida
-iniciarlas.
+criterio de cierre de la Fase 12, no bloquean fases posteriores y se realizarán
+únicamente cuando el responsable del proyecto decida iniciarlas.
 
 - Normalizar la versión de Node y PM2 por defecto de las sesiones SSH.
 - Implementar un backup lógico independiente de MongoDB Atlas.
