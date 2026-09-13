@@ -7,6 +7,7 @@ import { HeaderSearch } from "@/modules/catalog/presentation/header-search";
 import { getCurrentCustomer } from "@/modules/customers/presentation/customer-session";
 import { logoutCustomerAction } from "@/modules/customers/presentation/customer-actions";
 import { getPublicStoreSettings } from "@/modules/store-settings/infrastructure/store-settings-composition";
+import { ContactModal } from "./contact-modal";
 import { NavigationLoading } from "./navigation-loading";
 
 export default async function StoreLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -30,13 +31,13 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
         <nav aria-label="Navegación principal" className="store-nav">
           <Link href="/">Inicio</Link>
           <Link href="/productos">Productos</Link>
-          <Link href="/#colecciones">Colecciones</Link>
+          <ContactModal />
         </nav>
         <div className="store-header__actions">
           <HeaderSearch products={searchProducts.map((product) => ({ name: product.name, slug: product.slug, imageUrl: product.imageUrl, imageAlt: product.imageAlt ?? product.name }))} />
           {customer ? <Link aria-label="Ir a mi cuenta" className="header-account" href="/mi-cuenta"><AccountIcon /><span>Mi cuenta</span></Link> : <Link aria-label="Ingresar a mi cuenta" className="header-account" href="/login"><AccountIcon /><span>Ingresar</span></Link>}
           <CartIndicator />
-          <details className="store-mobile-nav"><summary aria-label="Abrir menú"><MenuIcon /></summary><nav aria-label="Navegación mobile"><Link href="/">Inicio</Link><Link href="/productos">Productos</Link><Link href="/#colecciones">Colecciones</Link>{customer ? <><Link href="/mi-cuenta">Mi cuenta</Link><form action={logoutCustomerAction}><button type="submit">Cerrar sesión</button></form></> : <><Link href="/login">Ingresar</Link><Link href="/registro">Crear cuenta</Link></>}</nav></details>
+          <details className="store-mobile-nav"><summary aria-label="Abrir menú"><MenuIcon /></summary><nav aria-label="Navegación mobile"><Link href="/">Inicio</Link><Link href="/productos">Productos</Link><ContactModal />{customer ? <><Link href="/mi-cuenta">Mi cuenta</Link><form action={logoutCustomerAction}><button type="submit">Cerrar sesión</button></form></> : <><Link href="/login">Ingresar</Link><Link href="/registro">Crear cuenta</Link></>}</nav></details>
         </div>
       </header>
       <main>{children}</main>
@@ -68,6 +69,7 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
         <a aria-label="Lauril en Instagram" className="footer-instagram" href="https://www.instagram.com/lauril.quimica" rel="noreferrer" target="_blank"><InstagramIcon /><span>Instagram</span></a>
       </footer>
       <div className="store-copyright"><span>© {new Date().getFullYear()} {settings.storeName}. Todos los derechos reservados.</span><span>Hecho con <HeartIcon /> en Argentina</span></div>
+      <a aria-label="Contactar a Lauril por WhatsApp" className="whatsapp-float" href="https://wa.me/5492216901425" rel="noreferrer" target="_blank"><WhatsAppIcon /></a>
     </div>
   );
 }
@@ -79,3 +81,4 @@ function HeartIcon() { return <svg aria-hidden="true" fill="none" viewBox="0 0 2
 function CardIcon() { return <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><rect height="15" rx="2" stroke="currentColor" strokeWidth="1.7" width="20" x="2" y="5"/><path d="M2 10h20M6 15h4" stroke="currentColor" strokeWidth="1.7"/></svg>; }
 function ShieldIcon() { return <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><path d="M12 2.5c2.5 2 5.2 2.7 8 3v6.2c0 4.5-2.7 7.8-8 9.8-5.3-2-8-5.3-8-9.8V5.5c2.8-.3 5.5-1 8-3Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.7"/><path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7"/></svg>; }
 function InstagramIcon() { return <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><rect height="18" rx="5" stroke="currentColor" strokeWidth="1.8" width="18" x="3" y="3"/><circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.8"/><circle cx="17.5" cy="6.5" fill="currentColor" r="1"/></svg>; }
+function WhatsAppIcon() { return <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><path d="M20.5 11.7a8.5 8.5 0 0 1-12.6 7.5L3 20.5l1.3-4.7a8.5 8.5 0 1 1 16.2-4.1Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8"/><path d="M8.3 7.8c.3-.5.6-.5.9-.5h.4c.2 0 .4.1.5.4l.8 1.9c.1.3.1.5-.1.7l-.7.8c-.2.2-.1.4 0 .6.6 1.2 1.6 2.1 2.8 2.7.2.1.4.1.6-.1l.8-1c.2-.2.4-.3.7-.2l1.9.9c.3.1.4.3.4.5 0 .4-.2 1.4-.8 1.9-.6.6-1.5.9-2.5.6-1-.2-3.2-1.1-5.1-2.8-1.5-1.4-2.5-3-2.8-4-.3-.9.1-1.8.5-2.4Z" fill="currentColor"/></svg>; }

@@ -54,14 +54,8 @@ export function calculateCartSubtotal(
 export function calculateCartItemCount(
   quantities: ReadonlyArray<number>,
 ): number {
-  const count = quantities.reduce(
-    (total, quantity) => total + validateCartQuantity(quantity),
-    0,
-  );
-  if (!Number.isSafeInteger(count)) {
-    throw new ValidationError("La cantidad total del carrito es inválida.");
-  }
-  return count;
+  quantities.forEach(validateCartQuantity);
+  return quantities.length;
 }
 
 export function currentCartUnitPrice(state: CartVariantState): bigint {

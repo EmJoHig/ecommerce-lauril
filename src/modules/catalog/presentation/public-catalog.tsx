@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { CatalogCategory, CatalogFragrance, CatalogProductPage } from "../application/product-catalog-repository";
-import { CatalogAutoForm } from "./catalog-auto-form";
+import { CatalogAutoForm, CatalogProductArea } from "./catalog-auto-form";
 import { ProductCard } from "./product-card";
 
 export function PublicCatalog({ page, categories, fragrances, currentCategory, currentFragrance, search, sort, storeName, heading = "Todos los productos" }: Readonly<{
@@ -27,8 +27,10 @@ export function PublicCatalog({ page, categories, fragrances, currentCategory, c
         </aside>
         <div className="catalog-results">
           <div className="catalog-toolbar"><p>Mostrando {page.items.length} de {page.total} productos</p><CatalogAutoForm><input name="buscar" type="hidden" value={search} />{currentCategory ? <input name="categoria" type="hidden" value={currentCategory} /> : null}{currentFragrance ? <input name="fragancia" type="hidden" value={currentFragrance} /> : null}<label>Ordenar por <select defaultValue={sort || "featured"} name="orden"><option value="featured">Más relevantes</option><option value="newest">Más recientes</option><option value="name-asc">Nombre A–Z</option><option value="name-desc">Nombre Z–A</option></select></label></CatalogAutoForm></div>
-          <div className="product-grid">{page.items.map((product) => <ProductCard key={product.id} product={product} storeName={storeName} />)}</div>
-          {page.items.length === 0 ? <div className="empty-state"><h2>No encontramos productos</h2><p>Probá con otra búsqueda o categoría.</p></div> : null}
+          <CatalogProductArea>
+            <div className="product-grid">{page.items.map((product) => <ProductCard key={product.id} product={product} storeName={storeName} />)}</div>
+            {page.items.length === 0 ? <div className="empty-state"><h2>No encontramos productos</h2><p>Probá con otra búsqueda o categoría.</p></div> : null}
+          </CatalogProductArea>
           <nav className="pagination pagination--store" aria-label="Paginación"><Link aria-disabled={page.page <= 1} href={publicPageHref({ page: page.page - 1, search, sort, category: currentCategory, fragrance: currentFragrance })}>← Anterior</Link><span>Página {page.page} de {page.pageCount}</span><Link aria-disabled={page.page >= page.pageCount} href={publicPageHref({ page: page.page + 1, search, sort, category: currentCategory, fragrance: currentFragrance })}>Siguiente →</Link></nav>
         </div>
       </div>
@@ -44,13 +46,15 @@ function FilterPanel({ categories, fragrances, currentCategory, currentFragrance
   search: string;
   sort: string;
 }>) {
+  const selectedFragrance = fragrances.find((item) => item.key === currentFragrance);
   return <div className="catalog-filter-panel">
     <strong className="catalog-filter-panel__title">Filtrar productos</strong>
     <CatalogAutoForm className="public-filters">
       <label>Buscar<input aria-label="Buscar productos o SKU" defaultValue={search} name="buscar" placeholder="Producto o SKU" type="search" /></label>
       {currentCategory ? <input name="categoria" type="hidden" value={currentCategory} /> : null}
+      {currentFragrance ? <input name="fragancia" type="hidden" value={currentFragrance} /> : null}
       <nav aria-label="Categorías" className="catalog-sidebar__categories"><strong>Categorías</strong><Link aria-current={!currentCategory ? "page" : undefined} className={!currentCategory ? "is-active" : ""} href={catalogHref({ fragrance: currentFragrance, search, sort })}>Todas <span>→</span></Link>{categories.map((category) => <Link aria-current={currentCategory === category.slug ? "page" : undefined} className={currentCategory === category.slug ? "is-active" : ""} href={catalogHref({ category: category.slug, fragrance: currentFragrance, search, sort })} key={category.id}>{category.name}<span>→</span></Link>)}</nav>
-      <label>Fragancias<select defaultValue={currentFragrance ?? ""} name="fragancia"><option value="">Todas las fragancias</option>{fragrances.map((fragrance) => <option key={fragrance.key} value={fragrance.key}>{fragrance.name}</option>)}</select></label>
+      <fieldset className="fragrance-filter"><legend>Fragancias</legend>{currentFragrance ? <div className="fragrance-filter__selected"><Link aria-label={`Quitar ${selectedFragrance?.name ?? currentFragrance}`} href={catalogHref({ category: currentCategory, search, sort })}>{selectedFragrance?.name ?? currentFragrance}<span aria-hidden="true">×</span></Link></div> : fragrances.map((fragrance) => <label key={fragrance.key}><input name="fragancia" type="radio" value={fragrance.key} />{fragrance.name}</label>)}</fieldset>
       <label className="catalog-sidebar__sort">Ordenar<select defaultValue={sort || "featured"} name="orden"><option value="featured">Más relevantes</option><option value="newest">Más recientes</option><option value="name-asc">Nombre A–Z</option><option value="name-desc">Nombre Z–A</option></select></label>
       <Link className="catalog-filter-panel__reset" href="/productos">Limpiar filtros</Link>
     </CatalogAutoForm>
@@ -68,8 +72,7 @@ function publicPageHref(input: { page: number; search: string; sort: string; cat
   if (input.category) query.set("categoria", input.category);
   if (input.fragrance) query.set("fragancia", input.fragrance);
   if (input.page > 1) query.set("pagina", String(input.page));
-  const base = input.category ? `/categorias/${input.category}` : "/productos";
-  return query.size > 0 ? `${base}?${query}` : base;
+  return query.size > 0 ? `/productos?${query}` : "/productos";
 }
 
 function catalogHref(input: { category?: string | undefined; fragrance?: string | undefined; search?: string | undefined; sort?: string | undefined }): string {
