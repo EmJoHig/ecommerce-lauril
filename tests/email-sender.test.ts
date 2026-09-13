@@ -25,6 +25,21 @@ describe("EmailSender", () => {
     });
   });
 
+  it("usa Resend en development cuando las credenciales están configuradas", () => {
+    expect(createEmailSender({
+      NODE_ENV: "development",
+      APP_URL: "http://localhost:3000",
+      RESEND_API_KEY: "resend-test-key",
+      EMAIL_FROM: "Lauril <no-reply@example.com>",
+    })).toBeInstanceOf(ResendEmailSender);
+
+    expect(() => createEmailSender({
+      NODE_ENV: "development",
+      APP_URL: "http://localhost:3000",
+      RESEND_API_KEY: "resend-test-key",
+    })).toThrow("Configuración de email incompleta: EMAIL_FROM");
+  });
+
   it("usa el sender local sin exponer preview en test", async () => {
     const sender = createEmailSender({
       NODE_ENV: "test",
