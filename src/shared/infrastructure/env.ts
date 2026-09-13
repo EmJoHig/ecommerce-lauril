@@ -21,6 +21,7 @@ const serverEnvSchema = z.object({
   CART_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
   ORDER_RESERVATION_MINUTES: z.coerce.number().int().min(5).max(120).default(15),
   BCRYPT_COST: z.coerce.number().int().min(10).max(15).default(12),
+  OBJECT_STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
   S3_ENDPOINT: optionalUrl(),
   S3_REGION: optionalText(),
   S3_BUCKET: optionalText(),

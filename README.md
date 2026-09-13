@@ -7,9 +7,9 @@ Las Fases 1 a 11 y la Fase 12A están completadas y validadas: incluyen catálog
 con importación Excel y filtro por fragancia, carrito, cuentas, checkout, métodos
 propios de entrega,
 pedidos, reserva temporal, configuración single-store, backoffice consolidado,
-ObjectStorage S3-compatible, email productivo mediante Resend y el job operativo
-de expiración. El storefront público ya incorpora los ajustes visuales y
-responsive actuales. No incluye Mercado Pago, pagos, promociones,
+ObjectStorage local con adaptador S3-compatible disponible, email productivo
+mediante Resend y el job operativo de expiración. El storefront público ya
+incorpora los ajustes visuales y responsive actuales. No incluye Mercado Pago, pagos, promociones,
 transportistas externos ni facturación. El alcance está en
 [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -55,9 +55,9 @@ Rutas principales implementadas:
   backoffice según permisos.
 - `/admin/configuracion` para identidad y contacto públicos de la tienda.
 
-Las imágenes subidas en desarrollo se guardan en `public/uploads/catalog`, que
-está ignorado por Git. El VPS productivo utiliza Cloudflare R2 mediante el
-adaptador S3-compatible; no usar allí el almacenamiento local.
+Las imágenes se guardan actualmente en `public/uploads/catalog`, tanto en
+desarrollo como en producción. Esa ruta está ignorada por Git. El adaptador
+S3-compatible permanece disponible para una activación futura.
 
 ## Producción
 
@@ -65,7 +65,8 @@ La aplicación está desplegada en el VPS definitivo: Next.js se ejecuta mediant
 PM2 y Nginx actúa como reverse proxy para el dominio con HTTPS. El deploy actual
 se realiza desde Git y las variables y secretos se configuran fuera del
 repositorio, en el entorno productivo. MongoDB Atlas es la única persistencia;
-Cloudflare R2 y Resend son los proveedores productivos configurados.
+ObjectStorage usa actualmente el driver local y Resend continúa como proveedor
+de email productivo.
 
 La Fase 12A quedó validada mediante un reboot real del VPS, con restauración
 automática de la aplicación por systemd/PM2, Nginx activo, health checks
@@ -127,8 +128,10 @@ npm run build
 - `ORDER_RESERVATION_MINUTES`: vigencia de la reserva pendiente; 15 por defecto.
 - `BCRYPT_COST`: costo bcrypt entre 10 y 15.
 - `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`: administrador inicial opcional.
-- `S3_*`: obligatorias en producción para el adaptador S3-compatible (Cloudflare
-  R2 es el objetivo documentado); el adaptador local de desarrollo no las necesita.
+- `OBJECT_STORAGE_DRIVER`: selecciona `local` o `s3`; el valor predeterminado y
+  vigente en todos los entornos es `local`.
+- `S3_*`: obligatorias solamente con `OBJECT_STORAGE_DRIVER=s3`; el adaptador
+  S3-compatible queda reservado para una activación futura.
 - `RESEND_API_KEY`, `EMAIL_FROM`: obligatorias en producción para enviar emails
   transaccionales mediante Resend; desarrollo usa Resend si ambas están
   configuradas y, en caso contrario, conserva el preview local. Test usa el sender
