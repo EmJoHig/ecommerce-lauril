@@ -143,10 +143,10 @@ transacción MongoDB y un índice parcial impide más de una por cliente.
 
 `ProductImage` guarda clave de objeto, URL pública/servida, texto alternativo y
 orden; la primera imagen por `sortOrder` es la principal. `ObjectStorage` desacopla
-el caso de uso del proveedor. En desarrollo, `LocalObjectStorage` escribe en
-`public/uploads/catalog`, ruta ignorada por Git. En producción la composición
-exige `S3ObjectStorage`, compatible con Cloudflare R2; los binarios no se guardan
-en el filesystem local del VPS.
+el caso de uso del proveedor. Actualmente, `LocalObjectStorage` escribe en
+`public/uploads/catalog`, ruta ignorada por Git, tanto en desarrollo como en
+producción. `S3ObjectStorage`, compatible con Cloudflare R2, permanece disponible
+para una activación futura mediante `OBJECT_STORAGE_DRIVER=s3`.
 
 ## Catálogo en Fase 2
 
@@ -298,8 +298,8 @@ realiza desde Git; variables y secretos se mantienen fuera del repositorio en el
 entorno productivo. `npm run db:push` sincroniza schema e índices de forma
 controlada y `npm run db:verify` valida la persistencia.
 
-Producción utiliza MongoDB Atlas, Cloudflare R2 mediante el adaptador
-S3-compatible y Resend. El scheduler propio del host para
+Producción utiliza MongoDB Atlas, ObjectStorage local y Resend. El adaptador
+S3-compatible permanece disponible pero inactivo. El scheduler propio del host para
 `npm run db:expire-orders` permanece pendiente de confirmación o configuración.
 Desarrollo se conecta directamente a Atlas y no necesita PostgreSQL ni Docker para
 la base.

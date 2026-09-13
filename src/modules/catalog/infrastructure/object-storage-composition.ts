@@ -3,16 +3,15 @@ import type { ObjectStorage } from "../application/object-storage";
 import { LocalObjectStorage } from "./local-object-storage";
 import { S3ObjectStorage } from "./s3-object-storage";
 
-type ObjectStorageEnv = Pick<
+type ObjectStorageEnv = Partial<Pick<
   ServerEnv,
-  | "NODE_ENV"
   | "S3_ENDPOINT"
   | "S3_REGION"
   | "S3_BUCKET"
   | "S3_ACCESS_KEY_ID"
   | "S3_SECRET_ACCESS_KEY"
   | "S3_PUBLIC_BASE_URL"
->;
+>> & { OBJECT_STORAGE_DRIVER?: string };
 
 const requiredS3Variables = [
   "S3_ENDPOINT",
@@ -24,7 +23,13 @@ const requiredS3Variables = [
 ] as const;
 
 export function createObjectStorage(env: ObjectStorageEnv): ObjectStorage {
-  if (env.NODE_ENV !== "production") return new LocalObjectStorage();
+  const driver = env.OBJECT_STORAGE_DRIVER ?? "local";
+  if (driver === "local") return new LocalObjectStorage();
+  if (driver !== "s3") {
+    throw new Error(
+      `OBJECT_STORAGE_DRIVER inválido: ${driver}. Valores soportados: local, s3`,
+    );
+  }
 
   const missing = requiredS3Variables.filter((name) => !env[name]);
   if (missing.length > 0) {

@@ -74,21 +74,31 @@ describe("ObjectStorage", () => {
       .rejects.toBeInstanceOf(ValidationError);
   });
 
-  it("usa almacenamiento local fuera de producción", () => {
-    const storage = createObjectStorage({ NODE_ENV: "development" });
+  it("usa almacenamiento local si no se configura un driver", () => {
+    const storage = createObjectStorage({});
 
     expect(storage).toBeInstanceOf(LocalObjectStorage);
   });
 
-  it("falla claramente si falta configuración S3 en producción", () => {
-    expect(() => createObjectStorage({ NODE_ENV: "production" })).toThrow(
+  it("usa almacenamiento local en producción si el driver es local", () => {
+    const productionEnv = {
+      NODE_ENV: "production",
+      OBJECT_STORAGE_DRIVER: "local",
+    } as const;
+    const storage = createObjectStorage(productionEnv);
+
+    expect(storage).toBeInstanceOf(LocalObjectStorage);
+  });
+
+  it("falla claramente si falta configuración para el driver S3", () => {
+    expect(() => createObjectStorage({ OBJECT_STORAGE_DRIVER: "s3" })).toThrow(
       "Configuración S3 incompleta: S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_PUBLIC_BASE_URL",
     );
   });
 
-  it("crea el adaptador S3 con la configuración productiva completa", () => {
+  it("crea el adaptador S3 con la configuración completa", () => {
     const storage = createObjectStorage({
-      NODE_ENV: "production",
+      OBJECT_STORAGE_DRIVER: "s3",
       S3_ENDPOINT: config.endpoint,
       S3_REGION: config.region,
       S3_BUCKET: config.bucket,
@@ -98,5 +108,11 @@ describe("ObjectStorage", () => {
     });
 
     expect(storage).toBeInstanceOf(S3ObjectStorage);
+  });
+
+  it("falla claramente si el driver es inválido", () => {
+    expect(() => createObjectStorage({ OBJECT_STORAGE_DRIVER: "filesystem" })).toThrow(
+      "OBJECT_STORAGE_DRIVER inválido: filesystem. Valores soportados: local, s3",
+    );
   });
 });

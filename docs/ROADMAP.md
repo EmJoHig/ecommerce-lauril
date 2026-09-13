@@ -162,7 +162,8 @@ Objetivo: reemplazar dependencias exclusivamente locales o de desarrollo por imp
 Estado: completada y validada.
 
 - Implementar adaptador S3-compatible detrás del contrato `ObjectStorage` existente.
-- Mantener el almacenamiento local exclusivamente para desarrollo.
+- Mantener el almacenamiento local como driver predeterminado en todos los entornos.
+- Conservar el adaptador S3-compatible disponible para una activación futura explícita.
 - Configuración mediante variables de entorno.
 - No incorporar procesamiento avanzado de imágenes ni CDN salvo necesidad real.
 
@@ -214,8 +215,8 @@ independiente y no condicionan el avance a Fase 12B.
 
 ### Fase 12B — Integraciones productivas
 
-- Cloudflare R2 ya está configurado; realizar un smoke test real de upload,
-  acceso público y delete.
+- La activación y el smoke test de Cloudflare R2 quedan postergados; mientras
+  tanto, producción utiliza `LocalObjectStorage`.
 - Resend ya está configurado; validar entrega real.
 - Validar end-to-end la recuperación de contraseña después del último fix.
 - Confirmar o configurar la ejecución automática de `npm run db:expire-orders`.
