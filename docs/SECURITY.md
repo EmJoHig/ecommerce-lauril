@@ -79,9 +79,11 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
   formulario no otorgan ownership.
 - La cookie invitada se elimina solo después de una fusión exitosa. El carrito
   cliente se consulta exclusivamente por `customerId` derivado de la sesión.
-- Un limitador en memoria protege login, registro y recuperación en la instancia
-  actual. Antes de escalar horizontalmente debe reemplazarse por un backend
-  compartido.
+- Un limitador en memoria acotado protege login, registro, recuperación y
+  checkout con contadores independientes por IP e identidad/recurso. La IP se
+  toma del hop derecho de `X-Forwarded-For` bajo el supuesto de una única capa
+  Nginx confiable. Antes de escalar horizontalmente debe reemplazarse por un
+  backend compartido.
 
 ## Checkout y pedidos
 
