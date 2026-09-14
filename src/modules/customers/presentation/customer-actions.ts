@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { DomainError } from "@/shared/domain/errors";
 import { assertRateLimit } from "@/shared/infrastructure/rate-limit";
+import { resolveRequestIp } from "@/shared/infrastructure/request-ip";
 import { logger } from "@/shared/infrastructure/logger";
 import { getCartService } from "@/modules/cart/infrastructure/cart-composition";
 import { deleteGuestCartCookie, getGuestCartTokenHash } from "@/modules/cart/presentation/guest-cart-cookie";
@@ -67,7 +68,7 @@ export async function registerCustomerAction(
   const context = await requestContext();
   let session;
   try {
-    limitAuthentication("register", parsed.data.email, context.ipAddress, 5);
+    limitAuthentication("register", parsed.data.email, context.ipAddress, 5, 10);
     session = await getCustomerService().register(parsed.data, context);
   } catch (error) {
     return failure(error, "No pudimos crear la cuenta. Revisá los datos e intentá nuevamente.");
@@ -84,7 +85,7 @@ export async function loginCustomerAction(
   const context = await requestContext();
   let session;
   try {
-    limitAuthentication("login", parsed.data.email, context.ipAddress, 8);
+    limitAuthentication("login", parsed.data.email, context.ipAddress, 8, 30);
     session = await getCustomerService().login(parsed.data, context);
   } catch (error) {
     return failure(error, "Email o contraseña incorrectos.");
@@ -109,7 +110,7 @@ export async function requestPasswordResetAction(
   if (!parsed.success) return { status: "success", message: genericMessage };
   const context = await requestContext();
   try {
-    limitAuthentication("password-reset", parsed.data.email, context.ipAddress, 4);
+    limitAuthentication("password-reset", parsed.data.email, context.ipAddress, 4, 12);
     const delivery = await getCustomerService().requestPasswordReset(parsed.data.email, context);
     return {
       status: "success",
@@ -130,7 +131,7 @@ export async function resetPasswordAction(
   if (!parsed.success) return invalidFields(parsed.error);
   const context = await requestContext();
   try {
-    limitAuthentication("password-reset-complete", parsed.data.token.slice(0, 8), context.ipAddress, 6);
+    limitAuthentication("password-reset-complete", parsed.data.token, context.ipAddress, 6, 20);
     await getCustomerService().resetPassword(parsed.data, context.ipAddress);
   } catch (error) {
     return failure(error, "No se pudo actualizar la contraseña.");
@@ -214,16 +215,28 @@ async function finishAuthentication(token: string, expiresAt: Date, customerId: 
 async function requestContext() {
   const requestHeaders = await headers();
   return {
-    ipAddress: requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    ipAddress: resolveRequestIp(requestHeaders),
     userAgent: requestHeaders.get("user-agent")?.slice(0, 500) ?? null,
   };
 }
 
-function limitAuthentication(scope: string, emailOrToken: string, ipAddress: string | null, limit: number): void {
+function limitAuthentication(
+  scope: string,
+  emailOrToken: string,
+  ipAddress: string | null,
+  identityLimit: number,
+  ipLimit: number,
+): void {
   assertRateLimit({
-    scope,
-    identity: `${ipAddress ?? "unknown"}:${emailOrToken.trim().toLowerCase()}`,
-    limit,
+    scope: `${scope}:ip`,
+    identity: ipAddress ?? "unknown",
+    limit: ipLimit,
+    windowMs: 15 * 60_000,
+  });
+  assertRateLimit({
+    scope: `${scope}:identity`,
+    identity: emailOrToken.trim().toLowerCase(),
+    limit: identityLimit,
     windowMs: 15 * 60_000,
   });
 }

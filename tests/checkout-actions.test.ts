@@ -5,10 +5,12 @@ const mocks = vi.hoisted(() => ({
   getCurrentCustomer: vi.fn(),
   getGuestCartToken: vi.fn(),
   headers: vi.fn(),
+  assertRateLimit: vi.fn(),
   redirect: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
+vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ headers: mocks.headers }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
@@ -17,7 +19,7 @@ vi.mock("@/modules/cart/presentation/guest-cart-cookie", () => ({
   deleteGuestCartCookie: vi.fn(),
   getGuestCartToken: mocks.getGuestCartToken,
 }));
-vi.mock("@/shared/infrastructure/rate-limit", () => ({ assertRateLimit: vi.fn() }));
+vi.mock("@/shared/infrastructure/rate-limit", () => ({ assertRateLimit: mocks.assertRateLimit }));
 vi.mock("@/modules/orders/infrastructure/order-composition", () => ({
   getCheckoutService: () => ({ confirm: mocks.confirm }),
 }));
@@ -66,7 +68,9 @@ describe("confirmCheckoutAction", () => {
 
   it("ignora datos de comprador enviados por cliente para una sesión autenticada", async () => {
     mocks.getCurrentCustomer.mockResolvedValue({ id: "10000000-0000-4000-8000-000000000002" });
-    mocks.headers.mockResolvedValue(new Headers());
+    mocks.headers.mockResolvedValue(new Headers({
+      "x-forwarded-for": "198.51.100.99, 203.0.113.10",
+    }));
     mocks.confirm.mockResolvedValue({ order: { number: 10001n }, reused: false });
     mocks.redirect.mockImplementation(() => { throw new Error("NEXT_REDIRECT"); });
 
@@ -86,6 +90,18 @@ describe("confirmCheckoutAction", () => {
       shippingMethodId,
     });
     expect(mocks.confirm.mock.calls[0]?.[0]).not.toHaveProperty("guestBuyer");
+    expect(mocks.assertRateLimit).toHaveBeenNthCalledWith(1, {
+      scope: "checkout-confirm:ip",
+      identity: "203.0.113.10",
+      limit: 20,
+      windowMs: 10 * 60_000,
+    });
+    expect(mocks.assertRateLimit).toHaveBeenNthCalledWith(2, {
+      scope: "checkout-confirm:owner",
+      identity: "10000000-0000-4000-8000-000000000002",
+      limit: 8,
+      windowMs: 10 * 60_000,
+    });
   });
 });
 

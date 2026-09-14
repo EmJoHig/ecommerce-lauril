@@ -3,8 +3,10 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { UnauthorizedError } from "@/shared/domain/errors";
+import { ConflictError, UnauthorizedError } from "@/shared/domain/errors";
 import { getServerEnv } from "@/shared/infrastructure/env";
+import { assertRateLimit } from "@/shared/infrastructure/rate-limit";
+import { resolveRequestIp } from "@/shared/infrastructure/request-ip";
 import { getAuthService } from "../infrastructure/auth-composition";
 
 const loginSchema = z.object({
@@ -23,18 +25,31 @@ export async function loginAction(formData: FormData): Promise<never> {
 
   const env = getServerEnv();
   const requestHeaders = await headers();
-  const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ipAddress = resolveRequestIp(requestHeaders);
+  const email = parsed.data.email.trim().toLowerCase();
   let session;
   try {
+    assertRateLimit({
+      scope: "admin-login:ip",
+      identity: ipAddress ?? "unknown",
+      limit: 30,
+      windowMs: 15 * 60_000,
+    });
+    assertRateLimit({
+      scope: "admin-login:identity",
+      identity: email,
+      limit: 8,
+      windowMs: 15 * 60_000,
+    });
     session = await getAuthService().login({
-      email: parsed.data.email,
+      email,
       password: parsed.data.password,
-      ipAddress: forwardedFor ?? null,
+      ipAddress,
       userAgent: requestHeaders.get("user-agent")?.slice(0, 500) ?? null,
       ttlDays: env.SESSION_TTL_DAYS,
     });
   } catch (error) {
-    if (error instanceof UnauthorizedError) {
+    if (error instanceof UnauthorizedError || error instanceof ConflictError) {
       redirect("/admin/login?error=invalid-credentials");
     }
     throw error;

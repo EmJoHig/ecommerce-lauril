@@ -9,6 +9,7 @@ import { deleteGuestCartCookie, getGuestCartToken } from "@/modules/cart/present
 import { hashGuestCartToken } from "@/modules/cart/domain/guest-cart-token";
 import { DomainError } from "@/shared/domain/errors";
 import { assertRateLimit } from "@/shared/infrastructure/rate-limit";
+import { resolveRequestIp } from "@/shared/infrastructure/request-ip";
 import { getCheckoutService } from "../infrastructure/order-composition";
 import type { ConfirmCheckoutInput } from "../application/checkout-service";
 import type { CheckoutActionState, CheckoutFormValues } from "./checkout-action-state";
@@ -62,10 +63,11 @@ export async function confirmCheckoutAction(
   if (!customer && !guestToken) return failure("No se encontró un carrito activo.", values);
   const identity = customer?.id ?? hashGuestCartToken(guestToken!);
   const requestHeaders = await headers();
-  const ip = requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = resolveRequestIp(requestHeaders) ?? "unknown";
   let orderNumber: string;
   try {
-    assertRateLimit({ scope: "checkout-confirm", identity: `${ip}:${identity}`, limit: 8, windowMs: 10 * 60_000 });
+    assertRateLimit({ scope: "checkout-confirm:ip", identity: ip, limit: 20, windowMs: 10 * 60_000 });
+    assertRateLimit({ scope: "checkout-confirm:owner", identity, limit: 8, windowMs: 10 * 60_000 });
     const data = parsed.data;
     const input: ConfirmCheckoutInput = {
       owner: customer
