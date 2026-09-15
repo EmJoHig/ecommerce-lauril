@@ -20,6 +20,8 @@ const permissions = [
   ["inventory.write", "Gestionar inventario"],
   ["shipping.read", "Consultar métodos de entrega"],
   ["shipping.write", "Gestionar métodos de entrega"],
+  ["settings.read", "Consultar configuración de la tienda"],
+  ["settings.write", "Gestionar configuración de la tienda"],
   ["orders.read", "Consultar pedidos"],
   ["orders.write", "Gestionar pedidos"],
   ["customers.read", "Consultar clientes"],
