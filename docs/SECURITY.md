@@ -27,6 +27,18 @@ RBAC usa permisos de capacidad (`admin.access`, `catalog.write`, etc.). Las ruta
 administrativas validan sesión y permiso en el servidor. Ocultar un botón no es
 autorización. Toda acción relevante registra actor en `AuditLog`.
 
+`/admin/configuracion` exige `settings.read`; la Server Action que modifica
+`StoreSettings` exige `settings.write` nuevamente en el servidor. Un rol con solo
+`settings.read` puede consultar la configuración sin guardar cambios.
+
+Antes de activar una versión que exija estos permisos, ejecutar con la conexión
+productiva `npm run db:sync:settings-permissions` y comprobar que termine correctamente.
+El comando es idempotente: crea o actualiza únicamente `settings.read` y
+`settings.write` en `Permission` y sus vínculos `RolePermission` con el rol `ADMIN`
+existente, que debe conservar `admin.access`. No modifica otros roles ni datos
+comerciales. No usar `npm run db:seed` para esta sincronización: también modifica
+catálogo e inventario de desarrollo.
+
 Pedidos separa `orders.read` de `orders.write`. Cada Server Action vuelve a exigir
 sesión y permiso; no confía en que la página haya ocultado controles. Los IDs se
 validan y un pedido inexistente no expone datos por respuesta diferencial.

@@ -5,10 +5,10 @@ import { StoreSettingsForm } from "@/modules/store-settings/presentation/store-s
 export const dynamic = "force-dynamic";
 
 export default async function StoreSettingsPage() {
-  await requireAdmin();
+  const admin = await requireAdmin("settings.read");
   const settings = await getStoreSettingsService().get();
   return <>
     <div className="admin-heading"><div><p className="eyebrow">Administración</p><h1>Configuración de la tienda</h1><p>Datos comerciales visibles en los canales públicos.</p></div></div>
-    <StoreSettingsForm settings={settings} />
+    <StoreSettingsForm canWrite={admin.permissions.includes("settings.write")} settings={settings} />
   </>;
 }

@@ -22,7 +22,7 @@ export async function saveStoreSettingsAction(
   _previous: StoreSettingsActionState,
   formData: FormData,
 ): Promise<StoreSettingsActionState> {
-  const admin = await requireAdmin();
+  const admin = await requireAdmin("settings.write");
   const parsed = formSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { status: "error", message: "Revisá los datos comerciales ingresados." };
 
