@@ -150,9 +150,23 @@ evita usando endpoints configurados, no URLs arbitrarias recibidas del cliente.
 - Health checks y logs operativos no exponen configuración interna ni secretos.
 - Alertas para errores de autenticación, webhooks y transiciones imposibles.
 
+### Cabeceras HTTP de la aplicación
+
+Next.js aplica globalmente `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY` y
+`Permissions-Policy: camera=(), microphone=(), geolocation=()`.
+La CSP se emite únicamente como `Content-Security-Policy-Report-Only`, con recursos
+del mismo origen y sin destinos de reporting. No se activa enforcement todavía:
+hay que observar las violaciones de scripts y estilos inline de Next.js y validar
+las integraciones reales antes de diseñar una política con nonce o hash.
+
+HSTS queda pendiente de revisar en Nginx, donde termina HTTPS. `/uploads/` se
+sirve mediante alias de Nginx y bypasséa Next.js; en el bloque operativo de Nginx
+hay que revisar al menos `X-Content-Type-Options: nosniff` para esos archivos.
+
 ## Pendientes de hardening y habilitación comercial
 
-Rate limiter compartido, CSP y cabeceras completas, rotación de secretos,
+Rate limiter compartido, CSP enforce y cabeceras operativas, rotación de secretos,
 Sentry/OpenTelemetry, política de privacidad, backups/restores probados, pruebas
 de autorización por permiso y revisión OWASP. La validación operativa de Resend y
 R2 en producción pertenece a Fase 12; el hardening adicional permanece en Fase 13.
