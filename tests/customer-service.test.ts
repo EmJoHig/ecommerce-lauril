@@ -55,6 +55,32 @@ describe("customer registration and authentication", () => {
     const service = createService(new MemoryCustomerRepository());
     await expect(service.login({ email: "admin@lauril.test", password: "Clave-segura-123" }, context, now)).rejects.toBeInstanceOf(UnauthorizedError);
   });
+
+  it("no revive una sesión anterior al reactivar y permite una sesión creada por un login nuevo", async () => {
+    const repository = new MemoryCustomerRepository();
+    const service = createService(repository);
+    const oldSession = await service.register(registration(), context, now);
+    const oldSessionHash = hashSessionToken(oldSession.token);
+    const disabledAt = new Date("2026-09-15T12:00:00.000Z");
+    const customer = repository.customers[0]!;
+
+    repository.customers[0] = { ...customer, status: "DISABLED" };
+    repository.sessions.set(oldSessionHash, {
+      ...repository.sessions.get(oldSessionHash)!,
+      revokedAt: disabledAt,
+      customer: repository.customers[0],
+    });
+    repository.customers[0] = { ...repository.customers[0], status: "ACTIVE" };
+    repository.sessions.set(oldSessionHash, {
+      ...repository.sessions.get(oldSessionHash)!,
+      customer: repository.customers[0],
+    });
+
+    expect(await service.findSession(oldSession.token, disabledAt)).toBeNull();
+    const newSession = await service.login({ email: "cliente@lauril.test", password: "Clave-segura-123" }, context, disabledAt);
+    expect(await service.findSession(newSession.token, disabledAt)).not.toBeNull();
+    expect(repository.sessions.get(oldSessionHash)?.revokedAt).toEqual(disabledAt);
+  });
 });
 
 describe("customer password recovery", () => {

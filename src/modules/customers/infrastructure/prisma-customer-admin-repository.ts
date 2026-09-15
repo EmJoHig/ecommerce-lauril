@@ -68,10 +68,30 @@ export class PrismaCustomerAdminRepository implements CustomerAdminRepository {
 
   async setStatus(input: Parameters<CustomerAdminRepository["setStatus"]>[0]) {
     const changed = await this.prisma.$transaction(async (tx) => {
-      const current = await tx.customer.findUnique({ where: { id: input.customerId }, select: { status: true } });
+      const current = await tx.customer.findUnique({ where: { id: input.customerId }, select: { status: true, userId: true } });
       if (!current) return false;
-      if (current.status === input.status) return true;
+      if (current.status === input.status) {
+        if (input.status === "DISABLED") {
+          await tx.session.updateMany({
+            where: {
+              userId: current.userId,
+              OR: [{ revokedAt: null }, { revokedAt: { isSet: false } }],
+            },
+            data: { revokedAt: input.occurredAt },
+          });
+        }
+        return true;
+      }
       await tx.customer.update({ where: { id: input.customerId }, data: { status: input.status, updatedAt: input.occurredAt } });
+      if (input.status === "DISABLED") {
+        await tx.session.updateMany({
+          where: {
+            userId: current.userId,
+            OR: [{ revokedAt: null }, { revokedAt: { isSet: false } }],
+          },
+          data: { revokedAt: input.occurredAt },
+        });
+      }
       await tx.auditLog.create({ data: {
         actorUserId: input.actorUserId, action: "customer.status_change", entityType: "Customer", entityId: input.customerId,
         metadata: { fromStatus: current.status, toStatus: input.status }, createdAt: input.occurredAt,
