@@ -33,7 +33,8 @@ validan y un pedido inexistente no expone datos por respuesta diferencial.
 
 Fase 7 separa además `customers`, `users`, `roles` y `audit` en capacidades de
 lectura/escritura. Email y contraseña del cliente no son editables desde el
-backoffice. Deshabilitar un cliente conserva su historia y bloquea el login. Un
+backoffice. Deshabilitar un cliente conserva su historia, bloquea el login y
+revoca sus sesiones; una reactivación posterior exige iniciar sesión nuevamente. Un
 administrador no puede deshabilitarse a sí mismo ni deshabilitar al último
 administrador activo; asignar roles exige conservar `admin.access`.
 Las rutas protegidas responden como recurso no encontrado cuando falta una
