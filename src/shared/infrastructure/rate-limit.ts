@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { ConflictError } from "@/shared/domain/errors";
+import { logger } from "@/shared/infrastructure/logger";
 
 type Entry = { count: number; resetsAt: number };
 
@@ -70,5 +71,16 @@ export class InMemoryRateLimiter {
 const limiter = new InMemoryRateLimiter();
 
 export function assertRateLimit(input: RateLimitInput): void {
-  limiter.assert(input);
+  try {
+    limiter.assert(input);
+  } catch (error) {
+    if (error instanceof ConflictError) {
+      logger.warn("security.rate_limit_blocked", {
+        scope: input.scope,
+        limit: input.limit,
+        windowMs: input.windowMs,
+      });
+    }
+    throw error;
+  }
 }

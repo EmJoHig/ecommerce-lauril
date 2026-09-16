@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { ConflictError, UnauthorizedError } from "@/shared/domain/errors";
 import { getServerEnv } from "@/shared/infrastructure/env";
+import { logger } from "@/shared/infrastructure/logger";
 import { assertRateLimit } from "@/shared/infrastructure/rate-limit";
 import { resolveRequestIp } from "@/shared/infrastructure/request-ip";
 import { getAuthService } from "../infrastructure/auth-composition";
@@ -49,7 +50,11 @@ export async function loginAction(formData: FormData): Promise<never> {
       ttlDays: env.SESSION_TTL_DAYS,
     });
   } catch (error) {
-    if (error instanceof UnauthorizedError || error instanceof ConflictError) {
+    if (error instanceof UnauthorizedError) {
+      logger.warn("security.authentication_failed", { surface: "admin" });
+      redirect("/admin/login?error=invalid-credentials");
+    }
+    if (error instanceof ConflictError) {
       redirect("/admin/login?error=invalid-credentials");
     }
     throw error;
@@ -71,6 +76,7 @@ export async function logoutAction(): Promise<never> {
   const token = cookieStore.get(env.SESSION_COOKIE_NAME)?.value;
   if (token) {
     await getAuthService().logout(token);
+    logger.info("security.logout", { surface: "admin" });
   }
 
   cookieStore.delete(env.SESSION_COOKIE_NAME);
