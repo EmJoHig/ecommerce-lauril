@@ -61,6 +61,11 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
 - Consultas mediante Prisma; no se ejecuta SQL en runtime.
 - Protección CSRF mediante cookies SameSite, comprobación de origen en mutaciones
   sensibles y tokens cuando el flujo lo necesite.
+- Las imágenes del catálogo admiten únicamente JPEG, PNG, WebP, AVIF y GIF. Antes
+  de almacenarlas, el servidor valida tanto el MIME declarado como una firma
+  binaria coherente con ese MIME. Esta comprobación de magic bytes y estructura
+  mínima no reemplaza un decoder ni demuestra que la imagen sea completamente
+  decodificable.
 
 ## Carrito anónimo
 
