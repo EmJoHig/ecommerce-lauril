@@ -5,17 +5,25 @@ const mocks = vi.hoisted(() => ({
   assertRateLimit: vi.fn(),
   headers: vi.fn(),
   login: vi.fn(),
+  logout: vi.fn(),
   requestPasswordReset: vi.fn(),
   withPasswordResetTiming: vi.fn(async <T>(operation: () => Promise<T>) => operation()),
   loggerError: vi.fn(),
+  loggerInfo: vi.fn(),
+  loggerWarn: vi.fn(),
+  getCustomerSessionToken: vi.fn(),
+  deleteCustomerSessionCookie: vi.fn(),
+  redirect: vi.fn(),
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/headers", () => ({ headers: mocks.headers }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/shared/infrastructure/rate-limit", () => ({ assertRateLimit: mocks.assertRateLimit }));
-vi.mock("@/shared/infrastructure/logger", () => ({ logger: { error: mocks.loggerError, warn: vi.fn() } }));
+vi.mock("@/shared/infrastructure/logger", () => ({
+  logger: { error: mocks.loggerError, info: mocks.loggerInfo, warn: mocks.loggerWarn },
+}));
 vi.mock("@/modules/cart/infrastructure/cart-composition", () => ({ getCartService: vi.fn() }));
 vi.mock("@/modules/cart/presentation/guest-cart-cookie", () => ({
   deleteGuestCartCookie: vi.fn(),
@@ -24,6 +32,7 @@ vi.mock("@/modules/cart/presentation/guest-cart-cookie", () => ({
 vi.mock("@/modules/customers/infrastructure/customer-composition", () => ({
   getCustomerService: () => ({
     login: mocks.login,
+    logout: mocks.logout,
     requestPasswordReset: mocks.requestPasswordReset,
   }),
 }));
@@ -31,14 +40,15 @@ vi.mock("@/modules/customers/presentation/password-reset-timing", () => ({
   withPasswordResetTiming: mocks.withPasswordResetTiming,
 }));
 vi.mock("@/modules/customers/presentation/customer-session-cookie", () => ({
-  deleteCustomerSessionCookie: vi.fn(),
-  getCustomerSessionToken: vi.fn(),
+  deleteCustomerSessionCookie: mocks.deleteCustomerSessionCookie,
+  getCustomerSessionToken: mocks.getCustomerSessionToken,
   setCustomerSessionCookie: vi.fn(),
 }));
 vi.mock("@/modules/customers/presentation/customer-session", () => ({ requireCustomer: vi.fn() }));
 
 import {
   loginCustomerAction,
+  logoutCustomerAction,
   requestPasswordResetAction,
 } from "@/modules/customers/presentation/customer-actions";
 import { initialCustomerActionState } from "@/modules/customers/presentation/customer-action-state";
@@ -52,7 +62,10 @@ describe("customer auth rate limiting", () => {
       "x-forwarded-for": "198.51.100.99, 203.0.113.10",
     }));
     mocks.login.mockRejectedValue(new UnauthorizedError("Email o contraseña incorrectos."));
+    mocks.logout.mockResolvedValue(undefined);
+    mocks.getCustomerSessionToken.mockResolvedValue("customer-session-token-fixture");
     mocks.requestPasswordReset.mockResolvedValue({ developmentPreviewUrl: null });
+    mocks.redirect.mockImplementation(() => { throw new Error("NEXT_REDIRECT"); });
   });
 
   it("aplica límites independientes por IP y email normalizado al login cliente", async () => {
@@ -74,6 +87,26 @@ describe("customer auth rate limiting", () => {
       limit: 8,
       windowMs: 15 * 60_000,
     });
+    expect(mocks.loggerWarn).toHaveBeenCalledWith(
+      "security.authentication_failed",
+      { surface: "customer" },
+    );
+    expect(JSON.stringify(mocks.loggerWarn.mock.calls)).not.toMatch(
+      /cliente@example\.com|clave-segura-123/i,
+    );
+  });
+
+  it("registra logout customer solo después de revocar una sesión existente", async () => {
+    await expect(logoutCustomerAction()).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mocks.logout).toHaveBeenCalledWith("customer-session-token-fixture");
+    expect(mocks.loggerInfo).toHaveBeenCalledWith("security.logout", { surface: "customer" });
+    expect(mocks.logout.mock.invocationCallOrder[0]!).toBeLessThan(
+      mocks.loggerInfo.mock.invocationCallOrder[0]!,
+    );
+    expect(JSON.stringify(mocks.loggerInfo.mock.calls)).not.toContain(
+      "customer-session-token-fixture",
+    );
   });
 
   it("cuenta inexistente, inactiva y activa devuelven la misma respuesta pública", async () => {

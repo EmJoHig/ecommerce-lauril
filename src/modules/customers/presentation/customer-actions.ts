@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { DomainError } from "@/shared/domain/errors";
+import { DomainError, UnauthorizedError } from "@/shared/domain/errors";
 import { assertRateLimit } from "@/shared/infrastructure/rate-limit";
 import { resolveRequestIp } from "@/shared/infrastructure/request-ip";
 import { logger } from "@/shared/infrastructure/logger";
@@ -89,6 +89,9 @@ export async function loginCustomerAction(
     limitAuthentication("login", parsed.data.email, context.ipAddress, 8, 30);
     session = await getCustomerService().login(parsed.data, context);
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      logger.warn("security.authentication_failed", { surface: "customer" });
+    }
     return failure(error, "Email o contraseña incorrectos.");
   }
   return finishAuthentication(session.token, session.expiresAt, session.customer.id);
@@ -96,7 +99,10 @@ export async function loginCustomerAction(
 
 export async function logoutCustomerAction(): Promise<never> {
   const token = await getCustomerSessionToken();
-  if (token) await getCustomerService().logout(token);
+  if (token) {
+    await getCustomerService().logout(token);
+    logger.info("security.logout", { surface: "customer" });
+  }
   await deleteCustomerSessionCookie();
   revalidatePath("/", "layout");
   redirect("/login?logout=1");

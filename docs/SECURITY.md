@@ -22,6 +22,19 @@ servidor/proveedores y aplicación/base de datos.
   puede producir una respuesta más lenta.
 - Rate limiting por IP e identidad para login, recuperación, checkout y webhooks.
 
+## Observabilidad de seguridad
+
+El servidor emite eventos JSON estructurados para rechazos reales de autenticación
+(`security.authentication_failed` con `surface`), bloqueos del limitador
+(`security.rate_limit_blocked` con `scope`, `limit` y `windowMs`) y cierres de
+sesión revocados correctamente (`security.logout` con `surface`). Los fallos
+técnicos de solicitud de recuperación conservan el evento existente
+`customer.password_reset_request_failed`.
+
+Estos eventos no incluyen credenciales, contraseñas, tokens, identidades de
+usuarios o clientes, emails, IPs —completas o hasheadas—, nombres, teléfonos,
+User-Agent, URLs de recuperación, cuerpos de formularios ni otra PII.
+
 El seed exige una contraseña administrativa provista por entorno de al menos 12
 caracteres y como máximo 72 bytes UTF-8. No contiene contraseña por defecto y una
 segunda ejecución no reemplaza las credenciales de una cuenta existente.
