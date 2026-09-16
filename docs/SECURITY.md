@@ -147,6 +147,9 @@ evita usando endpoints configurados, no URLs arbitrarias recibidas del cliente.
 - CI ejecuta lint, typecheck, tests y build.
 - `db push` e índices MongoDB se ejecutan con usuario restringido y despliegue controlado.
 - Nginx termina HTTPS y actúa como reverse proxy; PM2 administra el proceso Next.js.
+- `GET /api/health` es un health check público superficial y no consulta la base.
+- El health profundo público está deshabilitado en producción; para comprobar MongoDB
+  se ejecuta `npm run db:verify` desde el VPS.
 - Health checks y logs operativos no exponen configuración interna ni secretos.
 - Alertas para errores de autenticación, webhooks y transiciones imposibles.
 

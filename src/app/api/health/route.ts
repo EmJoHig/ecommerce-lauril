@@ -9,6 +9,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ status: "ok", timestamp: new Date().toISOString() });
   }
 
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ status: "not_found" }, { status: 404 });
+  }
+
   if (await isDatabaseReachable()) {
     return NextResponse.json({ status: "ok", database: "reachable", timestamp: new Date().toISOString() });
   }
