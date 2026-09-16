@@ -101,7 +101,7 @@ describe("customer password recovery", () => {
     await expect(service.login({ email: "cliente@lauril.test", password: "Clave-segura-123" }, context, now)).rejects.toBeInstanceOf(UnauthorizedError);
   });
 
-  it("rechaza token vencido y no revela si el email existe", async () => {
+  it("rechaza token vencido y omite recuperación para identidades inexistentes o inactivas", async () => {
     const repository = new MemoryCustomerRepository();
     const sender = new MemoryEmailSender();
     const service = createService(repository, sender);
@@ -112,6 +112,15 @@ describe("customer password recovery", () => {
     await expect(service.login({ email: "cliente@lauril.test", password: "Clave-segura-123" }, context, now)).resolves.toBeDefined();
     await expect(service.login({ email: "cliente@lauril.test", password: "Nueva-clave-456" }, context, now)).rejects.toBeInstanceOf(UnauthorizedError);
     await expect(service.requestPasswordReset("ausente@lauril.test", context, now)).resolves.toEqual({ developmentPreviewUrl: null });
+
+    sender.token = null;
+    repository.customers[0] = { ...repository.customers[0]!, status: "DISABLED" };
+    await expect(service.requestPasswordReset("cliente@lauril.test", context, now)).resolves.toEqual({ developmentPreviewUrl: null });
+    expect(sender.token).toBeNull();
+
+    repository.customers[0] = { ...repository.customers[0]!, status: "ACTIVE", userStatus: "DISABLED" };
+    await expect(service.requestPasswordReset("cliente@lauril.test", context, now)).resolves.toEqual({ developmentPreviewUrl: null });
+    expect(sender.token).toBeNull();
   });
 });
 

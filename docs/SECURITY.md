@@ -14,7 +14,12 @@ servidor/proveedores y aplicación/base de datos.
 - Tokens de sesión y recuperación generados con CSPRNG; solo se persiste SHA-256.
 - Cookie `HttpOnly`, `SameSite=Lax`, `Secure` en producción, `Path=/` y expiración.
 - Rotar sesión al autenticar y revocar en logout/cambio de contraseña.
-- Mensajes de login/recuperación no revelan si una cuenta existe.
+- Mensajes de login/recuperación no revelan si una cuenta existe. En producción,
+  las solicitudes de recuperación con email válido completan un objetivo temporal
+  aleatorio de 1200 a 1600 ms, esperando solo el tiempo restante después del flujo
+  real. Es una mitigación de enumeración, no una garantía de tiempo constante: una
+  latencia de base de datos o del proveedor de email superior al objetivo todavía
+  puede producir una respuesta más lenta.
 - Rate limiting por IP e identidad para login, recuperación, checkout y webhooks.
 
 El seed exige una contraseña administrativa provista por entorno de al menos 12

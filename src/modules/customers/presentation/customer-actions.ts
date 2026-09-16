@@ -13,6 +13,7 @@ import { deleteGuestCartCookie, getGuestCartTokenHash } from "@/modules/cart/pre
 import { getCustomerService } from "../infrastructure/customer-composition";
 import type { CustomerAddressInput } from "../domain/customer";
 import type { CustomerActionState } from "./customer-action-state";
+import { withPasswordResetTiming } from "./password-reset-timing";
 import {
   deleteCustomerSessionCookie,
   getCustomerSessionToken,
@@ -108,19 +109,27 @@ export async function requestPasswordResetAction(
   const parsed = recoverySchema.safeParse(formObject(formData, ["email"]));
   const genericMessage = "Si el email corresponde a una cuenta activa, preparamos las instrucciones de recuperación.";
   if (!parsed.success) return { status: "success", message: genericMessage };
-  const context = await requestContext();
-  try {
-    limitAuthentication("password-reset", parsed.data.email, context.ipAddress, 4, 12);
-    const delivery = await getCustomerService().requestPasswordReset(parsed.data.email, context);
-    return {
-      status: "success",
-      message: genericMessage,
-      developmentPreviewUrl: delivery.developmentPreviewUrl,
-    };
-  } catch (error) {
-    if (error instanceof DomainError) return failure(error, genericMessage);
-    throw error;
-  }
+  return withPasswordResetTiming(async () => {
+    const context = await requestContext();
+    try {
+      limitAuthentication("password-reset", parsed.data.email, context.ipAddress, 4, 12);
+    } catch (error) {
+      if (error instanceof DomainError) return failure(error, genericMessage);
+      throw error;
+    }
+
+    try {
+      const delivery = await getCustomerService().requestPasswordReset(parsed.data.email, context);
+      return {
+        status: "success",
+        message: genericMessage,
+        developmentPreviewUrl: delivery.developmentPreviewUrl,
+      };
+    } catch {
+      logger.error("customer.password_reset_request_failed");
+      return { status: "success", message: genericMessage };
+    }
+  });
 }
 
 export async function resetPasswordAction(
