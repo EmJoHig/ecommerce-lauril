@@ -19,6 +19,11 @@ const config = {
   publicBaseUrl: "https://assets.example.com/",
 };
 
+const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const webpBytes = new Uint8Array([
+  0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
+]);
+
 function createFakeClient() {
   const commands: Array<PutObjectCommand | DeleteObjectCommand> = [];
   return {
@@ -38,7 +43,7 @@ describe("ObjectStorage", () => {
     const storage = new S3ObjectStorage(config, fake.client);
 
     const stored = await storage.store({
-      bytes: new Uint8Array([1, 2, 3]),
+      bytes: pngBytes,
       fileName: "producto.png",
       contentType: "image/png",
     });
@@ -51,7 +56,7 @@ describe("ObjectStorage", () => {
       Bucket: "catalog",
       Key: stored.objectKey,
       ContentType: "image/png",
-      Body: new Uint8Array([1, 2, 3]),
+      Body: pngBytes,
     });
   });
 
@@ -99,7 +104,7 @@ describe("ObjectStorage", () => {
     try {
       const storage = createObjectStorage({});
       const stored = await storage.store({
-        bytes: new Uint8Array([1, 2, 3]),
+        bytes: pngBytes,
         fileName: "producto.png",
         contentType: "image/png",
       });
@@ -107,7 +112,7 @@ describe("ObjectStorage", () => {
       expect(stored.objectKey).toMatch(/^local\/catalog\/[0-9a-f-]+\.png$/);
       expect(stored.url).toBe(`/uploads/catalog/${path.basename(stored.objectKey)}`);
       await expect(readFile(path.join(workingDirectory, "public", "uploads", "catalog", path.basename(stored.objectKey))))
-        .resolves.toEqual(Buffer.from([1, 2, 3]));
+        .resolves.toEqual(Buffer.from(pngBytes));
     } finally {
       cwd.mockRestore();
       await rm(workingDirectory, { recursive: true, force: true });
@@ -122,7 +127,7 @@ describe("ObjectStorage", () => {
         LOCAL_UPLOAD_ROOT: uploadRoot,
       });
       const stored = await storage.store({
-        bytes: new Uint8Array([4, 5, 6]),
+        bytes: webpBytes,
         fileName: "producto.webp",
         contentType: "image/webp",
       });
@@ -130,7 +135,7 @@ describe("ObjectStorage", () => {
 
       expect(stored.objectKey).toMatch(/^local\/catalog\/[0-9a-f-]+\.webp$/);
       expect(stored.url).toBe(`/uploads/catalog/${path.basename(stored.objectKey)}`);
-      await expect(readFile(storedPath)).resolves.toEqual(Buffer.from([4, 5, 6]));
+      await expect(readFile(storedPath)).resolves.toEqual(Buffer.from(webpBytes));
 
       await storage.delete(stored.objectKey);
 
