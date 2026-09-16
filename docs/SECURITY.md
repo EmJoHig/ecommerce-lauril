@@ -167,6 +167,12 @@ evita usando endpoints configurados, no URLs arbitrarias recibidas del cliente.
 ## Dependencias y operación
 
 - Versiones fijadas por lockfile; actualizar con revisión y ejecutar auditoría.
+- Riesgo residual conocido: `uuid` 8.3.2 llega transitivamente mediante ExcelJS
+  4.4.0 y mantiene un advisory de severidad Moderate. La vulnerabilidad requiere
+  usar UUID v3, v5 o v6 con un buffer externo; ExcelJS usa internamente UUID v4,
+  por lo que no se identificó un path explotable en el uso actual, sin afirmar que
+  el riesgo sea cero. Queda pendiente actualizar cuando ExcelJS publique una
+  dependencia corregida o exista una actualización segura validada.
 - CI ejecuta lint, typecheck, tests y build.
 - `db push` e índices MongoDB se ejecutan con usuario restringido y despliegue controlado.
 - Nginx termina HTTPS y actúa como reverse proxy; PM2 administra el proceso Next.js.
