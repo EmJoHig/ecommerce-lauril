@@ -9,6 +9,12 @@ const optionalText = () =>
 const optionalUrl = () =>
   z.preprocess(emptyStringAsUndefined, z.string().url().optional());
 
+const optionalBooleanFlag = () =>
+  z.preprocess(
+    emptyStringAsUndefined,
+    z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
+  );
+
 const serverEnvSchema = z.object({
   MONGODB_URI: z.string().url(),
   APP_URL: z.string().url().default("http://localhost:3000"),
@@ -31,6 +37,8 @@ const serverEnvSchema = z.object({
   S3_PUBLIC_BASE_URL: optionalUrl(),
   RESEND_API_KEY: optionalText(),
   EMAIL_FROM: optionalText(),
+  MERCADO_PAGO_ENABLED: optionalBooleanFlag(),
+  MERCADO_PAGO_ACCESS_TOKEN: optionalText(),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

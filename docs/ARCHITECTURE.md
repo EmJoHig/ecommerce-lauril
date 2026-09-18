@@ -278,7 +278,7 @@ Cancelar un pendiente libera `stockReserved` una sola vez sin modificar
 y `AuditLog` se escriben atómicamente. `OrderNote` es información operativa interna
 y nunca forma parte del DTO público del pedido.
 
-## Fundación de pagos en Fase 14A
+## Pagos en Fases 14A y 14B
 
 `payments` introduce `PaymentAttempt` como historial 1:N del pedido y
 `PaymentEvent` como inbox idempotente. Un intento conserva importe y moneda del
@@ -289,10 +289,26 @@ reutilizan su clave persistida; un nuevo intento recibe otro número y otra clav
 `PaymentGateway` expone únicamente crear un checkout externo y consultar el estado
 autoritativo de su recurso, usando tipos propios sin Prisma ni tipos de Mercado
 Pago. La integración prevista es Checkout Pro mediante Mercado Pago Orders API
-(`POST /v1/orders`), no la API clásica de Preferences; su adapter se incorpora en
-F14B.
+(`POST /v1/orders`), no la API clásica de Preferences. F14B incorpora
+`MercadoPagoOrdersGateway` con `fetch` nativo, timeout, errores normalizados y
+consulta autoritativa mediante `GET /v1/orders/{id}`. El token queda exclusivamente
+en infraestructura server-side.
 
-Los eventos futuros se insertan antes de ejecutar efectos y se deduplican por
+`StartPaymentCheckout` vuelve a leer el pedido y exige estado `PENDING_PAYMENT`,
+reserva vigente y no liberada. Adquiere o reutiliza el intento activo, envía su
+clave persistida en `X-Idempotency-Key` y guarda el recurso, checkout URL y estado
+original del proveedor. Si el recurso ya tiene checkout URL, no repite el POST.
+Un índice único parcial por pedido para estados `CREATED`/`PENDING`, combinado con
+`unique(orderId, attemptNumber)` y recuperación de colisiones, evita dos intentos
+activos aun entre procesos distintos.
+
+La Server Action vuelve a comprobar ownership customer/guest, aplica rate limit y
+solo redirige a una URL HTTPS obtenida server-side. `MERCADO_PAGO_ENABLED` vale
+`false` por defecto; sin flag y token no se muestra el botón ni se compone el
+gateway. Los parámetros `payment_return` muestran únicamente un mensaje neutro y
+no cambian estado local alguno.
+
+Los eventos futuros se insertarán antes de ejecutar efectos y se deduplican por
 `provider + providerEventId`. F14A no crea webhook, no invoca servicios externos,
 no cambia pedidos a `PAID` y no modifica inventario. Si llega una aprobación
 después de liberar la reserva, `REQUIRES_REVIEW` permite representarla sin decidir

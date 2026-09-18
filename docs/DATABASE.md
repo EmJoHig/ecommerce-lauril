@@ -167,6 +167,12 @@ número. `idempotencyKey` es única: un nuevo intento genera otra clave y un rei
 técnico reutiliza la persistida. `unique(provider, providerEventId)` convierte
 `PaymentEvent` en una bandeja de entrada deduplicable antes de futuros efectos.
 
+Un índice único parcial adicional sobre `order_id`, limitado a estados `CREATED`
+y `PENDING`, garantiza como máximo un intento activo por pedido. La aplicación
+calcula el siguiente `attemptNumber` desde el último intento; las restricciones
+únicas resuelven carreras y el request perdedor reutiliza el intento ganador. Solo
+`REJECTED` y `CANCELLED` habilitan otro intento en F14B.
+
 La referencia externa opcional no usa `@unique`: el script de índices crea
 `unique(provider, provider_resource_id)` solamente cuando
 `provider_resource_id` es string. Así varios intentos sin recurso externo pueden
@@ -214,11 +220,12 @@ se deriva de pagos, no de un único campo mutable sin historial.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
 Además de los índices expresables en Prisma Schema, el script
-`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente seis índices
+`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente siete índices
 únicos parciales activos: una variante predeterminada por producto, una dirección
 predeterminada por cliente, un carrito activo por cliente y unicidad para los
 hashes opcionales de carrito invitado y acceso a pedido invitado, más la referencia
-externa informada de un intento de pago por proveedor.
+externa informada de un intento de pago por proveedor y un único intento de pago
+activo por pedido.
 
 ## Sincronización y seed
 

@@ -10,6 +10,7 @@ import type {
   CustomerOrderRow,
   OrderRepository,
   OrderView,
+  PaymentOrderRecord,
   PendingOrderRecord,
 } from "../application/order-repository";
 import { mapShippingMethod } from "@/modules/shipping/infrastructure/prisma-shipping-repository";
@@ -136,6 +137,22 @@ export class PrismaOrderRepository implements OrderRepository {
   async findAdminOrder(id: string): Promise<OrderView | null> {
     const row = await this.prisma.order.findUnique({ where: { id }, include: orderInclude });
     return row ? mapOrder(row) : null;
+  }
+
+  async findPaymentOrder(id: string): Promise<PaymentOrderRecord | null> {
+    return this.prisma.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        buyerEmail: true,
+        totalInCents: true,
+        currency: true,
+        paymentExpiresAt: true,
+        reservationReleasedAt: true,
+      },
+    });
   }
 
   listExpiredPendingOrderIds(now: Date, limit: number): Promise<ReadonlyArray<string>> {

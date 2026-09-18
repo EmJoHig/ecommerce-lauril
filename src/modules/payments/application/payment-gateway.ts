@@ -3,8 +3,11 @@ import type { PaymentProvider } from "../domain/payment";
 export type CreateExternalCheckoutInput = Readonly<{
   idempotencyKey: string;
   orderId: string;
+  orderNumber: bigint;
+  attemptNumber: number;
   amountInCents: bigint;
   currency: string;
+  payerEmail: string;
 }>;
 
 export type ExternalPaymentState = Readonly<{
@@ -12,6 +15,9 @@ export type ExternalPaymentState = Readonly<{
   providerResourceId: string;
   providerStatus: string;
   providerStatusDetail: string | null;
+  currency: string;
+  totalAmountInCents: bigint | null;
+  totalPaidAmountInCents: bigint | null;
   approvedAt: Date | null;
   rejectedAt: Date | null;
   refundedAmountInCents: bigint;

@@ -290,13 +290,16 @@ No realizar refactors generales ni auditorías cosméticas.
 
 ## Fase 14 — Mercado Pago
 
-Estado: en curso. F14A implementada; F14B-F14E pendientes.
+Estado: en curso. F14A completada y validada; F14B implementada y pendiente de
+integración real controlada; F14C-F14E pendientes.
 
 La integración nueva utilizará Checkout Pro mediante Mercado Pago Orders API
 (`POST /v1/orders`), no la API clásica de Preferences. El dominio conserva un
 contrato `PaymentGateway`; Mercado Pago será un adaptador de infraestructura.
 
 ### F14A — Fundación de pagos, persistencia y contratos
+
+Estado: completada y validada.
 
 - `PaymentAttempt` 1:N por pedido, snapshots monetarios y estados internos
   provider-neutral.
@@ -306,10 +309,17 @@ contrato `PaymentGateway`; Mercado Pago será un adaptador de infraestructura.
 
 ### F14B — Adapter Orders API
 
-- Crear el checkout externo mediante `POST /v1/orders`.
+Estado: implementada; pendiente de habilitación e integración real.
+
+- Adapter nativo para crear el checkout externo mediante `POST /v1/orders` y
+  consultar su estado con `GET /v1/orders/{id}`.
 - Reutilizar la clave local persistida como `X-Idempotency-Key` en reintentos
   técnicos del mismo intento.
 - Consultar server-side el estado autoritativo del recurso externo.
+- Garantizar como máximo un intento `CREATED` o `PENDING` por pedido y permitir
+  uno nuevo después de `REJECTED` o `CANCELLED`.
+- Feature flag `MERCADO_PAGO_ENABLED` deshabilitada por defecto. El retorno del
+  navegador es solo UX y nunca confirma ni modifica el pago.
 
 ### F14C — Webhook y aprobación atómica
 
