@@ -21,6 +21,7 @@ describe("MercadoPagoOrdersGateway", () => {
       id: "mp-order-1",
       status: "created",
       status_detail: "pending_payment",
+      external_reference: "lauril-order-10001-attempt-2",
       checkout_url: "https://checkout.mercadopago.test/order-1",
       currency: "ARS",
       total_amount: "46.00",
@@ -34,6 +35,7 @@ describe("MercadoPagoOrdersGateway", () => {
       checkoutUrl: "https://checkout.mercadopago.test/order-1",
       providerStatus: "created",
       providerStatusDetail: "pending_payment",
+      externalReference: "lauril-order-10001-attempt-2",
       currency: "ARS",
       totalAmountInCents: 4600n,
     });
@@ -87,6 +89,7 @@ describe("MercadoPagoOrdersGateway", () => {
       id: "mp/order 1",
       status: "processed",
       status_detail: "accredited",
+      external_reference: "lauril-order-10001-attempt-2",
       currency: "ARS",
       total_amount: "1234.56",
       total_paid_amount: "1234.56",
@@ -98,6 +101,7 @@ describe("MercadoPagoOrdersGateway", () => {
       providerResourceId: "mp/order 1",
       providerStatus: "processed",
       providerStatusDetail: "accredited",
+      externalReference: "lauril-order-10001-attempt-2",
       totalAmountInCents: 123456n,
       totalPaidAmountInCents: 123456n,
     });

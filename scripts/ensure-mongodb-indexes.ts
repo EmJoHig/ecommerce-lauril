@@ -79,6 +79,21 @@ const commands = [
       },
     ],
   },
+  {
+    createIndexes: "inventory_movements",
+    indexes: [
+      {
+        key: { inventory_id: 1, type: 1, reference_type: 1, reference_id: 1 },
+        name: "inventory_movements_order_sale_once_key",
+        unique: true,
+        partialFilterExpression: {
+          type: "SALE",
+          reference_type: "ORDER",
+          reference_id: { $type: "string" },
+        },
+      },
+    ],
+  },
 ] as const;
 
 async function main(): Promise<void> {
@@ -87,10 +102,10 @@ async function main(): Promise<void> {
   }
   await prisma.sequence.upsert({
     where: { id: "schema:indexes:v1" },
-    update: { value: 3n },
-    create: { id: "schema:indexes:v1", value: 3n },
+    update: { value: 4n },
+    create: { id: "schema:indexes:v1", value: 4n },
   });
-  console.info(JSON.stringify({ status: "ok", indexesEnsured: 7 }));
+  console.info(JSON.stringify({ status: "ok", indexesEnsured: 8 }));
 }
 
 main()

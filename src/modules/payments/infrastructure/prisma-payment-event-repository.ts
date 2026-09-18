@@ -31,15 +31,23 @@ export class PrismaPaymentEventRepository implements PaymentEventRepository {
     return row ? mapPaymentEvent(row) : null;
   }
 
-  async updateProcessingStatus(input: Readonly<{
+  async finishIfPending(input: Readonly<{
     id: string;
     processingStatus: PaymentEventProcessingStatus;
     processedAt: Date | null;
-  }>): Promise<PaymentEvent> {
-    return mapPaymentEvent(await this.prisma.paymentEvent.update({
-      where: { id: input.id },
-      data: { processingStatus: input.processingStatus, processedAt: input.processedAt },
-    }));
+    paymentAttemptId: string | null;
+  }>): Promise<PaymentEvent | null> {
+    const updated = await this.prisma.paymentEvent.updateMany({
+      where: { id: input.id, processingStatus: { in: ["RECEIVED", "FAILED"] } },
+      data: {
+        processingStatus: input.processingStatus,
+        processedAt: input.processedAt,
+        paymentAttemptId: input.paymentAttemptId,
+      },
+    });
+    if (updated.count !== 1) return null;
+    const event = await this.prisma.paymentEvent.findUnique({ where: { id: input.id } });
+    return event ? mapPaymentEvent(event) : null;
   }
 }
 

@@ -39,6 +39,7 @@ const serverEnvSchema = z.object({
   EMAIL_FROM: optionalText(),
   MERCADO_PAGO_ENABLED: optionalBooleanFlag(),
   MERCADO_PAGO_ACCESS_TOKEN: optionalText(),
+  MERCADO_PAGO_WEBHOOK_SECRET: optionalText(),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),

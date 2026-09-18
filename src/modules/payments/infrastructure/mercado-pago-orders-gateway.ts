@@ -7,6 +7,7 @@ import type {
   PaymentGateway,
 } from "../application/payment-gateway";
 import { secureCheckoutUrl } from "../application/payment-redirect";
+import { mercadoPagoExternalReference } from "../application/mercado-pago-reference";
 
 const PRODUCTION_BASE_URL = "https://api.mercadopago.com";
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -15,6 +16,7 @@ const paymentStateSchema = z.object({
   id: z.string().min(1),
   status: z.string().min(1),
   status_detail: z.string().nullable(),
+  external_reference: z.string().min(1).nullable().optional(),
   currency: z.string().length(3),
   total_amount: z.string().optional(),
   total_paid_amount: z.string().optional(),
@@ -76,7 +78,7 @@ export class MercadoPagoOrdersGateway implements PaymentGateway {
       type: "online",
       processing_mode: "manual",
       total_amount: totalAmount,
-      external_reference: `lauril-order-${input.orderNumber.toString()}-attempt-${input.attemptNumber}`,
+      external_reference: mercadoPagoExternalReference(input.orderNumber, input.attemptNumber),
       description: `Pedido Lauril #${input.orderNumber.toString()}`,
       payer: { email: input.payerEmail },
       config: {
@@ -149,6 +151,7 @@ function normalizeState(value: z.infer<typeof paymentStateSchema>): ExternalPaym
     providerResourceId: value.id,
     providerStatus: value.status,
     providerStatusDetail: value.status_detail,
+    externalReference: value.external_reference ?? null,
     currency: value.currency.toUpperCase(),
     totalAmountInCents: value.total_amount === undefined ? null : decimalStringToCents(value.total_amount),
     totalPaidAmountInCents: value.total_paid_amount === undefined ? null : decimalStringToCents(value.total_paid_amount),

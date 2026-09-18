@@ -278,7 +278,7 @@ Cancelar un pendiente libera `stockReserved` una sola vez sin modificar
 y `AuditLog` se escriben atómicamente. `OrderNote` es información operativa interna
 y nunca forma parte del DTO público del pedido.
 
-## Pagos en Fases 14A y 14B
+## Pagos en Fases 14A, 14B y 14C
 
 `payments` introduce `PaymentAttempt` como historial 1:N del pedido y
 `PaymentEvent` como inbox idempotente. Un intento conserva importe y moneda del
@@ -308,11 +308,37 @@ solo redirige a una URL HTTPS obtenida server-side. `MERCADO_PAGO_ENABLED` vale
 gateway. Los parámetros `payment_return` muestran únicamente un mensaje neutro y
 no cambian estado local alguno.
 
-Los eventos futuros se insertarán antes de ejecutar efectos y se deduplican por
-`provider + providerEventId`. F14A no crea webhook, no invoca servicios externos,
-no cambia pedidos a `PAID` y no modifica inventario. Si llega una aprobación
+Los eventos se deduplican por `provider + providerEventId`. Si llega una aprobación
 después de liberar la reserva, `REQUIRES_REVIEW` permite representarla sin decidir
 todavía un efecto; la política definitiva corresponde a F14D.
+
+F14C incorpora `POST /api/payments/mercado-pago/webhook`. La autenticación pública
+es la firma HMAC-SHA256 de Mercado Pago: el manifest usa exclusivamente `data.id`
+del query en lowercase, `x-request-id` y `ts`; la comparación del hash usa
+`timingSafeEqual`. El body se limita y valida recién después de autenticar, y su
+`data.id` debe coincidir con el recurso firmado. El secreto es server-side,
+opcional con la feature apagada y nunca se persiste ni registra.
+
+El webhook crea o recupera `PaymentEvent` en `RECEIVED` antes de cualquier GET.
+Los eventos finales se deduplican sin consultar nuevamente; `RECEIVED` y `FAILED`
+pueden reintentarse. Tras asociar exclusivamente por proveedor y recurso, el caso
+de uso consulta `GET /v1/orders/{id}`. Solo `processed/accredited`, con referencia
+externa, ARS, total y total pagado exactos, puede aprobar automáticamente.
+
+`PrismaPaymentConfirmationUnitOfWork` relee evento, intento, pedido, items e
+inventarios. Una sola transacción consume simultáneamente `stockOnHand` y
+`stockReserved` mediante CAS de `Inventory.version`, inserta `SALE`, cambia el
+pedido `PENDING_PAYMENT -> PAID` por fuente `PAYMENT`, agrega historial, aprueba
+el intento con timestamp local de confirmación y finaliza el evento. El timestamp
+`approvedAt` representa la confirmación local, no un instante inventado del
+proveedor. El índice parcial único de venta por inventario/pedido, la transacción
+y los CAS protegen el exactly-once entre procesos.
+
+La expiración y el webhook compiten sobre el mismo pedido/reserva: quien confirma
+primero invalida la escritura condicional del otro. Un pago acreditado posterior
+a cancelación, liberación o pérdida de reserva queda `REQUIRES_REVIEW`, sin venta,
+nueva reserva ni refund automático. Estados esperables no terminales conservan
+`PENDING`; estados terminales o desconocidos quedan en revisión hasta F14D.
 
 ## Backoffice consolidado en Fase 7
 

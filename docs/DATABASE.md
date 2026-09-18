@@ -206,8 +206,10 @@ se deriva de pagos, no de un único campo mutable sin historial.
   categoría/producto, SKU y slug únicos; Atlas Search se evaluará solo si el volumen
   lo justifica.
 - inventario: variante única, movimientos por `(inventoryId, createdAt)` y
-  `(referenceType, referenceId)`. El predicado calculado de bajo stock se evalúa
-  en aplicación porque MongoDB no admite ese índice relacional parcial.
+  `(referenceType, referenceId)`, más unicidad parcial de `SALE` por
+  `(inventoryId, type, referenceType, referenceId)` cuando la referencia es un
+  pedido. El predicado calculado de bajo stock se evalúa en aplicación porque
+  MongoDB no admite ese índice relacional parcial.
 - pedidos: número único, `(customerId, createdAt)`, `(status, createdAt)` y
   `(shippingMethodId, createdAt)`.
 - notas de pedido: `(orderId, createdAt)` y `(actorUserId, createdAt)`.
@@ -220,12 +222,14 @@ se deriva de pagos, no de un único campo mutable sin historial.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
 Además de los índices expresables en Prisma Schema, el script
-`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente siete índices
+`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente ocho índices
 únicos parciales activos: una variante predeterminada por producto, una dirección
 predeterminada por cliente, un carrito activo por cliente y unicidad para los
 hashes opcionales de carrito invitado y acceso a pedido invitado, más la referencia
-externa informada de un intento de pago por proveedor y un único intento de pago
-activo por pedido.
+externa informada de un intento de pago por proveedor, un único intento de pago
+activo por pedido y un único movimiento `SALE` por inventario/pedido. Esta última
+defensa, junto con la transacción de confirmación y `Inventory.version`, impide
+que webhooks duplicados o concurrentes descuenten físicamente dos veces.
 
 ## Sincronización y seed
 

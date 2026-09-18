@@ -8,9 +8,10 @@ export type PersistPaymentEventResult = Readonly<{
 export interface PaymentEventRepository {
   persistIfAbsent(event: PaymentEvent): Promise<PersistPaymentEventResult>;
   findByProviderEventId(provider: PaymentProvider, providerEventId: string): Promise<PaymentEvent | null>;
-  updateProcessingStatus(input: Readonly<{
+  finishIfPending(input: Readonly<{
     id: string;
     processingStatus: PaymentEventProcessingStatus;
     processedAt: Date | null;
-  }>): Promise<PaymentEvent>;
+    paymentAttemptId: string | null;
+  }>): Promise<PaymentEvent | null>;
 }

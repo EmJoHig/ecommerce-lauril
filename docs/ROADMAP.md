@@ -290,8 +290,8 @@ No realizar refactors generales ni auditorías cosméticas.
 
 ## Fase 14 — Mercado Pago
 
-Estado: en curso. F14A completada y validada; F14B implementada y pendiente de
-integración real controlada; F14C-F14E pendientes.
+Estado: en curso. F14A y F14B completadas y validadas; F14C implementada y
+validada localmente; F14D-F14E pendientes.
 
 La integración nueva utilizará Checkout Pro mediante Mercado Pago Orders API
 (`POST /v1/orders`), no la API clásica de Preferences. El dominio conserva un
@@ -309,7 +309,7 @@ Estado: completada y validada.
 
 ### F14B — Adapter Orders API
 
-Estado: implementada; pendiente de habilitación e integración real.
+Estado: completada y validada; pendiente de habilitación e integración real.
 
 - Adapter nativo para crear el checkout externo mediante `POST /v1/orders` y
   consultar su estado con `GET /v1/orders/{id}`.
@@ -323,9 +323,21 @@ Estado: implementada; pendiente de habilitación e integración real.
 
 ### F14C — Webhook y aprobación atómica
 
-- Validar y persistir el evento antes de procesarlo.
-- Aplicar la aprobación una sola vez en una transacción que convierta reserva en
-  venta y cree `InventoryMovement SALE` exactamente una vez.
+Estado: implementada y validada localmente; pendiente de integración real en F14E.
+
+- El webhook público valida HMAC-SHA256 sobre el `data.id` del query normalizado
+  a lowercase, `x-request-id` y `ts`, y persiste el inbox antes de consultar al
+  proveedor o producir efectos.
+- `GET /v1/orders/{id}` es la única fuente autoritativa; únicamente
+  `processed/accredited`, con recurso, referencia externa, ARS y montos exactos,
+  habilita aprobación automática.
+- Pedido, inventarios con `Inventory.version`, movimientos `SALE`, historial,
+  intento y evento se confirman en una sola transacción. Un índice único parcial
+  refuerza un único `SALE` por inventario/pedido.
+- La aprobación compite atómicamente con expiración. Si cancelación/liberación
+  gana, o falta la reserva, el intento queda `REQUIRES_REVIEW` sin descontar stock
+  ni ejecutar refund. F14D definirá esa política y los restantes estados.
+- `MERCADO_PAGO_ENABLED` continúa deshabilitada por defecto.
 
 ### F14D — Estados, reintentos y reembolsos
 

@@ -107,6 +107,7 @@ function externalCheckout(): ExternalCheckout {
     providerResourceId: "mp-order-1",
     providerStatus: "created",
     providerStatusDetail: "pending_payment",
+    externalReference: "lauril-order-10001-attempt-1",
     currency: "ARS",
     totalAmountInCents: 4600n,
     totalPaidAmountInCents: null,

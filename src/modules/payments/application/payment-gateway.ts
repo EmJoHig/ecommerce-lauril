@@ -15,6 +15,7 @@ export type ExternalPaymentState = Readonly<{
   providerResourceId: string;
   providerStatus: string;
   providerStatusDetail: string | null;
+  externalReference: string | null;
   currency: string;
   totalAmountInCents: bigint | null;
   totalPaidAmountInCents: bigint | null;
