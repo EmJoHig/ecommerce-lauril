@@ -154,11 +154,23 @@ los datos públicos de contacto, redes sociales y una descripción breve. El ID 
 
 ### Pagos
 
-- `Payment`: pedido, gateway, referencia externa, estado, importe, moneda e
-  idempotency key. Restricciones únicas por gateway/referencia e idempotency key.
-- `PaymentEvent`: evento recibido con `providerEventId` único, hash/payload
-  sanitizado, estado de procesamiento, intentos y error. Es la bandeja de entrada
-  idempotente.
+- `PaymentAttempt`: intento 1:N del pedido con proveedor, número positivo, estado
+  interno, importe `bigint` en centavos, moneda snapshot, clave de idempotencia
+  local, referencia/estado del proveedor, URL de checkout y timestamps de
+  aprobación, rechazo y reembolso acumulado.
+- `PaymentEvent`: metadata mínima del evento externo, referencia del proveedor,
+  vínculo opcional al intento y estado `RECEIVED`, `PROCESSED`, `IGNORED` o
+  `FAILED`. No guarda secretos, firmas, headers completos, tarjetas ni body crudo.
+
+`unique(orderId, attemptNumber)` permite varios intentos ordenados sin duplicar un
+número. `idempotencyKey` es única: un nuevo intento genera otra clave y un reintento
+técnico reutiliza la persistida. `unique(provider, providerEventId)` convierte
+`PaymentEvent` en una bandeja de entrada deduplicable antes de futuros efectos.
+
+La referencia externa opcional no usa `@unique`: el script de índices crea
+`unique(provider, provider_resource_id)` solamente cuando
+`provider_resource_id` es string. Así varios intentos sin recurso externo pueden
+coexistir sin colisionar por `null` o campo ausente en MongoDB.
 
 Un pedido puede tener varios intentos de pago, pero el total aprobado/reembolsado
 se deriva de pagos, no de un único campo mutable sin historial.
@@ -194,14 +206,19 @@ se deriva de pagos, no de un único campo mutable sin historial.
   `(shippingMethodId, createdAt)`.
 - notas de pedido: `(orderId, createdAt)` y `(actorUserId, createdAt)`.
 - notas de cliente: `(customerId, createdAt)` y `(actorUserId, createdAt)`.
-- pagos/eventos: referencias externas e idempotencia únicas.
+- pagos: `(orderId, attemptNumber)` e idempotencia únicas, consulta por
+  `(orderId, createdAt)`, operación por `(status, updatedAt)` y referencia externa
+  única parcial por proveedor.
+- eventos de pago: `(provider, providerEventId)` único y cola operativa por
+  `(processingStatus, receivedAt)`.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
 Además de los índices expresables en Prisma Schema, el script
-`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente cinco índices
+`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente seis índices
 únicos parciales activos: una variante predeterminada por producto, una dirección
 predeterminada por cliente, un carrito activo por cliente y unicidad para los
-hashes opcionales de carrito invitado y acceso a pedido invitado.
+hashes opcionales de carrito invitado y acceso a pedido invitado, más la referencia
+externa informada de un intento de pago por proveedor.
 
 ## Sincronización y seed
 

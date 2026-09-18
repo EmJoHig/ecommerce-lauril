@@ -62,6 +62,17 @@ const commands = [
       },
     ],
   },
+  {
+    createIndexes: "payment_attempts",
+    indexes: [
+      {
+        key: { provider: 1, provider_resource_id: 1 },
+        name: "payment_attempts_provider_resource_id_key",
+        unique: true,
+        partialFilterExpression: { provider_resource_id: { $type: "string" } },
+      },
+    ],
+  },
 ] as const;
 
 async function main(): Promise<void> {
@@ -70,10 +81,10 @@ async function main(): Promise<void> {
   }
   await prisma.sequence.upsert({
     where: { id: "schema:indexes:v1" },
-    update: { value: 1n },
-    create: { id: "schema:indexes:v1", value: 1n },
+    update: { value: 2n },
+    create: { id: "schema:indexes:v1", value: 2n },
   });
-  console.info(JSON.stringify({ status: "ok", indexesEnsured: 5 }));
+  console.info(JSON.stringify({ status: "ok", indexesEnsured: 6 }));
 }
 
 main()

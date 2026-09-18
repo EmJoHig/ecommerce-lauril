@@ -278,6 +278,26 @@ Cancelar un pendiente libera `stockReserved` una sola vez sin modificar
 y `AuditLog` se escriben atómicamente. `OrderNote` es información operativa interna
 y nunca forma parte del DTO público del pedido.
 
+## Fundación de pagos en Fase 14A
+
+`payments` introduce `PaymentAttempt` como historial 1:N del pedido y
+`PaymentEvent` como inbox idempotente. Un intento conserva importe y moneda del
+pedido, número secuencial por pedido, una clave de idempotencia local propia y el
+snapshot mínimo devuelto por el proveedor. Reintentos técnicos del mismo intento
+reutilizan su clave persistida; un nuevo intento recibe otro número y otra clave.
+
+`PaymentGateway` expone únicamente crear un checkout externo y consultar el estado
+autoritativo de su recurso, usando tipos propios sin Prisma ni tipos de Mercado
+Pago. La integración prevista es Checkout Pro mediante Mercado Pago Orders API
+(`POST /v1/orders`), no la API clásica de Preferences; su adapter se incorpora en
+F14B.
+
+Los eventos futuros se insertan antes de ejecutar efectos y se deduplican por
+`provider + providerEventId`. F14A no crea webhook, no invoca servicios externos,
+no cambia pedidos a `PAID` y no modifica inventario. Si llega una aprobación
+después de liberar la reserva, `REQUIRES_REVIEW` permite representarla sin decidir
+todavía un efecto; la política definitiva corresponde a F14D.
+
 ## Backoffice consolidado en Fase 7
 
 El layout protegido compone navegación responsive y consciente de permisos. Las

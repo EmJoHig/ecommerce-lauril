@@ -273,6 +273,8 @@ criterio de cierre de la Fase 12, no bloquean fases posteriores y se realizarán
 
 ## Fase 13 — Hardening de seguridad
 
+Estado: completada y validada.
+
 - Revisión dirigida de autenticación y sesiones.
 - RBAC y autorización server-side.
 - Ownership e IDOR.
@@ -287,6 +289,45 @@ criterio de cierre de la Fase 12, no bloquean fases posteriores y se realizarán
 No realizar refactors generales ni auditorías cosméticas.
 
 ## Fase 14 — Mercado Pago
+
+Estado: en curso. F14A implementada; F14B-F14E pendientes.
+
+La integración nueva utilizará Checkout Pro mediante Mercado Pago Orders API
+(`POST /v1/orders`), no la API clásica de Preferences. El dominio conserva un
+contrato `PaymentGateway`; Mercado Pago será un adaptador de infraestructura.
+
+### F14A — Fundación de pagos, persistencia y contratos
+
+- `PaymentAttempt` 1:N por pedido, snapshots monetarios y estados internos
+  provider-neutral.
+- `PaymentEvent` como inbox idempotente persistido antes de futuros efectos.
+- Ports de gateway y repositorios, adaptadores Prisma e índices MongoDB.
+- Sin API externa, webhook, checkout público, transición `PAID` ni inventario.
+
+### F14B — Adapter Orders API
+
+- Crear el checkout externo mediante `POST /v1/orders`.
+- Reutilizar la clave local persistida como `X-Idempotency-Key` en reintentos
+  técnicos del mismo intento.
+- Consultar server-side el estado autoritativo del recurso externo.
+
+### F14C — Webhook y aprobación atómica
+
+- Validar y persistir el evento antes de procesarlo.
+- Aplicar la aprobación una sola vez en una transacción que convierta reserva en
+  venta y cree `InventoryMovement SALE` exactamente una vez.
+
+### F14D — Estados, reintentos y reembolsos
+
+- Completar políticas de rechazo, cancelación, múltiples intentos y reembolsos.
+- Definir explícitamente la política para pagos aprobados después de liberar o
+  cancelar la reserva; mientras tanto se representan como `REQUIRES_REVIEW` y no
+  se marcan `PAID`, no descuentan stock y no se auto-reembolsan.
+
+### F14E — Integración de prueba y cierre
+
+- Validar Checkout Pro de extremo a extremo en el entorno de prueba y cerrar la
+  fase con las verificaciones operativas correspondientes.
 
 - Implementar `PaymentGateway`.
 - Mercado Pago Checkout Pro.
