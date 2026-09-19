@@ -273,6 +273,8 @@ criterio de cierre de la Fase 12, no bloquean fases posteriores y se realizarán
 
 ## Fase 13 — Hardening de seguridad
 
+Estado: completada y validada.
+
 - Revisión dirigida de autenticación y sesiones.
 - RBAC y autorización server-side.
 - Ownership e IDOR.
@@ -287,6 +289,67 @@ criterio de cierre de la Fase 12, no bloquean fases posteriores y se realizarán
 No realizar refactors generales ni auditorías cosméticas.
 
 ## Fase 14 — Mercado Pago
+
+Estado: en curso. F14A y F14B completadas y validadas; F14C implementada y
+validada localmente; F14D-F14E pendientes.
+
+La integración nueva utilizará Checkout Pro mediante Mercado Pago Orders API
+(`POST /v1/orders`), no la API clásica de Preferences. El dominio conserva un
+contrato `PaymentGateway`; Mercado Pago será un adaptador de infraestructura.
+
+### F14A — Fundación de pagos, persistencia y contratos
+
+Estado: completada y validada.
+
+- `PaymentAttempt` 1:N por pedido, snapshots monetarios y estados internos
+  provider-neutral.
+- `PaymentEvent` como inbox idempotente persistido antes de futuros efectos.
+- Ports de gateway y repositorios, adaptadores Prisma e índices MongoDB.
+- Sin API externa, webhook, checkout público, transición `PAID` ni inventario.
+
+### F14B — Adapter Orders API
+
+Estado: completada y validada; pendiente de habilitación e integración real.
+
+- Adapter nativo para crear el checkout externo mediante `POST /v1/orders` y
+  consultar su estado con `GET /v1/orders/{id}`.
+- Reutilizar la clave local persistida como `X-Idempotency-Key` en reintentos
+  técnicos del mismo intento.
+- Consultar server-side el estado autoritativo del recurso externo.
+- Garantizar como máximo un intento `CREATED` o `PENDING` por pedido y permitir
+  uno nuevo después de `REJECTED` o `CANCELLED`.
+- Feature flag `MERCADO_PAGO_ENABLED` deshabilitada por defecto. El retorno del
+  navegador es solo UX y nunca confirma ni modifica el pago.
+
+### F14C — Webhook y aprobación atómica
+
+Estado: implementada y validada localmente; pendiente de integración real en F14E.
+
+- El webhook público valida HMAC-SHA256 sobre el `data.id` del query normalizado
+  a lowercase, `x-request-id` y `ts`, y persiste el inbox antes de consultar al
+  proveedor o producir efectos.
+- `GET /v1/orders/{id}` es la única fuente autoritativa; únicamente
+  `processed/accredited`, con recurso, referencia externa, ARS y montos exactos,
+  habilita aprobación automática.
+- Pedido, inventarios con `Inventory.version`, movimientos `SALE`, historial,
+  intento y evento se confirman en una sola transacción. Un índice único parcial
+  refuerza un único `SALE` por inventario/pedido.
+- La aprobación compite atómicamente con expiración. Si cancelación/liberación
+  gana, o falta la reserva, el intento queda `REQUIRES_REVIEW` sin descontar stock
+  ni ejecutar refund. F14D definirá esa política y los restantes estados.
+- `MERCADO_PAGO_ENABLED` continúa deshabilitada por defecto.
+
+### F14D — Estados, reintentos y reembolsos
+
+- Completar políticas de rechazo, cancelación, múltiples intentos y reembolsos.
+- Definir explícitamente la política para pagos aprobados después de liberar o
+  cancelar la reserva; mientras tanto se representan como `REQUIRES_REVIEW` y no
+  se marcan `PAID`, no descuentan stock y no se auto-reembolsan.
+
+### F14E — Integración de prueba y cierre
+
+- Validar Checkout Pro de extremo a extremo en el entorno de prueba y cerrar la
+  fase con las verificaciones operativas correspondientes.
 
 - Implementar `PaymentGateway`.
 - Mercado Pago Checkout Pro.

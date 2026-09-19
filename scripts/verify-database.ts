@@ -178,7 +178,7 @@ async function main(): Promise<void> {
     variants.length < 17 ||
     movements.length < 15 ||
     !storeSettings ||
-    indexVersion?.value !== 1n ||
+    indexVersion?.value !== 4n ||
     !storeSettings.storeName.trim() ||
     !storeSettings.publicEmail.trim() ||
     Object.values(failures).some((count) => count !== 0) ||

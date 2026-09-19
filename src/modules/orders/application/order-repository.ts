@@ -115,6 +115,21 @@ export type AdminOrderRow = Readonly<{
   createdAt: Date;
 }>;
 
+export type PaymentOrderRecord = Readonly<{
+  id: string;
+  number: bigint;
+  status: OrderStatusValue;
+  buyerEmail: string;
+  totalInCents: bigint;
+  currency: string;
+  paymentExpiresAt: Date;
+  reservationReleasedAt: Date | null;
+}>;
+
+export interface PaymentOrderReader {
+  findPaymentOrder(id: string): Promise<PaymentOrderRecord | null>;
+}
+
 export interface CheckoutTransaction {
   findOrderByCheckoutKey(checkoutKeyHash: string): Promise<OrderView | null>;
   findCart(owner: CheckoutOwner): Promise<CheckoutCartRecord | null>;
@@ -181,7 +196,7 @@ export type PendingOrderRecord = Readonly<{
   }>>;
 }>;
 
-export interface OrderRepository {
+export interface OrderRepository extends PaymentOrderReader {
   findCheckoutCart(owner: CheckoutOwner, now: Date): Promise<CheckoutCartRecord | null>;
   findCustomer(customerId: string): Promise<CheckoutCustomerRecord | null>;
   listCustomerAddresses(customerId: string): Promise<ReadonlyArray<CheckoutAddressRecord>>;
