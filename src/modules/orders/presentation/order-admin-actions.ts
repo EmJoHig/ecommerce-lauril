@@ -6,6 +6,8 @@ import { requireAdmin } from "@/modules/auth/presentation/session";
 import { DomainError } from "@/shared/domain/errors";
 import { getOrderAdminService } from "../infrastructure/order-composition";
 import type { OrderAdminActionState } from "./order-admin-action-state";
+import { getRequestPaymentRefund } from "@/modules/payments/infrastructure/payment-composition";
+import { parseMoneyInputToCents } from "@/shared/domain/money";
 
 const transitionSchema = z.object({
   orderId: z.uuid(),
@@ -16,6 +18,12 @@ const transitionSchema = z.object({
 const noteSchema = z.object({
   orderId: z.uuid(),
   content: z.string().trim().min(1).max(2000),
+});
+
+const refundSchema = z.object({
+  orderId: z.uuid(),
+  kind: z.enum(["FULL", "PARTIAL"]),
+  amount: z.string().trim().max(50).optional().default(""),
 });
 
 export async function transitionOrderAction(
@@ -65,6 +73,32 @@ export async function addOrderNoteAction(
     return {
       status: "error",
       message: error instanceof DomainError ? error.message : "No se pudo agregar la nota.",
+    };
+  }
+}
+
+export async function requestPaymentRefundAction(
+  _previous: OrderAdminActionState,
+  formData: FormData,
+): Promise<OrderAdminActionState> {
+  const admin = await requireAdmin("orders.write");
+  const parsed = refundSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { status: "error", message: "Revisá los datos del reembolso." };
+  try {
+    const amountInCents = parsed.data.kind === "PARTIAL"
+      ? parseMoneyInputToCents(parsed.data.amount)
+      : null;
+    await getRequestPaymentRefund().execute({
+      orderId: parsed.data.orderId,
+      actorUserId: admin.id,
+      amountInCents,
+    });
+    revalidatePath(`/admin/pedidos/${parsed.data.orderId}`);
+    return { status: "success", message: "Solicitud de reembolso enviada. Esperando confirmación de Mercado Pago." };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof DomainError ? error.message : "No se pudo solicitar el reembolso.",
     };
   }
 }

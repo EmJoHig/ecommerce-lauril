@@ -27,7 +27,7 @@ export class PrismaPaymentAttemptRepository implements PaymentAttemptRepository 
         orderBy: [{ attemptNumber: "desc" }, { createdAt: "desc" }],
         select: { attemptNumber: true, status: true },
       });
-      if (latest && !["REJECTED", "CANCELLED"].includes(latest.status)) {
+      if (latest && !["REJECTED", "CANCELLED", "REFUNDED"].includes(latest.status)) {
         throw new ConflictError("El pedido ya posee un intento de pago que no admite reemplazo.");
       }
 

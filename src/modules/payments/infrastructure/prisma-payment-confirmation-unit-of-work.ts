@@ -7,6 +7,7 @@ import type {
 } from "../application/payment-confirmation-unit-of-work";
 import { mapPaymentAttempt } from "./prisma-payment-attempt-repository";
 import { mapPaymentEvent } from "./prisma-payment-event-repository";
+import { mapPaymentRefund } from "./prisma-payment-refund-repository";
 
 type Transaction = Parameters<Parameters<PrismaClient["$transaction"]>[0]>[0];
 
@@ -36,6 +37,29 @@ function createTransaction(tx: Transaction): PaymentConfirmationTransaction {
     findAttempt: async (id) => {
       const row = await tx.paymentAttempt.findUnique({ where: { id } });
       return row ? mapPaymentAttempt(row) : null;
+    },
+    findActiveRefund: async (paymentAttemptId) => {
+      const row = await tx.paymentRefund.findFirst({
+        where: { paymentAttemptId, status: { in: ["CREATED", "SUBMITTED"] } },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      });
+      return row ? mapPaymentRefund(row) : null;
+    },
+    createRefund: async (refund) => {
+      await tx.paymentRefund.create({ data: refund });
+    },
+    updateRefund: async (input) => {
+      await tx.paymentRefund.update({
+        where: { id: input.id },
+        data: {
+          status: input.status,
+          ...(input.providerRefundId !== undefined ? { providerRefundId: input.providerRefundId } : {}),
+          ...(input.providerStatus !== undefined ? { providerStatus: input.providerStatus } : {}),
+          ...(input.failureCode !== undefined ? { failureCode: input.failureCode } : {}),
+          ...(input.submittedAt !== undefined ? { submittedAt: input.submittedAt } : {}),
+          ...(input.confirmedAt !== undefined ? { confirmedAt: input.confirmedAt } : {}),
+        },
+      });
     },
     findOrder: async (id): Promise<PaymentConfirmationOrder | null> => {
       const row = await tx.order.findUnique({
@@ -133,6 +157,22 @@ function createTransaction(tx: Transaction): PaymentConfirmationTransaction {
           createdAt: changedAt,
         },
       });
+    },
+    transitionOrderRefund: async (input) => {
+      const updated = await tx.order.updateMany({
+        where: { id: input.orderId, status: input.fromStatus },
+        data: { status: input.toStatus, updatedAt: input.changedAt },
+      });
+      if (updated.count !== 1) return false;
+      await tx.orderStatusHistory.create({ data: {
+        orderId: input.orderId,
+        fromStatus: input.fromStatus,
+        toStatus: input.toStatus,
+        actorUserId: null,
+        reason: input.reason,
+        createdAt: input.changedAt,
+      } });
+      return true;
     },
     finishEvent: async (eventId, attemptId, processedAt) => {
       const updated = await tx.paymentEvent.updateMany({

@@ -170,8 +170,20 @@ técnico reutiliza la persistida. `unique(provider, providerEventId)` convierte
 Un índice único parcial adicional sobre `order_id`, limitado a estados `CREATED`
 y `PENDING`, garantiza como máximo un intento activo por pedido. La aplicación
 calcula el siguiente `attemptNumber` desde el último intento; las restricciones
-únicas resuelven carreras y el request perdedor reutiliza el intento ganador. Solo
-`REJECTED` y `CANCELLED` habilitan otro intento en F14B.
+únicas resuelven carreras y el request perdedor reutiliza el intento ganador.
+`REJECTED` y `CANCELLED` habilitan otro intento; `REFUNDED` también puede hacerlo
+cuando el pedido nunca fue venta local y su reserva pendiente continúa vigente.
+
+`PaymentRefund` pertenece a un `PaymentAttempt` y conserva tipo `FULL/PARTIAL`,
+importe en centavos, transacción de pago opcional, UUID de idempotencia, estado
+`CREATED/SUBMITTED/CONFIRMED/FAILED/REQUIRES_REVIEW` y metadata externa mínima.
+Un índice único parcial por `payment_attempt_id` para `CREATED/SUBMITTED` evita
+dos refunds activos; otro índice parcial único por proveedor/ID externo deduplica
+el refund cuando Mercado Pago informa ese ID.
+
+Los importes reembolsados se derivan del GET autoritativo de Orders API. Cambiar
+un pedido a `PARTIALLY_REFUNDED` o `REFUNDED` no modifica `Inventory`, no crea
+`RETURN`/`CANCELLATION` y no reconstruye reservas.
 
 La referencia externa opcional no usa `@unique`: el script de índices crea
 `unique(provider, provider_resource_id)` solamente cuando

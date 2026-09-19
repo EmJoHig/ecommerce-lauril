@@ -80,6 +80,23 @@ const commands = [
     ],
   },
   {
+    createIndexes: "payment_refunds",
+    indexes: [
+      {
+        key: { payment_attempt_id: 1 },
+        name: "payment_refunds_one_active_per_attempt_key",
+        unique: true,
+        partialFilterExpression: { status: { $in: ["CREATED", "SUBMITTED"] } },
+      },
+      {
+        key: { provider: 1, provider_refund_id: 1 },
+        name: "payment_refunds_provider_refund_id_key",
+        unique: true,
+        partialFilterExpression: { provider_refund_id: { $type: "string" } },
+      },
+    ],
+  },
+  {
     createIndexes: "inventory_movements",
     indexes: [
       {
@@ -102,10 +119,10 @@ async function main(): Promise<void> {
   }
   await prisma.sequence.upsert({
     where: { id: "schema:indexes:v1" },
-    update: { value: 4n },
-    create: { id: "schema:indexes:v1", value: 4n },
+    update: { value: 5n },
+    create: { id: "schema:indexes:v1", value: 5n },
   });
-  console.info(JSON.stringify({ status: "ok", indexesEnsured: 8 }));
+  console.info(JSON.stringify({ status: "ok", indexesEnsured: 10 }));
 }
 
 main()

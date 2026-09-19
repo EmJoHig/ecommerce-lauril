@@ -290,8 +290,8 @@ No realizar refactors generales ni auditorías cosméticas.
 
 ## Fase 14 — Mercado Pago
 
-Estado: en curso. F14A y F14B completadas y validadas; F14C implementada y
-validada localmente; F14D-F14E pendientes.
+Estado: en curso. F14A, F14B y F14C completadas y validadas; F14D implementada
+y validada localmente; F14E pendiente.
 
 La integración nueva utilizará Checkout Pro mediante Mercado Pago Orders API
 (`POST /v1/orders`), no la API clásica de Preferences. El dominio conserva un
@@ -341,10 +341,15 @@ Estado: implementada y validada localmente; pendiente de integración real en F1
 
 ### F14D — Estados, reintentos y reembolsos
 
-- Completar políticas de rechazo, cancelación, múltiples intentos y reembolsos.
-- Definir explícitamente la política para pagos aprobados después de liberar o
-  cancelar la reserva; mientras tanto se representan como `REQUIRES_REVIEW` y no
-  se marcan `PAID`, no descuentan stock y no se auto-reembolsan.
+Estado: implementada y validada localmente; pendiente de integración real en F14E.
+
+- Rechazo y cancelación terminan el intento, no el pedido: mientras la reserva
+  siga vigente, `PENDING_PAYMENT` admite un intento nuevo con otra clave.
+- `PaymentRefund` conserva idempotencia propia y admite reembolsos parciales y
+  totales mediante Orders API. Un refund nunca repone stock automáticamente.
+- Un pago acreditado después de cancelación/liberación inicia un refund total
+  idempotente. El pedido local permanece `CANCELLED` aun después de confirmarlo.
+- `MERCADO_PAGO_ENABLED` continúa en `false` por defecto.
 
 ### F14E — Integración de prueba y cierre
 

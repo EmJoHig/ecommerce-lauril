@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAdmin } from "@/modules/auth/presentation/session";
 import { getOrderAdminService } from "@/modules/orders/infrastructure/order-composition";
-import { OrderNoteForm, OrderTransitionForm } from "@/modules/orders/presentation/order-admin-forms";
+import { OrderNoteForm, OrderRefundForms, OrderTransitionForm } from "@/modules/orders/presentation/order-admin-forms";
+import { getAdminPaymentRefundSummary } from "@/modules/payments/infrastructure/payment-composition";
 import { orderStatusClass, orderStatusLabel, transitionLabel } from "@/modules/orders/presentation/order-presenter";
 import { NotFoundError } from "@/shared/domain/errors";
 import { formatMoney } from "@/shared/domain/money";
@@ -15,6 +16,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   try { order = await getOrderAdminService().find((await params).id); }
   catch (error) { if (error instanceof NotFoundError) notFound(); throw error; }
   const canWrite = admin.permissions.includes("orders.write");
+  const refundSummary = canWrite ? await getAdminPaymentRefundSummary(order.id) : null;
   const pickup = order.shippingMethodType === "PICKUP";
   return <>
     <div className="admin-heading"><div><p className="eyebrow">Ventas</p><h1>Pedido #{order.number.toString()}</h1><p>{order.buyerFirstName} {order.buyerLastName} · {order.customerId ? "Cliente registrado" : "Invitado"}</p></div><Link className="button button--secondary" href="/admin/pedidos">Volver</Link></div>
@@ -28,6 +30,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
       <aside className="admin-panel form-section"><h2>Totales</h2><dl className="order-totals"><div><dt>Subtotal</dt><dd>{formatMoney(order.itemsSubtotalInCents)}</dd></div><div><dt>Descuentos</dt><dd>{formatMoney(order.discountAmountInCents)}</dd></div><div><dt>Envío</dt><dd>{formatMoney(order.shippingAmountInCents)}</dd></div><div><dt>Total</dt><dd><strong>{formatMoney(order.totalInCents)}</strong></dd></div></dl></aside>
     </div>
     {canWrite ? <section className="admin-panel form-section order-operations"><h2>Operación</h2>{order.allowedTransitions.length === 0 ? <p>No hay transiciones administrativas disponibles para este estado.</p> : order.allowedTransitions.map((status) => <OrderTransitionForm critical={status === "CANCELLED"} key={status} label={transitionLabel(status, pickup)} orderId={order.id} toStatus={status} />)}<p className="form-help">El estado Pagado está reservado para la futura integración de pagos y no puede asignarse desde este panel.</p></section> : null}
+    {refundSummary ? <section className="admin-panel form-section order-operations"><h2>Reembolsos de Mercado Pago</h2><OrderRefundForms orderId={order.id} remainingInCents={refundSummary.amountInCents - refundSummary.refundedAmountInCents} /><p className="form-help">La confirmación definitiva llega desde Mercado Pago. Un reembolso no repone stock automáticamente.</p></section> : null}
     <div className="admin-grid order-admin-bottom"><section className="admin-panel form-section"><h2>Historial</h2><ol className="order-timeline">{order.history.map((entry) => <li key={entry.id}><span className={`status-badge status-badge--${orderStatusClass(entry.toStatus)}`}>{orderStatusLabel(entry.toStatus)}</span><div><strong>{entry.fromStatus ? `${orderStatusLabel(entry.fromStatus)} → ${orderStatusLabel(entry.toStatus)}` : orderStatusLabel(entry.toStatus)}</strong><p>{entry.reason}</p><small>{entry.createdAt.toLocaleString("es-AR")} · {entry.actorName ? `${entry.actorName} (${entry.actorEmail})` : "Sistema"}</small></div></li>)}</ol></section><section className="admin-panel form-section"><h2>Notas internas</h2>{canWrite ? <OrderNoteForm orderId={order.id} /> : null}<div className="order-notes">{order.notes.length === 0 ? <p className="form-help">Todavía no hay notas internas.</p> : order.notes.map((note) => <article key={note.id}><p>{note.content}</p><small>{note.actorName} · {note.createdAt.toLocaleString("es-AR")}</small></article>)}</div></section></div>
   </>;
 }

@@ -1,5 +1,6 @@
 import type { PaymentAttempt, PaymentEvent, PaymentAttemptStatus } from "../domain/payment";
 import type { OrderStatusValue } from "@/modules/orders/domain/order";
+import type { PaymentRefund, PaymentRefundStatus } from "../domain/payment-refund";
 
 export type PaymentConfirmationOrder = Readonly<{
   id: string;
@@ -23,6 +24,17 @@ export interface PaymentConfirmationTransaction {
   findEvent(id: string): Promise<PaymentEvent | null>;
   findAttempt(id: string): Promise<PaymentAttempt | null>;
   findOrder(id: string): Promise<PaymentConfirmationOrder | null>;
+  findActiveRefund(paymentAttemptId: string): Promise<PaymentRefund | null>;
+  createRefund(refund: PaymentRefund): Promise<void>;
+  updateRefund(input: Readonly<{
+    id: string;
+    status: PaymentRefundStatus;
+    providerRefundId?: string | null;
+    providerStatus?: string | null;
+    failureCode?: string | null;
+    submittedAt?: Date | null;
+    confirmedAt?: Date | null;
+  }>): Promise<void>;
   updateAttempt(input: Readonly<{
     id: string;
     status: PaymentAttemptStatus;
@@ -48,6 +60,13 @@ export interface PaymentConfirmationTransaction {
   }>): Promise<void>;
   markOrderPaid(orderId: string, changedAt: Date): Promise<boolean>;
   createPaidHistory(orderId: string, changedAt: Date): Promise<void>;
+  transitionOrderRefund(input: Readonly<{
+    orderId: string;
+    fromStatus: "PAID" | "PARTIALLY_REFUNDED";
+    toStatus: "PARTIALLY_REFUNDED" | "REFUNDED";
+    changedAt: Date;
+    reason: string;
+  }>): Promise<boolean>;
   finishEvent(eventId: string, attemptId: string, processedAt: Date): Promise<boolean>;
 }
 

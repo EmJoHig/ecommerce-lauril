@@ -278,7 +278,7 @@ Cancelar un pendiente libera `stockReserved` una sola vez sin modificar
 y `AuditLog` se escriben atómicamente. `OrderNote` es información operativa interna
 y nunca forma parte del DTO público del pedido.
 
-## Pagos en Fases 14A, 14B y 14C
+## Pagos en Fases 14A-D
 
 `payments` introduce `PaymentAttempt` como historial 1:N del pedido y
 `PaymentEvent` como inbox idempotente. Un intento conserva importe y moneda del
@@ -308,9 +308,11 @@ solo redirige a una URL HTTPS obtenida server-side. `MERCADO_PAGO_ENABLED` vale
 gateway. Los parámetros `payment_return` muestran únicamente un mensaje neutro y
 no cambian estado local alguno.
 
-Los eventos se deduplican por `provider + providerEventId`. Si llega una aprobación
-después de liberar la reserva, `REQUIRES_REVIEW` permite representarla sin decidir
-todavía un efecto; la política definitiva corresponde a F14D.
+Los eventos se deduplican por `provider + providerEventId`. `failed` marca solo el
+`PaymentAttempt` como `REJECTED` y `canceled` como `CANCELLED`; el pedido permanece
+`PENDING_PAYMENT` para permitir otro intento mientras la reserva continúe viva.
+`Order.PAYMENT_REJECTED` no representa el rechazo de un intento individual y la
+integración no transiciona el pedido a ese estado.
 
 F14C incorpora `POST /api/payments/mercado-pago/webhook`. La autenticación pública
 es la firma HMAC-SHA256 de Mercado Pago: el manifest usa exclusivamente `data.id`
@@ -335,10 +337,22 @@ proveedor. El índice parcial único de venta por inventario/pedido, la transacc
 y los CAS protegen el exactly-once entre procesos.
 
 La expiración y el webhook compiten sobre el mismo pedido/reserva: quien confirma
-primero invalida la escritura condicional del otro. Un pago acreditado posterior
-a cancelación, liberación o pérdida de reserva queda `REQUIRES_REVIEW`, sin venta,
-nueva reserva ni refund automático. Estados esperables no terminales conservan
-`PENDING`; estados terminales o desconocidos quedan en revisión hasta F14D.
+primero invalida la escritura condicional del otro. F14D agrega `PaymentRefund` y
+`PaymentGateway.refundOrder`. Cada operación posee su UUID de idempotencia
+persistido: los reintentos técnicos conservan la misma clave, mientras un refund
+nuevo obtiene otra. El total usa `POST /v1/orders/{id}/refund` sin body; el parcial
+envía una transacción inequívoca y un importe decimal derivado de centavos.
+
+El GET autoritativo suma exactamente `transactions.refunds[].amount`. Confirmar
+refunds transiciona `PAID -> PARTIALLY_REFUNDED/REFUNDED` o
+`PARTIALLY_REFUNDED -> REFUNDED`, sin movimientos ni cambios de inventario.
+Refund no equivale a devolución física de mercadería y nunca repone stock.
+
+Una acreditación posterior a cancelación, liberación o pérdida de reserva no
+crea venta ni reserva: prepara/reutiliza un refund total y espera confirmación
+autoritaria. Al confirmarse, el intento queda `REFUNDED` pero el pedido continúa
+`CANCELLED`. Fallos transitorios reintentan la misma operación; incoherencias
+permanentes quedan `REQUIRES_REVIEW` y generan un log estructurado.
 
 ## Backoffice consolidado en Fase 7
 

@@ -103,6 +103,23 @@ enum PaymentEventProcessingStatus {
   @@map("payment_event_processing_status")
 }
 
+enum PaymentRefundKind {
+  FULL
+  PARTIAL
+
+  @@map("payment_refund_kind")
+}
+
+enum PaymentRefundStatus {
+  CREATED
+  SUBMITTED
+  CONFIRMED
+  FAILED
+  REQUIRES_REVIEW
+
+  @@map("payment_refund_status")
+}
+
 model User {
   id                  String               @id @default(uuid()) @map("_id")
   email               String               @unique
@@ -522,11 +539,36 @@ model PaymentAttempt {
   updatedAt               DateTime             @updatedAt @map("updated_at")
   order                   Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
   events                  PaymentEvent[]
+  refunds                 PaymentRefund[]
 
   @@unique([orderId, attemptNumber])
   @@index([orderId, createdAt])
   @@index([status, updatedAt])
   @@map("payment_attempts")
+}
+
+model PaymentRefund {
+  id                   String              @id @default(uuid()) @map("_id")
+  paymentAttemptId     String              @map("payment_attempt_id")
+  provider             PaymentProvider
+  providerResourceId   String              @map("provider_resource_id")
+  kind                 PaymentRefundKind
+  amountInCents        BigInt              @map("amount_in_cents")
+  paymentTransactionId String?             @map("payment_transaction_id")
+  idempotencyKey       String              @unique @map("idempotency_key")
+  status               PaymentRefundStatus @default(CREATED)
+  providerRefundId     String?             @map("provider_refund_id")
+  providerStatus       String?             @map("provider_status")
+  failureCode          String?             @map("failure_code")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  submittedAt          DateTime?           @map("submitted_at")
+  confirmedAt          DateTime?           @map("confirmed_at")
+  paymentAttempt       PaymentAttempt      @relation(fields: [paymentAttemptId], references: [id], onDelete: Cascade)
+
+  @@index([paymentAttemptId, createdAt])
+  @@index([status, createdAt])
+  @@map("payment_refunds")
 }
 
 model PaymentEvent {

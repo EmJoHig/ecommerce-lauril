@@ -21,14 +21,29 @@ export type ExternalPaymentState = Readonly<{
   totalPaidAmountInCents: bigint | null;
   approvedAt: Date | null;
   rejectedAt: Date | null;
-  refundedAmountInCents: bigint;
+  refundedAmountInCents: bigint | null;
+  paymentTransactionId: string | null;
 }>;
 
 export type ExternalCheckout = ExternalPaymentState & Readonly<{
   checkoutUrl: string;
 }>;
 
+export type RefundOrderInput = Readonly<{
+  providerResourceId: string;
+  idempotencyKey: string;
+  kind: "FULL" | "PARTIAL";
+  amountInCents: bigint;
+  paymentTransactionId: string | null;
+}>;
+
+export type ExternalRefundResult = Readonly<{
+  providerRefundId: string | null;
+  providerStatus: string | null;
+}>;
+
 export interface PaymentGateway {
   createCheckout(input: CreateExternalCheckoutInput): Promise<ExternalCheckout>;
   getPaymentState(providerResourceId: string): Promise<ExternalPaymentState>;
+  refundOrder(input: RefundOrderInput): Promise<ExternalRefundResult>;
 }

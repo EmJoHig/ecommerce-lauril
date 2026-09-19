@@ -69,7 +69,7 @@ export class StartPaymentCheckout {
       providerStatusDetail: external.providerStatusDetail,
       approvedAt: null,
       rejectedAt: null,
-      refundedAmountInCents: external.refundedAmountInCents,
+      refundedAmountInCents: external.refundedAmountInCents ?? 0n,
     });
     return { attemptId: attempt.id, checkoutUrl, reused: false };
   }

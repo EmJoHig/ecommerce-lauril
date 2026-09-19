@@ -11,6 +11,7 @@ import type {
   PaymentConfirmationUnitOfWork,
 } from "./payment-confirmation-unit-of-work";
 import { mercadoPagoExternalReference } from "./mercado-pago-reference";
+import { createPaymentRefund, type PaymentRefund } from "../domain/payment-refund";
 
 export type ProcessMercadoPagoWebhookInput = Readonly<{
   providerEventId: string;
@@ -22,7 +23,7 @@ export type ProcessMercadoPagoWebhookInput = Readonly<{
 }>;
 
 export type PaymentWebhookOutcome = Readonly<{
-  kind: "approved" | "pending" | "requires_review" | "ignored" | "duplicate";
+  kind: "approved" | "pending" | "rejected" | "cancelled" | "partially_refunded" | "refunded" | "requires_review" | "ignored" | "duplicate";
   reasonCode?: string;
   orderNumber?: bigint;
 }>;
@@ -91,11 +92,66 @@ export class ProcessMercadoPagoWebhook {
     }
 
     try {
-      return await this.unitOfWork.run((transaction) =>
+      const result = await this.unitOfWork.run((transaction) =>
         finalizeAuthoritativeState(transaction, event.id, attempt.id, external, now));
+      if (!("lateRefund" in result)) return result;
+      return await this.submitLateRefund(event.id, attempt.id, result.lateRefund, result.orderNumber, now);
     } catch (error) {
       await this.markFailed(event.id, attempt.id, now);
       throw new PaymentWebhookTechnicalError("No se pudo confirmar atómicamente el pago.", { cause: error });
+    }
+  }
+
+  private async submitLateRefund(
+    eventId: string,
+    attemptId: string,
+    refund: PaymentRefund,
+    orderNumber: bigint,
+    now: Date,
+  ): Promise<PaymentWebhookOutcome> {
+    try {
+      const external = await this.gateway.refundOrder({
+        providerResourceId: refund.providerResourceId,
+        idempotencyKey: refund.idempotencyKey,
+        kind: "FULL",
+        amountInCents: refund.amountInCents,
+        paymentTransactionId: null,
+      });
+      await this.unitOfWork.run(async (transaction) => {
+        await transaction.updateRefund({
+          id: refund.id,
+          status: "SUBMITTED",
+          providerRefundId: external.providerRefundId,
+          providerStatus: external.providerStatus,
+          failureCode: null,
+          submittedAt: now,
+        });
+        if (!(await transaction.finishEvent(eventId, attemptId, now))) {
+          throw new ConflictError("El evento cambió durante el auto-reembolso.");
+        }
+      });
+      return { kind: "requires_review", reasonCode: "late_payment_refund_submitted", orderNumber };
+    } catch (error) {
+      if (isTransientRefundError(error)) throw error;
+      const failureCode = sanitizedFailureCode(error);
+      await this.unitOfWork.run(async (transaction) => {
+        await transaction.updateRefund({ id: refund.id, status: "REQUIRES_REVIEW", failureCode });
+        const current = await transaction.findAttempt(attemptId);
+        if (current) await transaction.updateAttempt({
+          id: current.id,
+          status: "REQUIRES_REVIEW",
+          providerStatus: current.providerStatus ?? "processed",
+          providerStatusDetail: current.providerStatusDetail,
+          approvedAt: current.approvedAt,
+          rejectedAt: current.rejectedAt,
+          refundedAmountInCents: current.refundedAmountInCents,
+        });
+        if (!(await transaction.finishEvent(eventId, attemptId, now))) {
+          throw new ConflictError("El evento cambió durante el auto-reembolso.");
+        }
+      });
+      console.warn(JSON.stringify({ event: "payment.refund_requires_review", paymentAttemptId: attemptId, failureCode }));
+      return { kind: "requires_review", reasonCode: "late_payment_refund_requires_review", orderNumber };
     }
   }
 
@@ -115,7 +171,7 @@ async function finalizeAuthoritativeState(
   attemptId: string,
   external: ExternalPaymentState,
   now: Date,
-): Promise<PaymentWebhookOutcome> {
+): Promise<PaymentWebhookOutcome | Readonly<{ lateRefund: PaymentRefund; orderNumber: bigint }>> {
   const event = await transaction.findEvent(eventId);
   if (!event) throw new ConflictError("No se encontró el evento de pago persistido.");
   if (["PROCESSED", "IGNORED"].includes(event.processingStatus)) return { kind: "duplicate" };
@@ -129,11 +185,28 @@ async function finalizeAuthoritativeState(
   }
 
   const integrityReason = paymentIntegrityFailure(attempt, order, external);
-  const approved = external.providerStatus === "processed"
-    && external.providerStatusDetail === "accredited";
+  const state = classifyProviderState(external);
+  const approved = state === "approved";
   if (integrityReason || (approved && external.totalPaidAmountInCents !== order.totalInCents)) {
     await finishReview(transaction, eventId, attempt, external, now);
     return { kind: "requires_review", reasonCode: integrityReason ?? "paid_amount_mismatch", orderNumber: order.number };
+  }
+
+  if ((state === "partially_refunded" || state === "refunded") && external.refundedAmountInCents === null) {
+    await finishReview(transaction, eventId, attempt, external, now);
+    return { kind: "requires_review", reasonCode: "refund_amount_unavailable", orderNumber: order.number };
+  }
+  if (external.refundedAmountInCents !== null && external.refundedAmountInCents > attempt.amountInCents) {
+    await finishReview(transaction, eventId, attempt, external, now);
+    return { kind: "requires_review", reasonCode: "refund_amount_exceeds_payment", orderNumber: order.number };
+  }
+  if (state === "refunded" && external.refundedAmountInCents !== attempt.amountInCents) {
+    await finishReview(transaction, eventId, attempt, external, now);
+    return { kind: "requires_review", reasonCode: "incomplete_total_refund_amount", orderNumber: order.number };
+  }
+
+  if (state === "partially_refunded" || state === "refunded") {
+    return confirmRefund(transaction, eventId, attempt, order, external, state, now);
   }
 
   if (order.status === "PAID" || attempt.status === "APPROVED") {
@@ -145,7 +218,7 @@ async function finalizeAuthoritativeState(
         providerStatusDetail: external.providerStatusDetail,
         approvedAt: attempt.approvedAt ?? now,
         rejectedAt: null,
-        refundedAmountInCents: external.refundedAmountInCents,
+        refundedAmountInCents: external.refundedAmountInCents ?? attempt.refundedAmountInCents,
       });
       if (!(await transaction.finishEvent(eventId, attempt.id, now))) {
         throw new ConflictError("El evento cambió durante el procesamiento.");
@@ -157,35 +230,59 @@ async function finalizeAuthoritativeState(
   }
 
   if (!approved) {
-    const pending = isExpectedPendingState(external.providerStatus, external.providerStatusDetail);
+    const mappedStatus = state === "pending" ? "PENDING"
+      : state === "rejected" ? "REJECTED"
+      : state === "cancelled" ? "CANCELLED"
+      : "REQUIRES_REVIEW";
     await transaction.updateAttempt({
       id: attempt.id,
-      status: pending ? "PENDING" : "REQUIRES_REVIEW",
+      status: mappedStatus,
       providerStatus: external.providerStatus,
       providerStatusDetail: external.providerStatusDetail,
       approvedAt: attempt.approvedAt,
-      rejectedAt: attempt.rejectedAt,
-      refundedAmountInCents: external.refundedAmountInCents,
+      rejectedAt: state === "rejected" ? now : attempt.rejectedAt,
+      refundedAmountInCents: external.refundedAmountInCents ?? attempt.refundedAmountInCents,
     });
     if (!(await transaction.finishEvent(eventId, attempt.id, now))) {
       throw new ConflictError("El evento cambió durante el procesamiento.");
     }
     return {
-      kind: pending ? "pending" : "requires_review",
-      ...(pending ? {} : { reasonCode: "provider_state_requires_review" }),
+      kind: state === "pending" ? "pending"
+        : state === "rejected" ? "rejected"
+        : state === "cancelled" ? "cancelled"
+        : "requires_review",
+      ...(state === "unknown" ? { reasonCode: "provider_state_requires_review" } : {}),
       orderNumber: order.number,
     };
   }
 
   if (order.status !== "PENDING_PAYMENT" || order.reservationReleasedAt) {
-    await finishReview(transaction, eventId, attempt, external, now);
-    return { kind: "requires_review", reasonCode: "reservation_released_or_order_closed", orderNumber: order.number };
+    const refund = await acquireLateRefund(transaction, attempt, now);
+    await transaction.updateAttempt({
+      id: attempt.id,
+      status: "REQUIRES_REVIEW",
+      providerStatus: external.providerStatus,
+      providerStatusDetail: external.providerStatusDetail,
+      approvedAt: attempt.approvedAt,
+      rejectedAt: null,
+      refundedAmountInCents: attempt.refundedAmountInCents,
+    });
+    return { lateRefund: refund, orderNumber: order.number };
   }
 
   const sales = reservationSales(order);
   if (!sales) {
-    await finishReview(transaction, eventId, attempt, external, now);
-    return { kind: "requires_review", reasonCode: "reservation_unavailable", orderNumber: order.number };
+    const refund = await acquireLateRefund(transaction, attempt, now);
+    await transaction.updateAttempt({
+      id: attempt.id,
+      status: "REQUIRES_REVIEW",
+      providerStatus: external.providerStatus,
+      providerStatusDetail: external.providerStatusDetail,
+      approvedAt: attempt.approvedAt,
+      rejectedAt: null,
+      refundedAmountInCents: attempt.refundedAmountInCents,
+    });
+    return { lateRefund: refund, orderNumber: order.number };
   }
 
   assertOrderTransition({ from: "PENDING_PAYMENT", to: "PAID", source: "PAYMENT" });
@@ -218,12 +315,100 @@ async function finalizeAuthoritativeState(
     providerStatusDetail: external.providerStatusDetail,
     approvedAt: now,
     rejectedAt: null,
-    refundedAmountInCents: external.refundedAmountInCents,
+    refundedAmountInCents: external.refundedAmountInCents ?? 0n,
   });
   if (!(await transaction.finishEvent(eventId, attempt.id, now))) {
     throw new ConflictError("El evento cambió durante el procesamiento.");
   }
   return { kind: "approved", orderNumber: order.number };
+}
+
+async function confirmRefund(
+  transaction: PaymentConfirmationTransaction,
+  eventId: string,
+  attempt: PaymentAttempt,
+  order: PaymentConfirmationOrder,
+  external: ExternalPaymentState,
+  state: "partially_refunded" | "refunded",
+  now: Date,
+): Promise<PaymentWebhookOutcome> {
+  const refunded = state === "refunded" ? attempt.amountInCents : external.refundedAmountInCents!;
+  if (state === "partially_refunded" && (refunded <= 0n || refunded >= attempt.amountInCents)) {
+    await finishReview(transaction, eventId, attempt, external, now);
+    return { kind: "requires_review", reasonCode: "invalid_partial_refund_amount", orderNumber: order.number };
+  }
+  const lateSale = order.status === "CANCELLED";
+  if (!lateSale) {
+    const expected = order.status === "PAID"
+      || order.status === "PARTIALLY_REFUNDED"
+      || (state === "refunded" && order.status === "REFUNDED");
+    if (!expected) {
+      await finishReview(transaction, eventId, attempt, external, now);
+      return { kind: "requires_review", reasonCode: "local_refund_state_mismatch", orderNumber: order.number };
+    }
+    const target = state === "partially_refunded" ? "PARTIALLY_REFUNDED" : "REFUNDED";
+    if (order.status !== target && order.status !== "REFUNDED") {
+      assertOrderTransition({ from: order.status, to: target, source: "PAYMENT" });
+      if (!(await transaction.transitionOrderRefund({
+        orderId: order.id,
+        fromStatus: order.status as "PAID" | "PARTIALLY_REFUNDED",
+        toStatus: target,
+        changedAt: now,
+        reason: state === "partially_refunded"
+          ? "Pago reembolsado parcialmente por Mercado Pago."
+          : "Pago reembolsado totalmente por Mercado Pago.",
+      }))) throw new ConflictError("El pedido cambió durante la confirmación del reembolso.");
+    }
+  } else if (state !== "refunded") {
+    await finishReview(transaction, eventId, attempt, external, now);
+    return { kind: "requires_review", reasonCode: "late_payment_partial_refund", orderNumber: order.number };
+  }
+  await transaction.updateAttempt({
+    id: attempt.id,
+    status: state === "partially_refunded" ? "PARTIALLY_REFUNDED" : "REFUNDED",
+    providerStatus: external.providerStatus,
+    providerStatusDetail: external.providerStatusDetail,
+    approvedAt: attempt.approvedAt,
+    rejectedAt: attempt.rejectedAt,
+    refundedAmountInCents: refunded,
+  });
+  const activeRefund = await transaction.findActiveRefund(attempt.id);
+  const authoritativeDelta = refunded - attempt.refundedAmountInCents;
+  if (activeRefund && ((state === "refunded" && activeRefund.kind === "FULL")
+    || (state === "partially_refunded" && activeRefund.kind === "PARTIAL"
+      && authoritativeDelta > 0n && activeRefund.amountInCents === authoritativeDelta))) {
+    await transaction.updateRefund({
+      id: activeRefund.id,
+      status: "CONFIRMED",
+      providerStatus: external.providerStatusDetail,
+      failureCode: null,
+      confirmedAt: now,
+    });
+  }
+  if (!(await transaction.finishEvent(eventId, attempt.id, now))) {
+    throw new ConflictError("El evento cambió durante la confirmación del reembolso.");
+  }
+  return { kind: state, orderNumber: order.number };
+}
+
+async function acquireLateRefund(
+  transaction: PaymentConfirmationTransaction,
+  attempt: PaymentAttempt,
+  now: Date,
+): Promise<PaymentRefund> {
+  const active = await transaction.findActiveRefund(attempt.id);
+  if (active) return active;
+  if (!attempt.providerResourceId) throw new ConflictError("El intento no posee recurso externo.");
+  const refund = createPaymentRefund({
+    paymentAttemptId: attempt.id,
+    provider: attempt.provider,
+    providerResourceId: attempt.providerResourceId,
+    kind: "FULL",
+    amountInCents: attempt.amountInCents,
+    paymentTransactionId: null,
+  }, now);
+  await transaction.createRefund(refund);
+  return refund;
 }
 
 function paymentIntegrityFailure(
@@ -299,17 +484,45 @@ async function finishReview(
     providerStatusDetail: external.providerStatusDetail,
     approvedAt: attempt.approvedAt,
     rejectedAt: attempt.rejectedAt,
-    refundedAmountInCents: external.refundedAmountInCents,
+    refundedAmountInCents: external.refundedAmountInCents ?? attempt.refundedAmountInCents,
   });
   if (!(await transaction.finishEvent(eventId, attempt.id, now))) {
     throw new ConflictError("El evento cambió durante el procesamiento.");
   }
 }
 
-function isExpectedPendingState(status: string, detail: string | null): boolean {
-  return (status === "created" && ["created", "pending_payment"].includes(detail ?? ""))
+function classifyProviderState(external: ExternalPaymentState):
+  "pending" | "approved" | "rejected" | "cancelled" | "partially_refunded" | "refunded" | "unknown" {
+  const status = external.providerStatus;
+  const detail = external.providerStatusDetail;
+  if (status === "processed" && detail === "accredited") return "approved";
+  if (status === "processed" && detail === "partially_refunded") return "partially_refunded";
+  if ((status === "processed" || status === "refunded") && detail === "refunded") return "refunded";
+  if (status === "failed") return "rejected";
+  if ((status === "canceled" || status === "cancelled")
+    && ["canceled", "cancelled", "cancelled_by_user", "cancelled_by_provider"].includes(detail ?? status)) return "cancelled";
+  if ((status === "created" && detail === "created")
     || (status === "processing" && ["in_process", "pending_review_manual"].includes(detail ?? ""))
-    || (status === "action_required" && detail === "waiting_capture");
+    || (status === "action_required" && ["waiting_payment", "waiting_capture"].includes(detail ?? ""))) return "pending";
+  return "unknown";
+}
+
+function gatewayErrorCode(error: unknown): string | null {
+  if (!(error instanceof Error) || !("code" in error)) return null;
+  const code = String(error.code);
+  return /^[A-Z0-9_-]{1,100}$/.test(code) ? code : null;
+}
+
+function isTransientRefundError(error: unknown): boolean {
+  return ["TIMEOUT", "NETWORK", "RESOURCE_LOCKED", "RATE_LIMITED", "UNAVAILABLE"].includes(gatewayErrorCode(error) ?? "");
+}
+
+function sanitizedFailureCode(error: unknown): string {
+  const providerCode = error instanceof Error && "providerCode" in error
+    ? String(error.providerCode ?? "")
+    : "";
+  if (/^[a-z0-9_-]{1,100}$/i.test(providerCode)) return providerCode;
+  return gatewayErrorCode(error) ?? "PROVIDER_ERROR";
 }
 
 function sameEvent(event: ReturnType<typeof createPaymentEvent>, input: ProcessMercadoPagoWebhookInput): boolean {

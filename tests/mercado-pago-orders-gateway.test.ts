@@ -16,8 +16,8 @@ const input = {
 } as const;
 
 describe("MercadoPagoOrdersGateway", () => {
-  it("crea una order online/manual con dinero decimal, idempotencia y retornos del pedido", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({
+  it("crea una order y envía refund FULL sin body reutilizando la key persistida", async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce(jsonResponse({
       id: "mp-order-1",
       status: "created",
       status_detail: "pending_payment",
@@ -25,7 +25,7 @@ describe("MercadoPagoOrdersGateway", () => {
       checkout_url: "https://checkout.mercadopago.test/order-1",
       currency: "ARS",
       total_amount: "46.00",
-    }));
+    })).mockResolvedValueOnce(jsonResponse({ status: "processed", status_detail: "refunded" }));
     const gateway = gatewayWith(fetchFn);
 
     const result = await gateway.createCheckout(input);
@@ -64,15 +64,25 @@ describe("MercadoPagoOrdersGateway", () => {
         auto_return: "all",
       } },
     });
+    const refundKey = "20000000-0000-4000-8000-000000000001";
+    await gateway.refundOrder({
+      providerResourceId: "mp-order-1", idempotencyKey: refundKey,
+      kind: "FULL", amountInCents: 4600n, paymentTransactionId: null,
+    });
+    const [refundUrl, refundInit] = fetchFn.mock.calls[1]!;
+    expect(refundUrl).toBe("https://api.test/v1/orders/mp-order-1/refund");
+    expect(refundInit.headers).toMatchObject({ "X-Idempotency-Key": refundKey, "Content-Type": "application/json" });
+    expect(refundInit.body).toBeUndefined();
   });
 
-  it("mapea errores HTTP/red sin leer el body ni exponer el Access Token", async () => {
+  it("mapea errores HTTP/red con código sanitizado sin exponer el Access Token", async () => {
     const cases = [
       [400, "INVALID_REQUEST"], [401, "AUTHENTICATION"], [403, "AUTHENTICATION"],
-      [409, "IDEMPOTENCY_CONFLICT"], [429, "RATE_LIMITED"], [503, "UNAVAILABLE"],
+      [404, "NOT_FOUND"], [409, "TERMINAL_CONFLICT"], [423, "RESOURCE_LOCKED"],
+      [429, "RATE_LIMITED"], [503, "UNAVAILABLE"],
     ] as const;
     for (const [status, code] of cases) {
-      const error = await gatewayWith(vi.fn().mockResolvedValue(new Response(token, { status })))
+      const error = await gatewayWith(vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: "safe_code", message: token }), { status })))
         .createCheckout(input).catch((caught: unknown) => caught);
       expect(error).toBeInstanceOf(PaymentGatewayError);
       expect(error).toMatchObject({ code });
@@ -82,10 +92,13 @@ describe("MercadoPagoOrdersGateway", () => {
       .createCheckout(input).catch((caught: unknown) => caught);
     expect(networkError).toMatchObject({ code: "NETWORK" });
     expect(String(networkError)).not.toContain(token);
+    const conflict = await gatewayWith(vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: "idempotency_key_already_used" }), { status: 409 })))
+      .createCheckout(input).catch((caught: unknown) => caught);
+    expect(conflict).toMatchObject({ code: "IDEMPOTENCY_CONFLICT", providerCode: "idempotency_key_already_used" });
   });
 
-  it("consulta el estado autoritativo con GET y normaliza importes sin Number", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({
+  it("normaliza payments/refunds exactamente y envía refund PARTIAL con transaction id", async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce(jsonResponse({
       id: "mp/order 1",
       status: "processed",
       status_detail: "accredited",
@@ -93,7 +106,11 @@ describe("MercadoPagoOrdersGateway", () => {
       currency: "ARS",
       total_amount: "1234.56",
       total_paid_amount: "1234.56",
-    }));
+      transactions: {
+        payments: [{ id: "PAY-1" }],
+        refunds: [{ id: "REF-1", amount: "34.56" }, { id: "REF-2", amount: "100.00" }],
+      },
+    })).mockResolvedValueOnce(jsonResponse({ transactions: { refunds: [{ id: "REF-3", amount: "0.01" }] } }));
     const state = await gatewayWith(fetchFn).getPaymentState("mp/order 1");
 
     expect(fetchFn).toHaveBeenCalledWith("https://api.test/v1/orders/mp%2Forder%201", expect.objectContaining({ method: "GET" }));
@@ -104,7 +121,14 @@ describe("MercadoPagoOrdersGateway", () => {
       externalReference: "lauril-order-10001-attempt-2",
       totalAmountInCents: 123456n,
       totalPaidAmountInCents: 123456n,
+      refundedAmountInCents: 13456n,
+      paymentTransactionId: "PAY-1",
     });
+    await gatewayWith(fetchFn).refundOrder({
+      providerResourceId: "mp/order 1", idempotencyKey: "refund-key",
+      kind: "PARTIAL", amountInCents: 1n, paymentTransactionId: "PAY-1",
+    });
+    expect(JSON.parse(fetchFn.mock.calls[1]![1].body)).toEqual({ transactions: [{ id: "PAY-1", amount: "0.01" }] });
   });
 
   it("rechaza respuestas 2xx incompletas y checkout URLs no HTTPS", async () => {

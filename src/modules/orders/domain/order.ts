@@ -79,7 +79,10 @@ export function normalizeOrderNote(value: string): string {
 }
 
 function paymentTransitions(status: OrderStatusValue): ReadonlyArray<OrderStatusValue> {
-  return status === "PENDING_PAYMENT" ? ["PAID", "PAYMENT_REJECTED"] : [];
+  if (status === "PENDING_PAYMENT") return ["PAID"];
+  if (status === "PAID") return ["PARTIALLY_REFUNDED", "REFUNDED"];
+  if (status === "PARTIALLY_REFUNDED") return ["REFUNDED"];
+  return [];
 }
 
 function systemTransitions(status: OrderStatusValue): ReadonlyArray<OrderStatusValue> {

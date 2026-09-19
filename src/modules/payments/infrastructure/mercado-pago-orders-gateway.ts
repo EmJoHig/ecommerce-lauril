@@ -5,12 +5,24 @@ import type {
   ExternalCheckout,
   ExternalPaymentState,
   PaymentGateway,
+  RefundOrderInput,
+  ExternalRefundResult,
 } from "../application/payment-gateway";
 import { secureCheckoutUrl } from "../application/payment-redirect";
 import { mercadoPagoExternalReference } from "../application/mercado-pago-reference";
 
 const PRODUCTION_BASE_URL = "https://api.mercadopago.com";
 const DEFAULT_TIMEOUT_MS = 10_000;
+const MAX_RESPONSE_BYTES = 32_768;
+
+const transactionSchema = z.object({
+  payments: z.array(z.object({ id: z.string().min(1) }).passthrough()).optional(),
+  refunds: z.array(z.object({
+    id: z.string().min(1).optional(),
+    amount: z.string(),
+    status: z.string().optional(),
+  }).passthrough()).optional(),
+}).passthrough();
 
 const paymentStateSchema = z.object({
   id: z.string().min(1),
@@ -20,6 +32,7 @@ const paymentStateSchema = z.object({
   currency: z.string().length(3),
   total_amount: z.string().optional(),
   total_paid_amount: z.string().optional(),
+  transactions: transactionSchema.optional(),
 }).refine((value) => value.total_amount !== undefined || value.total_paid_amount !== undefined);
 
 const checkoutSchema = paymentStateSchema.and(z.object({
@@ -27,14 +40,29 @@ const checkoutSchema = paymentStateSchema.and(z.object({
   total_amount: z.string(),
 }));
 
+const refundResponseSchema = z.object({
+  status: z.string().nullable().optional(),
+  status_detail: z.string().nullable().optional(),
+  transactions: transactionSchema.optional(),
+}).passthrough();
+
+const errorResponseSchema = z.object({
+  code: z.string().optional(),
+  message: z.string().optional(),
+  errors: z.array(z.object({ code: z.string().optional() }).passthrough()).max(20).optional(),
+}).passthrough();
+
 export type PaymentGatewayErrorCode =
   | "TIMEOUT"
   | "NETWORK"
   | "AUTHENTICATION"
   | "INVALID_REQUEST"
+  | "NOT_FOUND"
   | "IDEMPOTENCY_CONFLICT"
+  | "RESOURCE_LOCKED"
   | "RATE_LIMITED"
   | "UNAVAILABLE"
+  | "TERMINAL_CONFLICT"
   | "INVALID_RESPONSE"
   | "PROVIDER_ERROR";
 
@@ -42,6 +70,7 @@ export class PaymentGatewayError extends Error {
   constructor(
     public readonly code: PaymentGatewayErrorCode,
     message: string,
+    public readonly providerCode: string | null = null,
   ) {
     super(message);
     this.name = "PaymentGatewayError";
@@ -122,17 +151,47 @@ export class MercadoPagoOrdersGateway implements PaymentGateway {
     return state;
   }
 
+  async refundOrder(input: RefundOrderInput): Promise<ExternalRefundResult> {
+    const resourceId = input.providerResourceId.trim();
+    if (!resourceId || resourceId.length > 255 || input.amountInCents <= 0n) {
+      throw new PaymentGatewayError("INVALID_REQUEST", "Solicitud de reembolso inválida.");
+    }
+    if (input.kind === "PARTIAL" && !input.paymentTransactionId) {
+      throw new PaymentGatewayError("INVALID_REQUEST", "El reembolso parcial requiere una transacción de pago.");
+    }
+    const response = await this.request(`/v1/orders/${encodeURIComponent(resourceId)}/refund`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": input.idempotencyKey,
+      },
+      ...(input.kind === "PARTIAL" ? {
+        body: JSON.stringify({ transactions: [{
+          id: input.paymentTransactionId,
+          amount: moneyToDecimalString(input.amountInCents),
+        }] }),
+      } : {}),
+    });
+    const parsed = refundResponseSchema.safeParse(response);
+    if (!parsed.success) throw invalidResponse();
+    const refunds = parsed.data.transactions?.refunds ?? [];
+    const ids = [...new Set(refunds.map((refund) => refund.id).filter((id): id is string => Boolean(id)))];
+    return {
+      providerRefundId: ids.length === 1 ? ids[0]! : null,
+      providerStatus: parsed.data.status_detail ?? parsed.data.status ?? refunds.at(-1)?.status ?? null,
+    };
+  }
+
   private async request(path: string, init: RequestInit): Promise<unknown> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const response = await this.fetchFn(`${this.baseUrl}${path}`, { ...init, signal: controller.signal });
-      if (!response.ok) throw httpError(response.status);
-      try {
-        return await response.json();
-      } catch {
-        throw invalidResponse();
-      }
+      const text = await readLimitedText(response);
+      if (!response.ok) throw httpError(response.status, providerErrorCode(text));
+      try { return JSON.parse(text) as unknown; }
+      catch { throw invalidResponse(); }
     } catch (error) {
       if (error instanceof PaymentGatewayError) throw error;
       if (controller.signal.aborted) {
@@ -146,6 +205,22 @@ export class MercadoPagoOrdersGateway implements PaymentGateway {
 }
 
 function normalizeState(value: z.infer<typeof paymentStateSchema>): ExternalPaymentState {
+  const payments = value.transactions?.payments ?? [];
+  const paymentIds = [...new Set(payments.map((payment) => payment.id))];
+  const refunds = value.transactions?.refunds;
+  const isRefunded = value.status_detail === "partially_refunded"
+    || value.status_detail === "refunded"
+    || value.status === "refunded";
+  let refundedAmountInCents: bigint | null = 0n;
+  if (refunds) {
+    try {
+      refundedAmountInCents = refunds.reduce((sum, refund) => sum + decimalStringToCents(refund.amount), 0n);
+    } catch {
+      refundedAmountInCents = null;
+    }
+  } else if (isRefunded) {
+    refundedAmountInCents = null;
+  }
   return {
     provider: "MERCADO_PAGO",
     providerResourceId: value.id,
@@ -157,7 +232,8 @@ function normalizeState(value: z.infer<typeof paymentStateSchema>): ExternalPaym
     totalPaidAmountInCents: value.total_paid_amount === undefined ? null : decimalStringToCents(value.total_paid_amount),
     approvedAt: null,
     rejectedAt: null,
-    refundedAmountInCents: 0n,
+    refundedAmountInCents,
+    paymentTransactionId: paymentIds.length === 1 ? paymentIds[0]! : null,
   };
 }
 
@@ -179,13 +255,48 @@ function returnUrl(appUrl: string, path: string, state: "success" | "failure" | 
   return url.toString();
 }
 
-function httpError(status: number): PaymentGatewayError {
-  if (status === 400) return new PaymentGatewayError("INVALID_REQUEST", "Mercado Pago rechazó la solicitud.");
+function httpError(status: number, providerCode: string | null): PaymentGatewayError {
+  if (status === 400 || status === 422) return new PaymentGatewayError("INVALID_REQUEST", "Mercado Pago rechazó la solicitud.", providerCode);
   if (status === 401 || status === 403) return new PaymentGatewayError("AUTHENTICATION", "Mercado Pago no pudo autenticar la integración.");
-  if (status === 409) return new PaymentGatewayError("IDEMPOTENCY_CONFLICT", "Mercado Pago informó un conflicto de idempotencia.");
+  if (status === 404) return new PaymentGatewayError("NOT_FOUND", "Mercado Pago no encontró el recurso.", providerCode);
+  if (status === 409 && providerCode === "idempotency_key_already_used") {
+    return new PaymentGatewayError("IDEMPOTENCY_CONFLICT", "Mercado Pago informó un conflicto de idempotencia.", providerCode);
+  }
+  if (status === 409) return new PaymentGatewayError("TERMINAL_CONFLICT", "Mercado Pago no permite reembolsar el recurso.", providerCode);
+  if (status === 423) return new PaymentGatewayError("RESOURCE_LOCKED", "Mercado Pago mantiene el recurso bloqueado temporalmente.", providerCode);
   if (status === 429) return new PaymentGatewayError("RATE_LIMITED", "Mercado Pago limitó temporalmente las solicitudes.");
   if (status >= 500) return new PaymentGatewayError("UNAVAILABLE", "Mercado Pago no está disponible temporalmente.");
   return new PaymentGatewayError("PROVIDER_ERROR", "Mercado Pago no pudo procesar la solicitud.");
+}
+
+async function readLimitedText(response: Response): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const decoder = new TextDecoder();
+  let size = 0;
+  let result = "";
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    size += chunk.value.byteLength;
+    if (size > MAX_RESPONSE_BYTES) {
+      await reader.cancel();
+      throw invalidResponse();
+    }
+    result += decoder.decode(chunk.value, { stream: true });
+  }
+  return result + decoder.decode();
+}
+
+function providerErrorCode(body: string): string | null {
+  try {
+    const parsed = errorResponseSchema.safeParse(JSON.parse(body));
+    if (!parsed.success) return null;
+    const candidate = parsed.data.code ?? parsed.data.errors?.find((error) => error.code)?.code;
+    return candidate && /^[a-z0-9_-]{1,100}$/i.test(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
 }
 
 function invalidResponse(): PaymentGatewayError {

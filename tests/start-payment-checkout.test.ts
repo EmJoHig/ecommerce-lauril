@@ -74,6 +74,7 @@ function setup(overrides: { order?: PaymentOrderRecord; attempt?: PaymentAttempt
   const gateway = {
     createCheckout: vi.fn().mockResolvedValue(externalCheckout()),
     getPaymentState: vi.fn(),
+    refundOrder: vi.fn(),
   } satisfies PaymentGateway;
   return { orders, attempts, gateway, useCase: new StartPaymentCheckout(orders, attempts, gateway) };
 }
@@ -114,6 +115,7 @@ function externalCheckout(): ExternalCheckout {
     approvedAt: null,
     rejectedAt: null,
     refundedAmountInCents: 0n,
+    paymentTransactionId: null,
     checkoutUrl: "https://checkout.mercadopago.test/order-1",
   };
 }

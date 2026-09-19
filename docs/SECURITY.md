@@ -61,6 +61,13 @@ Pedidos separa `orders.read` de `orders.write`. Cada Server Action vuelve a exig
 sesión y permiso; no confía en que la página haya ocultado controles. Los IDs se
 validan y un pedido inexistente no expone datos por respuesta diferencial.
 
+Solicitar un refund desde administración exige nuevamente `orders.write`. El
+servidor relee pedido, intento y snapshot autoritativo, valida moneda, referencia,
+monto restante y transacción antes de llamar a Mercado Pago. `AuditLog` registra
+actor, pedido, tipo e importe, pero no token, body externo, email del comprador ni
+clave completa de idempotencia. Los errores externos se leen con límite, se
+validan mínimamente y solo persiste un código sanitizado.
+
 Fase 7 separa además `customers`, `users`, `roles` y `audit` en capacidades de
 lectura/escritura. Email y contraseña del cliente no son editables desde el
 backoffice. Deshabilitar un cliente conserva su historia, bloquea el login y

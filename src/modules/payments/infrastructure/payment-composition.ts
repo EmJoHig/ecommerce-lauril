@@ -9,6 +9,9 @@ import { PrismaPaymentAttemptRepository } from "./prisma-payment-attempt-reposit
 import { PrismaPaymentEventRepository } from "./prisma-payment-event-repository";
 import { ProcessMercadoPagoWebhook } from "../application/process-mercado-pago-webhook";
 import { PrismaPaymentConfirmationUnitOfWork } from "./prisma-payment-confirmation-unit-of-work";
+import { PrismaPaymentRefundRepository } from "./prisma-payment-refund-repository";
+import { PrismaAdminPaymentRefundRepository } from "./prisma-admin-payment-refund-repository";
+import { RequestPaymentRefund } from "../application/request-payment-refund";
 
 export function getPaymentAttemptRepository(): PrismaPaymentAttemptRepository {
   return new PrismaPaymentAttemptRepository(getPrisma());
@@ -52,4 +55,27 @@ export function getMercadoPagoWebhookProcessor(): ProcessMercadoPagoWebhook {
     new MercadoPagoOrdersGateway(env.MERCADO_PAGO_ACCESS_TOKEN, env.APP_URL),
     new PrismaPaymentConfirmationUnitOfWork(prisma),
   );
+}
+
+export function getRequestPaymentRefund(): RequestPaymentRefund {
+  const env = getServerEnv();
+  if (!env.MERCADO_PAGO_ENABLED || !env.MERCADO_PAGO_ACCESS_TOKEN) {
+    throw new Error("Mercado Pago no está disponible.");
+  }
+  const prisma = getPrisma();
+  return new RequestPaymentRefund(
+    new PrismaAdminPaymentRefundRepository(prisma),
+    new PrismaPaymentRefundRepository(prisma),
+    new MercadoPagoOrdersGateway(env.MERCADO_PAGO_ACCESS_TOKEN, env.APP_URL),
+  );
+}
+
+export async function getAdminPaymentRefundSummary(orderId: string) {
+  if (!isMercadoPagoCheckoutAvailable()) return null;
+  const payment = await new PrismaAdminPaymentRefundRepository(getPrisma()).findRefundablePayment(orderId);
+  if (!payment || !["PAID", "PARTIALLY_REFUNDED"].includes(payment.orderStatus)) return null;
+  return {
+    amountInCents: payment.attempt.amountInCents,
+    refundedAmountInCents: payment.attempt.refundedAmountInCents,
+  };
 }

@@ -78,16 +78,15 @@ describe("Mercado Pago signed webhook", () => {
     expect(fixture.movements).toHaveLength(0);
   });
 
-  it("clasifica estados terminales/desconocidos como REQUIRES_REVIEW sin tocar pedido ni stock", async () => {
-    for (const external of [
-      state({ providerStatus: "failed", providerStatusDetail: "rejected", totalPaidAmountInCents: 0n }),
-      state({ providerStatus: "processed", providerStatusDetail: "partially_refunded" }),
-      state({ providerStatus: "unexpected", providerStatusDetail: null }),
+  it("clasifica rechazo y estados desconocidos sin tocar pedido ni stock", async () => {
+    for (const { external, expected } of [
+      { external: state({ providerStatus: "failed", providerStatusDetail: "rejected", totalPaidAmountInCents: 0n }), expected: "REJECTED" },
+      { external: state({ providerStatus: "processed", providerStatusDetail: "partially_refunded" }), expected: "REQUIRES_REVIEW" },
+      { external: state({ providerStatus: "unexpected", providerStatusDetail: null }), expected: "REQUIRES_REVIEW" },
     ]) {
       const fixture = paymentFixture(external);
-      const outcome = await fixture.processor.execute(input(`event-${external.providerStatus}-${external.providerStatusDetail}`));
-      expect(outcome.kind).toBe("requires_review");
-      expect(fixture.attempt.status).toBe("REQUIRES_REVIEW");
+      await fixture.processor.execute(input(`event-${external.providerStatus}-${external.providerStatusDetail}`));
+      expect(fixture.attempt.status).toBe(expected);
       expect(fixture.order.status).toBe("PENDING_PAYMENT");
       expect(fixture.inventory()).toMatchObject({ stockOnHand: 100, stockReserved: 5 });
       expect(fixture.movements).toHaveLength(0);
@@ -188,6 +187,7 @@ function state(overrides: Partial<ExternalPaymentState> = {}): ExternalPaymentSt
     approvedAt: null,
     rejectedAt: null,
     refundedAmountInCents: 0n,
+    paymentTransactionId: null,
     ...overrides,
   };
 }
@@ -253,11 +253,15 @@ function paymentFixture(
   const gateway = {
     createCheckout: vi.fn(),
     getPaymentState: vi.fn(async () => { calls.push("gateway:get"); return external; }),
+    refundOrder: vi.fn(),
   } satisfies PaymentGateway;
 
   const transaction: PaymentConfirmationTransaction = {
     findEvent: async (id) => [...events.values()].find((event) => event.id === id) ?? null,
     findAttempt: async (id) => attempt.id === id ? attempt : null,
+    findActiveRefund: async () => null,
+    createRefund: async () => undefined,
+    updateRefund: async () => undefined,
     findOrder: async (id) => order.id === id ? order : null,
     updateAttempt: async (update) => { attempt = { ...attempt, ...update, updatedAt: now }; },
     convertInventory: async (update) => {
@@ -286,6 +290,7 @@ function paymentFixture(
     createPaidHistory: async (id, createdAt) => {
       history.push({ orderId: id, fromStatus: "PENDING_PAYMENT", toStatus: "PAID", actorUserId: null, createdAt });
     },
+    transitionOrderRefund: async () => true,
     finishEvent: async (eventId, attemptId, processedAt) => {
       const current = [...events.values()].find((event) => event.id === eventId);
       if (!current || ["PROCESSED", "IGNORED"].includes(current.processingStatus)) return false;
