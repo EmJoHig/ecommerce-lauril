@@ -21,7 +21,7 @@ export function verifyMercadoPagoWebhookSignature(
   const parsed = parseSignature(input.signature);
   if (!parsed) return false;
 
-  const manifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${parsed.timestamp};`;
+  const manifest = `id:${dataId};request-id:${requestId};ts:${parsed.timestamp};`;
   const expected = createHmac("sha256", secret).update(manifest).digest();
   const received = Buffer.from(parsed.hash, "hex");
   return received.length === expected.length && timingSafeEqual(received, expected);

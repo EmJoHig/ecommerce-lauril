@@ -168,7 +168,7 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
 ## Integraciones y webhooks
 
 El webhook de Mercado Pago es público y se autentica mediante HMAC-SHA256 con
-`MERCADO_PAGO_WEBHOOK_SECRET`. El manifest usa el `data.id` del query en lowercase,
+`MERCADO_PAGO_WEBHOOK_SECRET`. El manifest preserva exactamente el casing recibido del `data.id` del query,
 `x-request-id` y `ts`; el hash se compara con `timingSafeEqual` antes de leer o
 confiar en el body. No se impone una ventana temporal no documentada a `ts`.
 

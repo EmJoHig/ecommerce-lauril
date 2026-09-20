@@ -21,21 +21,46 @@ const orderId = "10000000-0000-4000-8000-000000000001";
 const secret = "WEBHOOK_SECRET_FOR_TESTS";
 
 describe("Mercado Pago signed webhook", () => {
-  it("valida HMAC-SHA256 con query data.id en lowercase y rechaza headers/formato/hash inválidos", () => {
+  it("firma exacta: valida data.id uppercase y rechaza headers/formato/hash inválidos", () => {
+    const dataId = "ORDTST01M305WJWR6MRC9V4XQQ9N2MP0";
     const hash = createHmac("sha256", secret)
-      .update("id:abc-order-1;request-id:req-1;ts:1758196800;")
+      .update(`id:${dataId};request-id:req-1;ts:1758196800;`)
       .digest("hex");
     expect(verifyMercadoPagoWebhookSignature({
       signature: `ts=1758196800,v1=${hash}`,
       requestId: "req-1",
-      dataId: "ABC-Order-1",
+      dataId,
       secret,
     })).toBe(true);
     for (const signature of [null, "v1=abc", "ts=bad,v1=abc", `ts=1758196800,v1=${hash.slice(2)}`]) {
-      expect(verifyMercadoPagoWebhookSignature({ signature, requestId: "req-1", dataId: "ABC-Order-1", secret })).toBe(false);
+      expect(verifyMercadoPagoWebhookSignature({ signature, requestId: "req-1", dataId, secret })).toBe(false);
     }
-    expect(verifyMercadoPagoWebhookSignature({ signature: `ts=1758196800,v1=${hash}`, requestId: null, dataId: "ABC-Order-1", secret })).toBe(false);
+    expect(verifyMercadoPagoWebhookSignature({ signature: `ts=1758196800,v1=${hash}`, requestId: null, dataId, secret })).toBe(false);
     expect(verifyMercadoPagoWebhookSignature({ signature: `ts=1758196800,v1=${hash}`, requestId: "req-1", dataId: null, secret })).toBe(false);
+  });
+
+  it("firma exacta: valida data.id lowercase firmado lowercase", () => {
+    const dataId = "ordtst01m305wjwr6mrc9v4xqq9n2mp0";
+    const hash = createHmac("sha256", secret)
+      .update(`id:${dataId};request-id:req-1;ts:1758196800;`)
+      .digest("hex");
+    expect(verifyMercadoPagoWebhookSignature({
+      signature: `ts=1758196800,v1=${hash}`, requestId: "req-1", dataId, secret,
+    })).toBe(true);
+  });
+
+  it("firma exacta: rechaza la misma firma al cambiar el casing de data.id", () => {
+    for (const [signedId, receivedId] of [
+      ["ORDTST01M305WJWR6MRC9V4XQQ9N2MP0", "ordtst01m305wjwr6mrc9v4xqq9n2mp0"],
+      ["ordtst01m305wjwr6mrc9v4xqq9n2mp0", "ORDTST01M305WJWR6MRC9V4XQQ9N2MP0"],
+    ] as const) {
+      const hash = createHmac("sha256", secret)
+        .update(`id:${signedId};request-id:req-1;ts:1758196800;`)
+        .digest("hex");
+      expect(verifyMercadoPagoWebhookSignature({
+        signature: `ts=1758196800,v1=${hash}`, requestId: "req-1", dataId: receivedId, secret,
+      })).toBe(false);
+    }
   });
 
   it("responde 401 antes de parsear/procesar cuando la firma es inválida", async () => {

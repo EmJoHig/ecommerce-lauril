@@ -325,8 +325,8 @@ Estado: completada y validada; pendiente de habilitación e integración real.
 
 Estado: implementada y validada localmente; pendiente de integración real en F14E.
 
-- El webhook público valida HMAC-SHA256 sobre el `data.id` del query normalizado
-  a lowercase, `x-request-id` y `ts`, y persiste el inbox antes de consultar al
+- El webhook público valida HMAC-SHA256 sobre el `data.id` del query preservando
+  exactamente el casing recibido, `x-request-id` y `ts`, y persiste el inbox antes de consultar al
   proveedor o producir efectos.
 - `GET /v1/orders/{id}` es la única fuente autoritativa; únicamente
   `processed/accredited`, con recurso, referencia externa, ARS y montos exactos,

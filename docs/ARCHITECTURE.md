@@ -316,7 +316,7 @@ integración no transiciona el pedido a ese estado.
 
 F14C incorpora `POST /api/payments/mercado-pago/webhook`. La autenticación pública
 es la firma HMAC-SHA256 de Mercado Pago: el manifest usa exclusivamente `data.id`
-del query en lowercase, `x-request-id` y `ts`; la comparación del hash usa
+del query preservando exactamente el casing recibido, `x-request-id` y `ts`; la comparación del hash usa
 `timingSafeEqual`. El body se limita y valida recién después de autenticar, y su
 `data.id` debe coincidir con el recurso firmado. El secreto es server-side,
 opcional con la feature apagada y nunca se persiste ni registra.
