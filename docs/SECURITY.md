@@ -173,7 +173,10 @@ El webhook de Mercado Pago es público y se autentica mediante HMAC-SHA256 con
 confiar en el body. No se impone una ventana temporal no documentada a `ts`.
 
 El payload se limita, el `data.id` del body debe coincidir con el recurso firmado y
-el ID de notificación se registra de forma única antes de efectos. El body nunca
+el ID de notificación se registra de forma única antes de efectos. Checkout Pro
+Orders puede omitir el `id` top-level: en ese caso se usa `request:<x-request-id>`,
+autenticado por la firma, con límite total de 255 caracteres. `data.id` conserva
+su función de identificador del recurso, no del evento. El body nunca
 autoriza `PAID`: el servidor consulta el endpoint fijo `GET /v1/orders/{id}` y
 procesa idempotentemente. Secret, firma, access token, payer y body completo quedan
 fuera de persistencia, respuestas y logs. SSRF se evita usando endpoints

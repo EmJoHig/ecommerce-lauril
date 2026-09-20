@@ -322,6 +322,12 @@ del query preservando exactamente el casing recibido, `x-request-id` y `ts`; la 
 opcional con la feature apagada y nunca se persiste ni registra.
 
 El webhook crea o recupera `PaymentEvent` en `RECEIVED` antes de cualquier GET.
+Checkout Pro Orders puede omitir el `id` top-level del body: `providerEventId`
+usa ese ID si existe o `request:<x-request-id>` si falta. El fallback usa el
+request ID autenticado por HMAC y se limita a 255 caracteres, incluido el prefijo.
+`data.id` identifica `providerResourceId`, no una notificación. La misma request
+ID deduplica el evento; con otra request ID, las defensas transaccionales, de
+estado y del índice único `SALE` siguen impidiendo efectos físicos duplicados.
 Los eventos finales se deduplican sin consultar nuevamente; `RECEIVED` y `FAILED`
 pueden reintentarse. Tras asociar exclusivamente por proveedor y recurso, el caso
 de uso consulta `GET /v1/orders/{id}`. Solo `processed/accredited`, con referencia

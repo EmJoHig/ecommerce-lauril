@@ -6,7 +6,7 @@ import { PaymentWebhookTechnicalError } from "../application/process-mercado-pag
 import { verifyMercadoPagoWebhookSignature } from "../infrastructure/mercado-pago-webhook-signature";
 
 const webhookBodySchema = z.object({
-  id: z.union([z.string().trim().min(1).max(255), z.number().int().safe()]).transform(String),
+  id: z.union([z.string().trim().min(1).max(255), z.number().int().safe()]).transform(String).optional(),
   action: z.string().trim().min(1).max(255),
   type: z.string().trim().min(1).max(80),
   data: z.object({ id: z.string().min(1).max(255) }),
@@ -61,9 +61,12 @@ export async function handleMercadoPagoWebhook(
     return jsonResponse(400);
   }
 
+  const providerEventId = parsed.data.id ?? `request:${requestId}`;
+  if (providerEventId.length > 255) return jsonResponse(400);
+
   try {
     const outcome = await options.processor.execute({
-      providerEventId: parsed.data.id,
+      providerEventId,
       providerResourceId,
       eventType: parsed.data.type,
       action: parsed.data.action,
