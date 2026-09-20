@@ -31,12 +31,12 @@ describe("Mercado Pago signed webhook", () => {
       requestId: "req-1",
       dataId,
       secret,
-    })).toBe(true);
+    }).valid).toBe(true);
     for (const signature of [null, "v1=abc", "ts=bad,v1=abc", `ts=1758196800,v1=${hash.slice(2)}`]) {
-      expect(verifyMercadoPagoWebhookSignature({ signature, requestId: "req-1", dataId, secret })).toBe(false);
+      expect(verifyMercadoPagoWebhookSignature({ signature, requestId: "req-1", dataId, secret }).valid).toBe(false);
     }
-    expect(verifyMercadoPagoWebhookSignature({ signature: `ts=1758196800,v1=${hash}`, requestId: null, dataId, secret })).toBe(false);
-    expect(verifyMercadoPagoWebhookSignature({ signature: `ts=1758196800,v1=${hash}`, requestId: "req-1", dataId: null, secret })).toBe(false);
+    expect(verifyMercadoPagoWebhookSignature({ signature: `ts=1758196800,v1=${hash}`, requestId: null, dataId, secret }).valid).toBe(false);
+    expect(verifyMercadoPagoWebhookSignature({ signature: `ts=1758196800,v1=${hash}`, requestId: "req-1", dataId: null, secret }).valid).toBe(false);
   });
 
   it("firma exacta: valida data.id lowercase firmado lowercase", () => {
@@ -46,7 +46,7 @@ describe("Mercado Pago signed webhook", () => {
       .digest("hex");
     expect(verifyMercadoPagoWebhookSignature({
       signature: `ts=1758196800,v1=${hash}`, requestId: "req-1", dataId, secret,
-    })).toBe(true);
+    }).valid).toBe(true);
   });
 
   it("firma exacta: rechaza la misma firma al cambiar el casing de data.id", () => {
@@ -59,7 +59,7 @@ describe("Mercado Pago signed webhook", () => {
         .digest("hex");
       expect(verifyMercadoPagoWebhookSignature({
         signature: `ts=1758196800,v1=${hash}`, requestId: "req-1", dataId: receivedId, secret,
-      })).toBe(false);
+      }).valid).toBe(false);
     }
   });
 

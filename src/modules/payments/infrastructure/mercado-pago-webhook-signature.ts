@@ -1,7 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-const SHA256_HEX_LENGTH = 64;
-
 export type MercadoPagoWebhookSignatureInput = Readonly<{
   signature: string | null;
   requestId: string | null;
@@ -9,39 +7,52 @@ export type MercadoPagoWebhookSignatureInput = Readonly<{
   secret: string;
 }>;
 
+export type MercadoPagoWebhookSignatureResult =
+  | Readonly<{ valid: true }>
+  | Readonly<{
+      valid: false;
+      reasonCode: "missing_signature" | "malformed_signature" | "missing_timestamp"
+        | "missing_hash" | "signature_mismatch" | "missing_request_id" | "missing_data_id" | "missing_secret";
+    }>;
+
 export function verifyMercadoPagoWebhookSignature(
   input: MercadoPagoWebhookSignatureInput,
-): boolean {
-  const requestId = input.requestId;
-  const dataId = input.dataId;
+): MercadoPagoWebhookSignatureResult {
+  const signature = input.signature?.trim() || null;
+  const requestId = input.requestId?.trim() || null;
+  const dataId = input.dataId?.trim() || null;
   const secret = input.secret.trim();
-  if (!input.signature || !requestId || !dataId || !secret) return false;
-  if (requestId !== requestId.trim() || dataId !== dataId.trim()) return false;
+  if (!signature) return { valid: false, reasonCode: "missing_signature" };
+  if (!requestId) return { valid: false, reasonCode: "missing_request_id" };
+  if (!dataId) return { valid: false, reasonCode: "missing_data_id" };
+  if (!secret) return { valid: false, reasonCode: "missing_secret" };
 
-  const parsed = parseSignature(input.signature);
-  if (!parsed) return false;
+  const parsed = parseSignature(signature);
+  if (!parsed.timestamp && parsed.hashes.size === 0) return { valid: false, reasonCode: "malformed_signature" };
+  if (!parsed.timestamp) return { valid: false, reasonCode: "missing_timestamp" };
+  if (!/^\d+$/.test(parsed.timestamp)) return { valid: false, reasonCode: "malformed_signature" };
+  const hash = parsed.hashes.get("v1");
+  if (!hash) return { valid: false, reasonCode: "missing_hash" };
 
   const manifest = `id:${dataId};request-id:${requestId};ts:${parsed.timestamp};`;
-  const expected = createHmac("sha256", secret).update(manifest).digest();
-  const received = Buffer.from(parsed.hash, "hex");
-  return received.length === expected.length && timingSafeEqual(received, expected);
+  const expected = Buffer.from(createHmac("sha256", secret).update(manifest).digest("hex"));
+  const received = Buffer.from(hash);
+  return received.length === expected.length && timingSafeEqual(received, expected)
+    ? { valid: true }
+    : { valid: false, reasonCode: "signature_mismatch" };
 }
 
-function parseSignature(value: string): Readonly<{ timestamp: string; hash: string }> | null {
-  const entries = value.split(",").map((part) => part.trim());
-  const values = new Map<string, string>();
-  for (const entry of entries) {
+function parseSignature(value: string): Readonly<{ timestamp: string | null; hashes: Map<string, string> }> {
+  let timestamp: string | null = null;
+  const hashes = new Map<string, string>();
+  for (const entry of value.split(",")) {
     const separator = entry.indexOf("=");
-    if (separator <= 0 || separator === entry.length - 1) return null;
-    const key = entry.slice(0, separator).trim();
+    if (separator === -1) continue;
+    const key = entry.slice(0, separator).trim().toLowerCase();
     const item = entry.slice(separator + 1).trim();
-    if (values.has(key)) return null;
-    values.set(key, item);
+    if (!key || !item) continue;
+    if (key === "ts") timestamp = item;
+    else if (/^v\d+$/.test(key)) hashes.set(key, item);
   }
-
-  const timestamp = values.get("ts");
-  const hash = values.get("v1");
-  if (!timestamp || !/^\d+$/.test(timestamp)) return null;
-  if (!hash || hash.length !== SHA256_HEX_LENGTH || !/^[a-f\d]+$/i.test(hash)) return null;
-  return { timestamp, hash };
+  return { timestamp, hashes };
 }

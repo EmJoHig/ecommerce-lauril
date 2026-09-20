@@ -31,13 +31,14 @@ export async function handleMercadoPagoWebhook(
   const providerResourceId = url.searchParams.get("data.id");
   const queryType = url.searchParams.get("type");
   const requestId = request.headers.get("x-request-id");
-  if (!verifyMercadoPagoWebhookSignature({
+  const signatureResult = verifyMercadoPagoWebhookSignature({
     signature: request.headers.get("x-signature"),
     requestId,
     dataId: providerResourceId,
     secret: options.secret,
-  })) {
-    logger.warn("payment.webhook_invalid_signature", { provider: "MERCADO_PAGO" });
+  });
+  if (!signatureResult.valid) {
+    logger.warn("payment.webhook_invalid_signature", { provider: "MERCADO_PAGO", reasonCode: signatureResult.reasonCode });
     return jsonResponse(401);
   }
 
