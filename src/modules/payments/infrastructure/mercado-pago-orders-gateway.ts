@@ -27,7 +27,7 @@ const transactionSchema = z.object({
 const paymentStateSchema = z.object({
   id: z.string().min(1),
   status: z.string().min(1),
-  status_detail: z.string().nullable(),
+  status_detail: z.string().nullable().optional(),
   external_reference: z.string().min(1).nullable().optional(),
   currency: z.string().length(3),
   total_amount: z.string().optional(),
@@ -225,7 +225,7 @@ function normalizeState(value: z.infer<typeof paymentStateSchema>): ExternalPaym
     provider: "MERCADO_PAGO",
     providerResourceId: value.id,
     providerStatus: value.status,
-    providerStatusDetail: value.status_detail,
+    providerStatusDetail: value.status_detail ?? null,
     externalReference: value.external_reference ?? null,
     currency: value.currency.toUpperCase(),
     totalAmountInCents: value.total_amount === undefined ? null : decimalStringToCents(value.total_amount),

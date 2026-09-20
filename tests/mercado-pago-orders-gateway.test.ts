@@ -16,6 +16,40 @@ const input = {
 } as const;
 
 describe("MercadoPagoOrdersGateway", () => {
+  it.each([
+    { label: "ausente", detail: {}, expected: null },
+    { label: "null", detail: { status_detail: null }, expected: null },
+    { label: "string", detail: { status_detail: "created" }, expected: "created" },
+  ])("normaliza status_detail $label en POST 201 y GET", async ({ detail, expected }) => {
+    const payload = {
+      id: "mp-order-1",
+      status: "created",
+      ...detail,
+      currency: "ARS",
+      total_amount: "46.00",
+      external_reference: "lauril-order-10001-attempt-2",
+    };
+    const checkoutUrl = "https://checkout.mercadopago.test/order-1";
+    const fetchFn = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ...payload, checkout_url: checkoutUrl }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }))
+      .mockResolvedValueOnce(jsonResponse(payload));
+    const gateway = gatewayWith(fetchFn);
+
+    const checkout = await gateway.createCheckout(input);
+    expect(checkout.checkoutUrl).toBe(checkoutUrl);
+    expect(checkout.providerStatusDetail).toBe(expected);
+    expect(checkout.totalPaidAmountInCents).toBeNull();
+
+    const state = await gateway.getPaymentState(payload.id);
+    expect(state.providerStatusDetail).toBe(expected);
+    expect(state.totalAmountInCents).toBe(4600n);
+    expect(fetchFn).toHaveBeenNthCalledWith(1, "https://api.test/v1/orders", expect.objectContaining({ method: "POST" }));
+    expect(fetchFn).toHaveBeenNthCalledWith(2, "https://api.test/v1/orders/mp-order-1", expect.objectContaining({ method: "GET" }));
+  });
+
   it("crea una order y envía refund FULL sin body reutilizando la key persistida", async () => {
     const fetchFn = vi.fn().mockResolvedValueOnce(jsonResponse({
       id: "mp-order-1",
