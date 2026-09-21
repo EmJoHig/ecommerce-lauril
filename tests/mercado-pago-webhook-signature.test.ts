@@ -100,6 +100,53 @@ describe("firma SDK compatible", () => {
   });
 });
 
+describe("diagnóstico lowercase", () => {
+  const lowercaseHash = createHmac("sha256", secret)
+    .update(`id:${dataId.toLowerCase()};request-id:${requestId};ts:${timestamp};`).digest("hex");
+  const lowercaseSignature = `ts=${timestamp},v1=${lowercaseHash}`;
+
+  it("mantiene válida la firma exacta", () => {
+    expect(verifyMercadoPagoWebhookSignature(input)).toEqual({ valid: true });
+  });
+
+  it("informa coincidencia lowercase como inválida cuando falla la firma exacta", () => {
+    expect(verifyMercadoPagoWebhookSignature({ ...input, signature: lowercaseSignature }))
+      .toEqual({ valid: false, reasonCode: "signature_mismatch_lowercase_match" });
+  });
+
+  it("mantiene signature_mismatch cuando ninguna firma coincide", () => {
+    expect(verifyMercadoPagoWebhookSignature({ ...input, signature: `ts=${timestamp},v1=${"0".repeat(64)}` }))
+      .toEqual({ valid: false, reasonCode: "signature_mismatch" });
+  });
+
+  it("no produce falsos positivos cuando data.id ya es lowercase", () => {
+    const lowercaseInput = { ...input, dataId: dataId.toLowerCase() };
+    expect(verifyMercadoPagoWebhookSignature({ ...lowercaseInput, signature: lowercaseSignature }))
+      .toEqual({ valid: true });
+    expect(verifyMercadoPagoWebhookSignature(lowercaseInput))
+      .toEqual({ valid: false, reasonCode: "signature_mismatch" });
+  });
+
+  it("rechaza con 401 la coincidencia diagnóstica sin procesar ni exponer firmas", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    try {
+      const execute = vi.fn();
+      const body = JSON.stringify({ action: "order.processed", type: "order", data: { id: dataId } });
+      const response = await handleMercadoPagoWebhook(webhookRequest(lowercaseSignature, body), {
+        enabled: true, secret, processor: { execute },
+      });
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ status: "error" });
+      expect(execute).not.toHaveBeenCalled();
+      expect(warn.mock.calls).toEqual([["payment.webhook_invalid_signature", {
+        provider: "MERCADO_PAGO", reasonCode: "signature_mismatch_lowercase_match",
+      }]]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
 function webhookRequest(signature: string | null, body: string): Request {
   return new Request(`https://lauril.test/api/payments/mercado-pago/webhook?data.external_reference=lauril-order-10005-attempt-1&data.id=${dataId}&type=order`, {
     method: "POST",
