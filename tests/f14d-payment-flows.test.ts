@@ -129,6 +129,69 @@ describe("F14D payment terminal states and refunds", () => {
   });
 });
 
+describe("F14E late refund recovery", () => {
+  it("reintenta unprocessable_content con el mismo refund y key hasta SUBMITTED", async () => {
+    const refundOrder = vi.fn()
+      .mockRejectedValueOnce(Object.assign(new Error("temporary"), { code: "INVALID_REQUEST", providerCode: "unprocessable_content" }))
+      .mockResolvedValueOnce({ providerRefundId: "REF-LATE", providerStatus: "submitted" });
+    const fixture = webhookFixture(state(), { status: "CANCELLED", reservationReleasedAt: now, refundOrder });
+    await expect(fixture.processor.execute(eventInput("late-422"))).rejects.toBeInstanceOf(PaymentWebhookTechnicalError);
+    expect(fixture.events.get("late-422")?.processingStatus).toBe("FAILED");
+    expect(fixture.refunds).toHaveLength(1);
+    const refund = fixture.refunds[0]!;
+    expect(refund).toMatchObject({ status: "CREATED", failureCode: null });
+
+    await expect(fixture.processor.execute(eventInput("late-422"))).resolves.toMatchObject({ reasonCode: "late_payment_refund_submitted" });
+    expect(fixture.refunds).toHaveLength(1);
+    expect(fixture.refunds[0]).toMatchObject({ id: refund.id, idempotencyKey: refund.idempotencyKey, status: "SUBMITTED" });
+    expect(refundOrder.mock.calls.map(([input]) => input)).toEqual([0, 1].map(() => ({
+      providerResourceId: refund.providerResourceId, idempotencyKey: refund.idempotencyKey,
+      kind: "FULL", amountInCents: 4600n, paymentTransactionId: null,
+    })));
+    expect(fixture.events.get("late-422")?.processingStatus).toBe("PROCESSED");
+    expect(fixture.order.status).toBe("CANCELLED");
+    expect(fixture.inventoryWrites).toBe(0);
+  });
+
+  it("reconcilia FULL en revisión mediante confirmación autoritativa sin venta ni inventario", async () => {
+    const fixture = webhookFixture(state({
+      providerStatus: "refunded", providerStatusDetail: "refunded", refundedAmountInCents: 4600n,
+    }), { status: "CANCELLED", attemptStatus: "REQUIRES_REVIEW", reservationReleasedAt: now });
+    fixture.addRefund("FULL", 4600n, "REQUIRES_REVIEW");
+    fixture.refunds[0] = { ...fixture.refunds[0]!, failureCode: "unprocessable_content" };
+    const id = fixture.refunds[0]!.id;
+    const inventory = structuredClone(fixture.order.items);
+
+    await fixture.processor.execute(eventInput("late-reconciled"));
+    await fixture.processor.execute(eventInput("late-reconciled-again"));
+    expect(fixture.refunds).toHaveLength(1);
+    expect(fixture.refunds[0]).toMatchObject({ id, status: "CONFIRMED", failureCode: null, confirmedAt: now, providerStatus: "refunded" });
+    expect(fixture.attempt).toMatchObject({ status: "REFUNDED", refundedAmountInCents: 4600n });
+    expect(fixture.order).toMatchObject({ status: "CANCELLED", reservationReleasedAt: now });
+    expect(fixture.order.items).toEqual(inventory);
+    expect(fixture.inventoryWrites).toBe(0);
+    expect(fixture.history).toHaveLength(0);
+  });
+
+  it("otro INVALID_REQUEST sigue siendo permanente en el auto-refund", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const refundOrder = vi.fn().mockRejectedValue(Object.assign(new Error("invalid"), {
+        code: "INVALID_REQUEST", providerCode: "invalid_amount",
+      }));
+      const fixture = webhookFixture(state(), { status: "CANCELLED", reservationReleasedAt: now, refundOrder });
+      await expect(fixture.processor.execute(eventInput("late-invalid"))).resolves.toMatchObject({ reasonCode: "late_payment_refund_requires_review" });
+      expect(fixture.refunds).toHaveLength(1);
+      expect(fixture.refunds[0]).toMatchObject({ status: "REQUIRES_REVIEW", failureCode: "invalid_amount" });
+      expect(fixture.attempt.status).toBe("REQUIRES_REVIEW");
+      expect(fixture.events.get("late-invalid")?.processingStatus).toBe("PROCESSED");
+      expect(fixture.inventoryWrites).toBe(0);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
 function baseAttempt(): PaymentAttempt {
   return createPaymentAttempt({ orderId, provider: "MERCADO_PAGO", attemptNumber: 1, amountInCents: 4600n, currency: "ARS" }, now);
 }
@@ -167,7 +230,7 @@ function webhookFixture(initialExternal: ExternalPaymentState, options: {
   const order: PaymentConfirmationOrder & { status: PaymentConfirmationOrder["status"] } = {
     id: orderId, number: 10001n, status: options.status ?? "PENDING_PAYMENT", currency: "ARS", totalInCents: 4600n,
     reservationReleasedAt: options.reservationReleasedAt ?? null,
-    items: [{ quantity: 1, inventory: { id: "inventory-1", stockOnHand: 10, stockReserved: 1, version: 1 } }],
+    items: [{ quantity: 1, inventory: { id: "inventory-1", stockOnHand: 10, stockReserved: options.reservationReleasedAt ? 0 : 1, version: 1 } }],
   };
   const events = new Map<string, PaymentEvent>();
   const refunds: PaymentRefund[] = [];
@@ -196,6 +259,12 @@ function webhookFixture(initialExternal: ExternalPaymentState, options: {
     findAttempt: async (id) => id === attempt.id ? attempt : null,
     findOrder: async () => order,
     findActiveRefund: async () => refunds.find((refund) => ["CREATED", "SUBMITTED"].includes(refund.status)) ?? null,
+    findLateRefundInReview: async (input) => {
+      const matches = refunds.filter((refund) => refund.paymentAttemptId === input.paymentAttemptId
+        && refund.providerResourceId === input.providerResourceId && refund.amountInCents === input.amountInCents
+        && refund.provider === "MERCADO_PAGO" && refund.kind === "FULL" && refund.status === "REQUIRES_REVIEW");
+      return matches.length === 1 ? matches[0]! : null;
+    },
     createRefund: async (refund) => { refunds.push(refund); },
     updateRefund: async (input) => {
       const index = refunds.findIndex((refund) => refund.id === input.id);
@@ -222,7 +291,7 @@ function webhookFixture(initialExternal: ExternalPaymentState, options: {
   const unitOfWork: PaymentConfirmationUnitOfWork = { run: async (work) => work(transaction) };
   const processor = new ProcessMercadoPagoWebhook(attemptRepository, eventRepository, gateway, unitOfWork);
   return {
-    processor, order, refunds, history,
+    processor, order, refunds, history, events,
     get attempt() { return attempt; },
     get inventoryWrites() { return inventoryWrites; },
     setExternal(value: ExternalPaymentState) { external = value; vi.mocked(gateway.getPaymentState).mockImplementation(async () => external); },

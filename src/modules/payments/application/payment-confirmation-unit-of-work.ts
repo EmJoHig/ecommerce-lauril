@@ -25,6 +25,11 @@ export interface PaymentConfirmationTransaction {
   findAttempt(id: string): Promise<PaymentAttempt | null>;
   findOrder(id: string): Promise<PaymentConfirmationOrder | null>;
   findActiveRefund(paymentAttemptId: string): Promise<PaymentRefund | null>;
+  findLateRefundInReview(input: {
+    paymentAttemptId: string;
+    providerResourceId: string;
+    amountInCents: bigint;
+  }): Promise<PaymentRefund | null>;
   createRefund(refund: PaymentRefund): Promise<void>;
   updateRefund(input: Readonly<{
     id: string;

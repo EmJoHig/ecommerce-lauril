@@ -132,7 +132,7 @@ export class ProcessMercadoPagoWebhook {
       });
       return { kind: "requires_review", reasonCode: "late_payment_refund_submitted", orderNumber };
     } catch (error) {
-      if (isTransientRefundError(error)) throw error;
+      if (isTransientLateRefundError(error)) throw error;
       const failureCode = sanitizedFailureCode(error);
       await this.unitOfWork.run(async (transaction) => {
         await transaction.updateRefund({ id: refund.id, status: "REQUIRES_REVIEW", failureCode });
@@ -372,7 +372,14 @@ async function confirmRefund(
     rejectedAt: attempt.rejectedAt,
     refundedAmountInCents: refunded,
   });
-  const activeRefund = await transaction.findActiveRefund(attempt.id);
+  const activeRefund = await transaction.findActiveRefund(attempt.id)
+    ?? (lateSale && state === "refunded"
+      ? await transaction.findLateRefundInReview({
+        paymentAttemptId: attempt.id,
+        providerResourceId: external.providerResourceId,
+        amountInCents: attempt.amountInCents,
+      })
+      : null);
   const authoritativeDelta = refunded - attempt.refundedAmountInCents;
   if (activeRefund && ((state === "refunded" && activeRefund.kind === "FULL")
     || (state === "partially_refunded" && activeRefund.kind === "PARTIAL"
@@ -513,8 +520,12 @@ function gatewayErrorCode(error: unknown): string | null {
   return /^[A-Z0-9_-]{1,100}$/.test(code) ? code : null;
 }
 
-function isTransientRefundError(error: unknown): boolean {
-  return ["TIMEOUT", "NETWORK", "RESOURCE_LOCKED", "RATE_LIMITED", "UNAVAILABLE"].includes(gatewayErrorCode(error) ?? "");
+function isTransientLateRefundError(error: unknown): boolean {
+  const code = gatewayErrorCode(error);
+  // Orders can temporarily reject an immediate late-payment refund with this code.
+  return ["TIMEOUT", "NETWORK", "RESOURCE_LOCKED", "RATE_LIMITED", "UNAVAILABLE"].includes(code ?? "")
+    || (code === "INVALID_REQUEST" && error instanceof Error
+      && "providerCode" in error && error.providerCode === "unprocessable_content");
 }
 
 function sanitizedFailureCode(error: unknown): string {

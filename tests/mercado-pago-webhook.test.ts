@@ -285,6 +285,7 @@ function paymentFixture(
     findEvent: async (id) => [...events.values()].find((event) => event.id === id) ?? null,
     findAttempt: async (id) => attempt.id === id ? attempt : null,
     findActiveRefund: async () => null,
+    findLateRefundInReview: async () => null,
     createRefund: async () => undefined,
     updateRefund: async () => undefined,
     findOrder: async (id) => order.id === id ? order : null,

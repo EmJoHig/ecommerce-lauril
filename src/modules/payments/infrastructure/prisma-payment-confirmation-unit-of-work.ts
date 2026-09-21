@@ -45,6 +45,14 @@ function createTransaction(tx: Transaction): PaymentConfirmationTransaction {
       });
       return row ? mapPaymentRefund(row) : null;
     },
+    findLateRefundInReview: async (input) => {
+      const rows = await tx.paymentRefund.findMany({
+        where: { ...input, provider: "MERCADO_PAGO", kind: "FULL", status: "REQUIRES_REVIEW" },
+        take: 2,
+      });
+      // Do not guess which operation to confirm if the correspondence is ambiguous.
+      return rows.length === 1 ? mapPaymentRefund(rows[0]!) : null;
+    },
     createRefund: async (refund) => {
       await tx.paymentRefund.create({ data: refund });
     },
