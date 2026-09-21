@@ -119,8 +119,9 @@ El número público se obtiene de un documento contador transaccional y comienza
 en `PENDING_PAYMENT` y contempla `PAID`,
 `PREPARING`, `READY_TO_SHIP`, `SHIPPED`, `DELIVERED`, `CANCELLED`,
 `PAYMENT_REJECTED`, `REFUNDED` y `PARTIALLY_REFUNDED`. Fase 6 permite únicamente
-transiciones operativas explícitas y cancelación pendiente; `PAID` y estados de
-pago/reembolso quedan reservados a una integración futura.
+transiciones operativas explícitas y cancelación pendiente; F14 implementa la
+confirmación autoritativa de `PAID` y reembolsos. El rechazo individual sólo cambia
+`PaymentAttempt`, no lleva el pedido a `PAYMENT_REJECTED`.
 
 `checkoutKeyHash` y `cartId` únicos aportan idempotencia. La aplicación verifica
 `total = itemsSubtotal + shipping - discount`; descuento es cero en esta fase.
@@ -165,7 +166,7 @@ los datos públicos de contacto, redes sociales y una descripción breve. El ID 
 `unique(orderId, attemptNumber)` permite varios intentos ordenados sin duplicar un
 número. `idempotencyKey` es única: un nuevo intento genera otra clave y un reintento
 técnico reutiliza la persistida. `unique(provider, providerEventId)` convierte
-`PaymentEvent` en una bandeja de entrada deduplicable antes de futuros efectos.
+`PaymentEvent` en una bandeja de entrada deduplicable antes de producir efectos.
 
 Un índice único parcial adicional sobre `order_id`, limitado a estados `CREATED`
 y `PENDING`, garantiza como máximo un intento activo por pedido. La aplicación

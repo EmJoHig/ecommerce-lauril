@@ -11,7 +11,7 @@ Browser
   -> Next.js presentation (pages, route handlers, server actions)
       -> application use cases
           -> domain rules and ports
-              <- infrastructure adapters (Prisma, S3, email; Mercado Pago futuro)
+              <- infrastructure adapters (Prisma, S3, email, Mercado Pago)
                   -> MongoDB Atlas / external providers
 ```
 
@@ -271,14 +271,15 @@ La máquina de estados está en dominio y distingue fuente `ADMIN`, `SYSTEM` o
 `PAYMENT`. Administración permite `PENDING_PAYMENT -> CANCELLED`, y para pedidos
 ya pagados `PAID -> PREPARING -> READY_TO_SHIP -> SHIPPED -> DELIVERED`. `PICKUP`
 omite despacho y pasa de listo a entregado. `PAID`, rechazos y reembolsos no se
-asignan manualmente; quedan reservados a integraciones futuras.
+asignan manualmente; la integración de pagos de F14 confirma sus estados mediante
+consulta autoritativa del proveedor.
 
 Cancelar un pendiente libera `stockReserved` una sola vez sin modificar
 `stockOnHand` ni crear `InventoryMovement`. La transición, el historial con actor
 y `AuditLog` se escriben atómicamente. `OrderNote` es información operativa interna
 y nunca forma parte del DTO público del pedido.
 
-## Pagos en Fases 14A-D
+## Pagos en Fase 14
 
 `payments` introduce `PaymentAttempt` como historial 1:N del pedido y
 `PaymentEvent` como inbox idempotente. Un intento conserva importe y moneda del
@@ -286,9 +287,9 @@ pedido, número secuencial por pedido, una clave de idempotencia local propia y 
 snapshot mínimo devuelto por el proveedor. Reintentos técnicos del mismo intento
 reutilizan su clave persistida; un nuevo intento recibe otro número y otra clave.
 
-`PaymentGateway` expone únicamente crear un checkout externo y consultar el estado
+`PaymentGateway` expone crear un checkout externo, solicitar refunds y consultar el estado
 autoritativo de su recurso, usando tipos propios sin Prisma ni tipos de Mercado
-Pago. La integración prevista es Checkout Pro mediante Mercado Pago Orders API
+Pago. La integración implementada es Checkout Pro mediante Mercado Pago Orders API
 (`POST /v1/orders`), no la API clásica de Preferences. F14B incorpora
 `MercadoPagoOrdersGateway` con `fetch` nativo, timeout, errores normalizados y
 consulta autoritativa mediante `GET /v1/orders/{id}`. El token queda exclusivamente
@@ -316,8 +317,12 @@ integración no transiciona el pedido a ese estado.
 
 F14C incorpora `POST /api/payments/mercado-pago/webhook`. La autenticación pública
 es la firma HMAC-SHA256 de Mercado Pago: el manifest usa exclusivamente `data.id`
-del query preservando exactamente el casing recibido, `x-request-id` y `ts`; la comparación del hash usa
-`timingSafeEqual`. El body se limita y valida recién después de autenticar, y su
+del query con casing exacto como validación primaria, `x-request-id` y `ts`; la
+comparación del hash usa `timingSafeEqual`. Sólo si falla la firma exacta y el ID
+cumple `^ORDTST[A-Z0-9]+$`, admite el HMAC lowercase observado en sandbox, con el
+mismo secreto, request ID y timestamp. El ID original se conserva para consultar
+y procesar; Orders productivas exigen casing exacto.
+El body se limita y valida recién después de autenticar, y su
 `data.id` debe coincidir con el recurso firmado. El secreto es server-side,
 opcional con la feature apagada y nunca se persiste ni registra.
 
