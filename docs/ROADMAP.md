@@ -376,7 +376,14 @@ automáticamente: la habilitación comercial corresponde a F15.
 
 ## Fase 15 — E2E y habilitación comercial
 
-Estado: siguiente fase, pendiente de ejecución y habilitación comercial explícita.
+Estado: en curso; habilitación comercial pendiente de autorización explícita.
+
+F15A implementada: infraestructura E2E inicial con Playwright/Chromium y smoke
+no destructivo de home → catálogo. Ejecución local con `webServer` o contra una
+URL de pruebas mediante `E2E_BASE_URL`; instrucciones en `e2e/README.md`.
+Integración CI pendiente para F15B: las rutas públicas requieren MongoDB y el
+workflow actual no provisiona una base ni un entorno E2E aislado. F15 no está
+completa y Mercado Pago continúa deshabilitado en producción.
 
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.
