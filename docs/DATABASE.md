@@ -119,8 +119,9 @@ El número público se obtiene de un documento contador transaccional y comienza
 en `PENDING_PAYMENT` y contempla `PAID`,
 `PREPARING`, `READY_TO_SHIP`, `SHIPPED`, `DELIVERED`, `CANCELLED`,
 `PAYMENT_REJECTED`, `REFUNDED` y `PARTIALLY_REFUNDED`. Fase 6 permite únicamente
-transiciones operativas explícitas y cancelación pendiente; `PAID` y estados de
-pago/reembolso quedan reservados a una integración futura.
+transiciones operativas explícitas y cancelación pendiente; F14 implementa la
+confirmación autoritativa de `PAID` y reembolsos. El rechazo individual sólo cambia
+`PaymentAttempt`, no lleva el pedido a `PAYMENT_REJECTED`.
 
 `checkoutKeyHash` y `cartId` únicos aportan idempotencia. La aplicación verifica
 `total = itemsSubtotal + shipping - discount`; descuento es cero en esta fase.
@@ -154,11 +155,41 @@ los datos públicos de contacto, redes sociales y una descripción breve. El ID 
 
 ### Pagos
 
-- `Payment`: pedido, gateway, referencia externa, estado, importe, moneda e
-  idempotency key. Restricciones únicas por gateway/referencia e idempotency key.
-- `PaymentEvent`: evento recibido con `providerEventId` único, hash/payload
-  sanitizado, estado de procesamiento, intentos y error. Es la bandeja de entrada
-  idempotente.
+- `PaymentAttempt`: intento 1:N del pedido con proveedor, número positivo, estado
+  interno, importe `bigint` en centavos, moneda snapshot, clave de idempotencia
+  local, referencia/estado del proveedor, URL de checkout y timestamps de
+  aprobación, rechazo y reembolso acumulado.
+- `PaymentEvent`: metadata mínima del evento externo, referencia del proveedor,
+  vínculo opcional al intento y estado `RECEIVED`, `PROCESSED`, `IGNORED` o
+  `FAILED`. No guarda secretos, firmas, headers completos, tarjetas ni body crudo.
+
+`unique(orderId, attemptNumber)` permite varios intentos ordenados sin duplicar un
+número. `idempotencyKey` es única: un nuevo intento genera otra clave y un reintento
+técnico reutiliza la persistida. `unique(provider, providerEventId)` convierte
+`PaymentEvent` en una bandeja de entrada deduplicable antes de producir efectos.
+
+Un índice único parcial adicional sobre `order_id`, limitado a estados `CREATED`
+y `PENDING`, garantiza como máximo un intento activo por pedido. La aplicación
+calcula el siguiente `attemptNumber` desde el último intento; las restricciones
+únicas resuelven carreras y el request perdedor reutiliza el intento ganador.
+`REJECTED` y `CANCELLED` habilitan otro intento; `REFUNDED` también puede hacerlo
+cuando el pedido nunca fue venta local y su reserva pendiente continúa vigente.
+
+`PaymentRefund` pertenece a un `PaymentAttempt` y conserva tipo `FULL/PARTIAL`,
+importe en centavos, transacción de pago opcional, UUID de idempotencia, estado
+`CREATED/SUBMITTED/CONFIRMED/FAILED/REQUIRES_REVIEW` y metadata externa mínima.
+Un índice único parcial por `payment_attempt_id` para `CREATED/SUBMITTED` evita
+dos refunds activos; otro índice parcial único por proveedor/ID externo deduplica
+el refund cuando Mercado Pago informa ese ID.
+
+Los importes reembolsados se derivan del GET autoritativo de Orders API. Cambiar
+un pedido a `PARTIALLY_REFUNDED` o `REFUNDED` no modifica `Inventory`, no crea
+`RETURN`/`CANCELLATION` y no reconstruye reservas.
+
+La referencia externa opcional no usa `@unique`: el script de índices crea
+`unique(provider, provider_resource_id)` solamente cuando
+`provider_resource_id` es string. Así varios intentos sin recurso externo pueden
+coexistir sin colisionar por `null` o campo ausente en MongoDB.
 
 Un pedido puede tener varios intentos de pago, pero el total aprobado/reembolsado
 se deriva de pagos, no de un único campo mutable sin historial.
@@ -188,20 +219,30 @@ se deriva de pagos, no de un único campo mutable sin historial.
   categoría/producto, SKU y slug únicos; Atlas Search se evaluará solo si el volumen
   lo justifica.
 - inventario: variante única, movimientos por `(inventoryId, createdAt)` y
-  `(referenceType, referenceId)`. El predicado calculado de bajo stock se evalúa
-  en aplicación porque MongoDB no admite ese índice relacional parcial.
+  `(referenceType, referenceId)`, más unicidad parcial de `SALE` por
+  `(inventoryId, type, referenceType, referenceId)` cuando la referencia es un
+  pedido. El predicado calculado de bajo stock se evalúa en aplicación porque
+  MongoDB no admite ese índice relacional parcial.
 - pedidos: número único, `(customerId, createdAt)`, `(status, createdAt)` y
   `(shippingMethodId, createdAt)`.
 - notas de pedido: `(orderId, createdAt)` y `(actorUserId, createdAt)`.
 - notas de cliente: `(customerId, createdAt)` y `(actorUserId, createdAt)`.
-- pagos/eventos: referencias externas e idempotencia únicas.
+- pagos: `(orderId, attemptNumber)` e idempotencia únicas, consulta por
+  `(orderId, createdAt)`, operación por `(status, updatedAt)` y referencia externa
+  única parcial por proveedor.
+- eventos de pago: `(provider, providerEventId)` único y cola operativa por
+  `(processingStatus, receivedAt)`.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
 Además de los índices expresables en Prisma Schema, el script
-`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente cinco índices
+`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente ocho índices
 únicos parciales activos: una variante predeterminada por producto, una dirección
 predeterminada por cliente, un carrito activo por cliente y unicidad para los
-hashes opcionales de carrito invitado y acceso a pedido invitado.
+hashes opcionales de carrito invitado y acceso a pedido invitado, más la referencia
+externa informada de un intento de pago por proveedor, un único intento de pago
+activo por pedido y un único movimiento `SALE` por inventario/pedido. Esta última
+defensa, junto con la transacción de confirmación y `Inventory.version`, impide
+que webhooks duplicados o concurrentes descuenten físicamente dos veces.
 
 ## Sincronización y seed
 

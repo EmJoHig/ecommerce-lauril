@@ -11,7 +11,7 @@ Browser
   -> Next.js presentation (pages, route handlers, server actions)
       -> application use cases
           -> domain rules and ports
-              <- infrastructure adapters (Prisma, S3, email; Mercado Pago futuro)
+              <- infrastructure adapters (Prisma, S3, email, Mercado Pago)
                   -> MongoDB Atlas / external providers
 ```
 
@@ -271,12 +271,99 @@ La máquina de estados está en dominio y distingue fuente `ADMIN`, `SYSTEM` o
 `PAYMENT`. Administración permite `PENDING_PAYMENT -> CANCELLED`, y para pedidos
 ya pagados `PAID -> PREPARING -> READY_TO_SHIP -> SHIPPED -> DELIVERED`. `PICKUP`
 omite despacho y pasa de listo a entregado. `PAID`, rechazos y reembolsos no se
-asignan manualmente; quedan reservados a integraciones futuras.
+asignan manualmente; la integración de pagos de F14 confirma sus estados mediante
+consulta autoritativa del proveedor.
 
 Cancelar un pendiente libera `stockReserved` una sola vez sin modificar
 `stockOnHand` ni crear `InventoryMovement`. La transición, el historial con actor
 y `AuditLog` se escriben atómicamente. `OrderNote` es información operativa interna
 y nunca forma parte del DTO público del pedido.
+
+## Pagos en Fase 14
+
+`payments` introduce `PaymentAttempt` como historial 1:N del pedido y
+`PaymentEvent` como inbox idempotente. Un intento conserva importe y moneda del
+pedido, número secuencial por pedido, una clave de idempotencia local propia y el
+snapshot mínimo devuelto por el proveedor. Reintentos técnicos del mismo intento
+reutilizan su clave persistida; un nuevo intento recibe otro número y otra clave.
+
+`PaymentGateway` expone crear un checkout externo, solicitar refunds y consultar el estado
+autoritativo de su recurso, usando tipos propios sin Prisma ni tipos de Mercado
+Pago. La integración implementada es Checkout Pro mediante Mercado Pago Orders API
+(`POST /v1/orders`), no la API clásica de Preferences. F14B incorpora
+`MercadoPagoOrdersGateway` con `fetch` nativo, timeout, errores normalizados y
+consulta autoritativa mediante `GET /v1/orders/{id}`. El token queda exclusivamente
+en infraestructura server-side.
+
+`StartPaymentCheckout` vuelve a leer el pedido y exige estado `PENDING_PAYMENT`,
+reserva vigente y no liberada. Adquiere o reutiliza el intento activo, envía su
+clave persistida en `X-Idempotency-Key` y guarda el recurso, checkout URL y estado
+original del proveedor. Si el recurso ya tiene checkout URL, no repite el POST.
+Un índice único parcial por pedido para estados `CREATED`/`PENDING`, combinado con
+`unique(orderId, attemptNumber)` y recuperación de colisiones, evita dos intentos
+activos aun entre procesos distintos.
+
+La Server Action vuelve a comprobar ownership customer/guest, aplica rate limit y
+solo redirige a una URL HTTPS obtenida server-side. `MERCADO_PAGO_ENABLED` vale
+`false` por defecto; sin flag y token no se muestra el botón ni se compone el
+gateway. Los parámetros `payment_return` muestran únicamente un mensaje neutro y
+no cambian estado local alguno.
+
+Los eventos se deduplican por `provider + providerEventId`. `failed` marca solo el
+`PaymentAttempt` como `REJECTED` y `canceled` como `CANCELLED`; el pedido permanece
+`PENDING_PAYMENT` para permitir otro intento mientras la reserva continúe viva.
+`Order.PAYMENT_REJECTED` no representa el rechazo de un intento individual y la
+integración no transiciona el pedido a ese estado.
+
+F14C incorpora `POST /api/payments/mercado-pago/webhook`. La autenticación pública
+es la firma HMAC-SHA256 de Mercado Pago: el manifest usa exclusivamente `data.id`
+del query con casing exacto como validación primaria, `x-request-id` y `ts`; la
+comparación del hash usa `timingSafeEqual`. Sólo si falla la firma exacta y el ID
+cumple `^ORDTST[A-Z0-9]+$`, admite el HMAC lowercase observado en sandbox, con el
+mismo secreto, request ID y timestamp. El ID original se conserva para consultar
+y procesar; Orders productivas exigen casing exacto.
+El body se limita y valida recién después de autenticar, y su
+`data.id` debe coincidir con el recurso firmado. El secreto es server-side,
+opcional con la feature apagada y nunca se persiste ni registra.
+
+El webhook crea o recupera `PaymentEvent` en `RECEIVED` antes de cualquier GET.
+Checkout Pro Orders puede omitir el `id` top-level del body: `providerEventId`
+usa ese ID si existe o `request:<x-request-id>` si falta. El fallback usa el
+request ID autenticado por HMAC y se limita a 255 caracteres, incluido el prefijo.
+`data.id` identifica `providerResourceId`, no una notificación. La misma request
+ID deduplica el evento; con otra request ID, las defensas transaccionales, de
+estado y del índice único `SALE` siguen impidiendo efectos físicos duplicados.
+Los eventos finales se deduplican sin consultar nuevamente; `RECEIVED` y `FAILED`
+pueden reintentarse. Tras asociar exclusivamente por proveedor y recurso, el caso
+de uso consulta `GET /v1/orders/{id}`. Solo `processed/accredited`, con referencia
+externa, ARS, total y total pagado exactos, puede aprobar automáticamente.
+
+`PrismaPaymentConfirmationUnitOfWork` relee evento, intento, pedido, items e
+inventarios. Una sola transacción consume simultáneamente `stockOnHand` y
+`stockReserved` mediante CAS de `Inventory.version`, inserta `SALE`, cambia el
+pedido `PENDING_PAYMENT -> PAID` por fuente `PAYMENT`, agrega historial, aprueba
+el intento con timestamp local de confirmación y finaliza el evento. El timestamp
+`approvedAt` representa la confirmación local, no un instante inventado del
+proveedor. El índice parcial único de venta por inventario/pedido, la transacción
+y los CAS protegen el exactly-once entre procesos.
+
+La expiración y el webhook compiten sobre el mismo pedido/reserva: quien confirma
+primero invalida la escritura condicional del otro. F14D agrega `PaymentRefund` y
+`PaymentGateway.refundOrder`. Cada operación posee su UUID de idempotencia
+persistido: los reintentos técnicos conservan la misma clave, mientras un refund
+nuevo obtiene otra. El total usa `POST /v1/orders/{id}/refund` sin body; el parcial
+envía una transacción inequívoca y un importe decimal derivado de centavos.
+
+El GET autoritativo suma exactamente `transactions.refunds[].amount`. Confirmar
+refunds transiciona `PAID -> PARTIALLY_REFUNDED/REFUNDED` o
+`PARTIALLY_REFUNDED -> REFUNDED`, sin movimientos ni cambios de inventario.
+Refund no equivale a devolución física de mercadería y nunca repone stock.
+
+Una acreditación posterior a cancelación, liberación o pérdida de reserva no
+crea venta ni reserva: prepara/reutiliza un refund total y espera confirmación
+autoritaria. Al confirmarse, el intento queda `REFUNDED` pero el pedido continúa
+`CANCELLED`. Fallos transitorios reintentan la misma operación; incoherencias
+permanentes quedan `REQUIRES_REVIEW` y generan un log estructurado.
 
 ## Backoffice consolidado en Fase 7
 

@@ -24,6 +24,13 @@ export type StockTransition = Readonly<{
   availableAfter: number;
 }>;
 
+export type ReservationSaleTransition = Readonly<{
+  stockBefore: number;
+  stockAfter: number;
+  stockReservedAfter: number;
+  availableAfter: number;
+}>;
+
 export function calculateAvailableStock(
   stockOnHand: number,
   stockReserved: number,
@@ -69,6 +76,33 @@ export function calculateReservationRelease(
     throw new ValidationError("La reserva a liberar es inválida.");
   }
   return stockReserved - quantity;
+}
+
+export function convertReservationToSale(
+  stockOnHand: number,
+  stockReserved: number,
+  quantity: number,
+): ReservationSaleTransition {
+  assertStockValues(stockOnHand, stockReserved);
+  assertInteger(quantity, "cantidad vendida");
+  if (quantity < 1) {
+    throw new ValidationError("La venta reservada debe ser positiva.");
+  }
+  if (stockReserved < quantity) {
+    throw new ValidationError("La reserva no alcanza para confirmar la venta.");
+  }
+  if (stockOnHand < quantity) {
+    throw new ValidationError("El stock físico no alcanza para confirmar la venta.");
+  }
+
+  const stockAfter = stockOnHand - quantity;
+  const stockReservedAfter = stockReserved - quantity;
+  return {
+    stockBefore: stockOnHand,
+    stockAfter,
+    stockReservedAfter,
+    availableAfter: calculateAvailableStock(stockAfter, stockReservedAfter),
+  };
 }
 
 export function calculateStockTransition(

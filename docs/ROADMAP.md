@@ -273,6 +273,8 @@ criterio de cierre de la Fase 12, no bloquean fases posteriores y se realizarán
 
 ## Fase 13 — Hardening de seguridad
 
+Estado: completada y validada.
+
 - Revisión dirigida de autenticación y sesiones.
 - RBAC y autorización server-side.
 - Ownership e IDOR.
@@ -288,21 +290,93 @@ No realizar refactors generales ni auditorías cosméticas.
 
 ## Fase 14 — Mercado Pago
 
-- Implementar `PaymentGateway`.
-- Mercado Pago Checkout Pro.
-- Persistencia de pagos y eventos.
-- Webhooks firmados.
-- Verificación server-side del pago.
-- Idempotencia.
-- Múltiples intentos de pago cuando corresponda.
-- Transición segura de `PENDING_PAYMENT` a `PAID`.
-- Conversión atómica de reserva a venta.
-- `InventoryMovement` físico de venta exactamente una vez.
-- Política explícita para pagos rechazados, expirados y reembolsos.
+Estado: completada y validada.
 
-El retorno del navegador nunca confirma un pago.
+La integración utiliza Checkout Pro mediante Mercado Pago Orders API
+(`POST /v1/orders`), no la API clásica de Preferences. El dominio conserva un
+contrato `PaymentGateway`; Mercado Pago es un adaptador de infraestructura.
+
+### F14A — Fundación de pagos, persistencia y contratos
+
+Estado: completada y validada.
+
+- `PaymentAttempt` 1:N por pedido, snapshots monetarios y estados internos
+  provider-neutral.
+- `PaymentEvent` como inbox idempotente persistido antes de producir efectos.
+- Ports de gateway y repositorios, adaptadores Prisma e índices MongoDB.
+- Sin API externa, webhook, checkout público, transición `PAID` ni inventario.
+
+### F14B — Adapter Orders API
+
+Estado: completada y validada.
+
+- Adapter nativo para crear el checkout externo mediante `POST /v1/orders` y
+  consultar su estado con `GET /v1/orders/{id}`.
+- Reutilizar la clave local persistida como `X-Idempotency-Key` en reintentos
+  técnicos del mismo intento.
+- Consultar server-side el estado autoritativo del recurso externo.
+- Garantizar como máximo un intento `CREATED` o `PENDING` por pedido y permitir
+  uno nuevo después de `REJECTED` o `CANCELLED`.
+- Feature flag `MERCADO_PAGO_ENABLED` deshabilitada por defecto. El retorno del
+  navegador es solo UX y nunca confirma ni modifica el pago.
+
+### F14C — Webhook y aprobación atómica
+
+Estado: completada y validada.
+
+- El webhook público valida HMAC-SHA256 sobre el `data.id` del query preservando
+  el casing exacto como validación primaria, `x-request-id` y `ts`, y persiste el
+  inbox antes de consultar al proveedor o producir efectos. Sólo IDs de prueba
+  `ORDTST...` admiten el fallback HMAC lowercase acotado validado en F14E.
+- `GET /v1/orders/{id}` es la única fuente autoritativa; únicamente
+  `processed/accredited`, con recurso, referencia externa, ARS y montos exactos,
+  habilita aprobación automática.
+- Pedido, inventarios con `Inventory.version`, movimientos `SALE`, historial,
+  intento y evento se confirman en una sola transacción. Un índice único parcial
+  refuerza un único `SALE` por inventario/pedido.
+- La aprobación compite atómicamente con expiración. Si cancelación/liberación
+  gana, o falta la reserva, no vende ni vuelve a reservar: inicia el auto-refund
+  total idempotente implementado en F14D y validado en F14E.
+- `MERCADO_PAGO_ENABLED` continúa deshabilitada por defecto.
+
+### F14D — Estados, reintentos y reembolsos
+
+Estado: completada y validada.
+
+- Rechazo y cancelación terminan el intento, no el pedido: mientras la reserva
+  siga vigente, `PENDING_PAYMENT` admite un intento nuevo con otra clave.
+- `PaymentRefund` conserva idempotencia propia y admite reembolsos parciales y
+  totales mediante Orders API. Un refund nunca repone stock automáticamente.
+- Un pago acreditado después de cancelación/liberación inicia un refund total
+  idempotente. El pedido local permanece `CANCELLED` aun después de confirmarlo.
+- `MERCADO_PAGO_ENABLED` continúa en `false` por defecto.
+
+### F14E — Integración de prueba y cierre
+
+Estado: completada y validada.
+
+Validaciones reales realizadas en staging aislado con Checkout Pro / Orders API:
+
+- Pago aprobado automático y pago pendiente/processing.
+- Cancelación de un `PaymentAttempt`, nuevo intento y posterior aprobación.
+- Una única SALE y transición PAID; webhook duplicado sin repetir efectos.
+- Refund parcial y total confirmados, sin restock automático.
+- Pago tardío tras expirar/liberar reserva: pedido `CANCELLED`, sin SALE ni cambios
+  de `stockOnHand`, con `stockReserved=0` y refund FULL idempotente.
+- `unprocessable_content` inmediatamente después de acreditar conserva el mismo
+  refund y clave para retry, sólo en auto-refund tardío. La confirmación autoritativa
+  posterior deja intento `REFUNDED` y refund `CONFIRMED`, incluso si quedó en revisión
+  y puede correlacionarse inequívocamente.
+- Firma primaria con casing exacto y compatibilidad lowercase limitada a IDs
+  sandbox `ORDTST...`; Orders productivas continúan exigiendo casing exacto.
+
+El retorno del navegador nunca confirma un pago; el GET autoritativo es la fuente
+de verdad. Mercado Pago sigue deshabilitado en producción. Cerrar F14 NO lo habilita
+automáticamente: la habilitación comercial corresponde a F15.
 
 ## Fase 15 — E2E y habilitación comercial
+
+Estado: siguiente fase, pendiente de ejecución y habilitación comercial explícita.
 
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.

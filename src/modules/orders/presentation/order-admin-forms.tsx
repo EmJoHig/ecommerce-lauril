@@ -3,7 +3,7 @@
 import { useActionState, type FormEvent, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import type { OrderStatusValue } from "../domain/order";
-import { addOrderNoteAction, transitionOrderAction } from "./order-admin-actions";
+import { addOrderNoteAction, requestPaymentRefundAction, transitionOrderAction } from "./order-admin-actions";
 import { initialOrderAdminActionState } from "./order-admin-action-state";
 
 export function OrderTransitionForm({
@@ -50,6 +50,27 @@ export function OrderNoteForm({ orderId }: Readonly<{ orderId: string }>) {
       {state.message ? <p className={state.status === "error" ? "action-error" : "action-success"} role="status">{state.message}</p> : null}
     </form>
   );
+}
+
+export function OrderRefundForms({ orderId, remainingInCents }: Readonly<{ orderId: string; remainingInCents: bigint }>) {
+  const [fullState, fullAction] = useActionState(requestPaymentRefundAction, initialOrderAdminActionState);
+  const [partialState, partialAction] = useActionState(requestPaymentRefundAction, initialOrderAdminActionState);
+  const remaining = `${remainingInCents / 100n},${(remainingInCents % 100n).toString().padStart(2, "0")}`;
+  return <div className="order-refund-forms">
+    <form action={fullAction} className="order-action-form">
+      <input name="orderId" type="hidden" value={orderId} />
+      <input name="kind" type="hidden" value="FULL" />
+      <SubmitButton critical>Reembolso total</SubmitButton>
+      {fullState.message ? <p className={fullState.status === "error" ? "action-error" : "action-success"} role="status">{fullState.message}</p> : null}
+    </form>
+    <form action={partialAction} className="order-action-form">
+      <input name="orderId" type="hidden" value={orderId} />
+      <input name="kind" type="hidden" value="PARTIAL" />
+      <label>Importe parcial (máximo {remaining})<input inputMode="decimal" name="amount" placeholder="0,00" required /></label>
+      <SubmitButton>Reembolso parcial</SubmitButton>
+      {partialState.message ? <p className={partialState.status === "error" ? "action-error" : "action-success"} role="status">{partialState.message}</p> : null}
+    </form>
+  </div>;
 }
 
 function SubmitButton({ children, critical = false }: Readonly<{ children: ReactNode; critical?: boolean }>) {

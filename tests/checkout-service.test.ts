@@ -40,6 +40,7 @@ class MemoryRepository implements OrderRepository {
   findPublicOrder(number: bigint, owner: { customerId: string | null; guestTokenHash: string | null }) { return Promise.resolve(this.saved?.number === number && (this.saved.customerId === owner.customerId || this.saved.guestAccessTokenHash === owner.guestTokenHash) ? this.saved : null); }
   listAdminOrders() { return Promise.resolve([]); }
   findAdminOrder(id: string) { return Promise.resolve(this.saved?.id === id ? this.saved : null); }
+  findPaymentOrder() { return Promise.resolve(null); }
   listExpiredPendingOrderIds() { return Promise.resolve(this.pending ? [this.pending.id] : []); }
   run<T>(work: (transaction: CheckoutTransaction) => Promise<T>): Promise<T> { return work(this.transaction()); }
 

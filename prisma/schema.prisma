@@ -75,6 +75,51 @@ enum OrderStatus {
   @@map("order_status")
 }
 
+enum PaymentProvider {
+  MERCADO_PAGO
+
+  @@map("payment_provider")
+}
+
+enum PaymentAttemptStatus {
+  CREATED
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  REQUIRES_REVIEW
+
+  @@map("payment_attempt_status")
+}
+
+enum PaymentEventProcessingStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+
+  @@map("payment_event_processing_status")
+}
+
+enum PaymentRefundKind {
+  FULL
+  PARTIAL
+
+  @@map("payment_refund_kind")
+}
+
+enum PaymentRefundStatus {
+  CREATED
+  SUBMITTED
+  CONFIRMED
+  FAILED
+  REQUIRES_REVIEW
+
+  @@map("payment_refund_status")
+}
+
 model User {
   id                  String               @id @default(uuid()) @map("_id")
   email               String               @unique
@@ -464,6 +509,7 @@ model Order {
   items                      OrderItem[]
   statusHistory              OrderStatusHistory[]
   notes                      OrderNote[]
+  paymentAttempts            PaymentAttempt[]
 
   @@index([customerId, createdAt])
   @@index([status, paymentExpiresAt])
@@ -471,6 +517,78 @@ model Order {
   @@index([shippingMethodId, createdAt])
   @@index([createdAt])
   @@map("orders")
+}
+
+model PaymentAttempt {
+  id                      String               @id @default(uuid()) @map("_id")
+  orderId                 String               @map("order_id")
+  provider                PaymentProvider
+  attemptNumber           Int                  @map("attempt_number")
+  idempotencyKey          String               @unique @map("idempotency_key")
+  status                  PaymentAttemptStatus @default(CREATED)
+  amountInCents           BigInt               @map("amount_in_cents")
+  currency                String
+  providerResourceId      String?              @map("provider_resource_id")
+  checkoutUrl             String?              @map("checkout_url")
+  providerStatus          String?              @map("provider_status")
+  providerStatusDetail    String?              @map("provider_status_detail")
+  approvedAt              DateTime?            @map("approved_at")
+  rejectedAt              DateTime?            @map("rejected_at")
+  refundedAmountInCents   BigInt               @default(0) @map("refunded_amount_in_cents")
+  createdAt               DateTime             @default(now()) @map("created_at")
+  updatedAt               DateTime             @updatedAt @map("updated_at")
+  order                   Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events                  PaymentEvent[]
+  refunds                 PaymentRefund[]
+
+  @@unique([orderId, attemptNumber])
+  @@index([orderId, createdAt])
+  @@index([status, updatedAt])
+  @@map("payment_attempts")
+}
+
+model PaymentRefund {
+  id                   String              @id @default(uuid()) @map("_id")
+  paymentAttemptId     String              @map("payment_attempt_id")
+  provider             PaymentProvider
+  providerResourceId   String              @map("provider_resource_id")
+  kind                 PaymentRefundKind
+  amountInCents        BigInt              @map("amount_in_cents")
+  paymentTransactionId String?             @map("payment_transaction_id")
+  idempotencyKey       String              @unique @map("idempotency_key")
+  status               PaymentRefundStatus @default(CREATED)
+  providerRefundId     String?             @map("provider_refund_id")
+  providerStatus       String?             @map("provider_status")
+  failureCode          String?             @map("failure_code")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  submittedAt          DateTime?           @map("submitted_at")
+  confirmedAt          DateTime?           @map("confirmed_at")
+  paymentAttempt       PaymentAttempt      @relation(fields: [paymentAttemptId], references: [id], onDelete: Cascade)
+
+  @@index([paymentAttemptId, createdAt])
+  @@index([status, createdAt])
+  @@map("payment_refunds")
+}
+
+model PaymentEvent {
+  id                 String                       @id @default(uuid()) @map("_id")
+  provider           PaymentProvider
+  providerEventId    String                       @map("provider_event_id")
+  providerResourceId String                       @map("provider_resource_id")
+  eventType          String                       @map("event_type")
+  action             String?
+  requestId          String?                      @map("request_id")
+  paymentAttemptId   String?                      @map("payment_attempt_id")
+  processingStatus   PaymentEventProcessingStatus @default(RECEIVED) @map("processing_status")
+  receivedAt         DateTime                     @map("received_at")
+  processedAt        DateTime?                    @map("processed_at")
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  paymentAttempt     PaymentAttempt?              @relation(fields: [paymentAttemptId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([processingStatus, receivedAt])
+  @@map("payment_events")
 }
 
 model OrderItem {

@@ -61,6 +61,13 @@ Pedidos separa `orders.read` de `orders.write`. Cada Server Action vuelve a exig
 sesión y permiso; no confía en que la página haya ocultado controles. Los IDs se
 validan y un pedido inexistente no expone datos por respuesta diferencial.
 
+Solicitar un refund desde administración exige nuevamente `orders.write`. El
+servidor relee pedido, intento y snapshot autoritativo, valida moneda, referencia,
+monto restante y transacción antes de llamar a Mercado Pago. `AuditLog` registra
+actor, pedido, tipo e importe, pero no token, body externo, email del comprador ni
+clave completa de idempotencia. Los errores externos se leen con límite, se
+validan mínimamente y solo persiste un código sanitizado.
+
 Fase 7 separa además `customers`, `users`, `roles` y `audit` en capacidades de
 lectura/escritura. Email y contraseña del cliente no son editables desde el
 backoffice. Deshabilitar un cliente conserva su historia, bloquea el login y
@@ -160,9 +167,20 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
 
 ## Integraciones y webhooks
 
-Verificar firma y timestamp, limitar payload, registrar ID externo único, consultar
-al proveedor para confirmar estados sensibles y procesar idempotentemente. SSRF se
-evita usando endpoints configurados, no URLs arbitrarias recibidas del cliente.
+El webhook de Mercado Pago es público y se autentica mediante HMAC-SHA256 con
+`MERCADO_PAGO_WEBHOOK_SECRET`. El manifest preserva exactamente el casing recibido del `data.id` del query,
+`x-request-id` y `ts`; el hash se compara con `timingSafeEqual` antes de leer o
+confiar en el body. No se impone una ventana temporal no documentada a `ts`.
+
+El payload se limita, el `data.id` del body debe coincidir con el recurso firmado y
+el ID de notificación se registra de forma única antes de efectos. Checkout Pro
+Orders puede omitir el `id` top-level: en ese caso se usa `request:<x-request-id>`,
+autenticado por la firma, con límite total de 255 caracteres. `data.id` conserva
+su función de identificador del recurso, no del evento. El body nunca
+autoriza `PAID`: el servidor consulta el endpoint fijo `GET /v1/orders/{id}` y
+procesa idempotentemente. Secret, firma, access token, payer y body completo quedan
+fuera de persistencia, respuestas y logs. SSRF se evita usando endpoints
+configurados, no URLs arbitrarias recibidas del cliente.
 
 ## Dependencias y operación
 

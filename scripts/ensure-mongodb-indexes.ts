@@ -62,6 +62,55 @@ const commands = [
       },
     ],
   },
+  {
+    createIndexes: "payment_attempts",
+    indexes: [
+      {
+        key: { provider: 1, provider_resource_id: 1 },
+        name: "payment_attempts_provider_resource_id_key",
+        unique: true,
+        partialFilterExpression: { provider_resource_id: { $type: "string" } },
+      },
+      {
+        key: { order_id: 1 },
+        name: "payment_attempts_one_active_per_order_key",
+        unique: true,
+        partialFilterExpression: { status: { $in: ["CREATED", "PENDING"] } },
+      },
+    ],
+  },
+  {
+    createIndexes: "payment_refunds",
+    indexes: [
+      {
+        key: { payment_attempt_id: 1 },
+        name: "payment_refunds_one_active_per_attempt_key",
+        unique: true,
+        partialFilterExpression: { status: { $in: ["CREATED", "SUBMITTED"] } },
+      },
+      {
+        key: { provider: 1, provider_refund_id: 1 },
+        name: "payment_refunds_provider_refund_id_key",
+        unique: true,
+        partialFilterExpression: { provider_refund_id: { $type: "string" } },
+      },
+    ],
+  },
+  {
+    createIndexes: "inventory_movements",
+    indexes: [
+      {
+        key: { inventory_id: 1, type: 1, reference_type: 1, reference_id: 1 },
+        name: "inventory_movements_order_sale_once_key",
+        unique: true,
+        partialFilterExpression: {
+          type: "SALE",
+          reference_type: "ORDER",
+          reference_id: { $type: "string" },
+        },
+      },
+    ],
+  },
 ] as const;
 
 async function main(): Promise<void> {
@@ -70,10 +119,10 @@ async function main(): Promise<void> {
   }
   await prisma.sequence.upsert({
     where: { id: "schema:indexes:v1" },
-    update: { value: 1n },
-    create: { id: "schema:indexes:v1", value: 1n },
+    update: { value: 5n },
+    create: { id: "schema:indexes:v1", value: 5n },
   });
-  console.info(JSON.stringify({ status: "ok", indexesEnsured: 5 }));
+  console.info(JSON.stringify({ status: "ok", indexesEnsured: 10 }));
 }
 
 main()
