@@ -49,7 +49,7 @@ describe("Mercado Pago signed webhook", () => {
     }).valid).toBe(true);
   });
 
-  it("firma exacta: rechaza la misma firma al cambiar el casing de data.id", () => {
+  it("firma productiva: sólo acepta el HMAC lowercase al cambiar el casing de data.id", () => {
     for (const [signedId, receivedId] of [
       ["ORD01M305WJWR6MRC9V4XQQ9N2MP0", "ord01m305wjwr6mrc9v4xqq9n2mp0"],
       ["ord01m305wjwr6mrc9v4xqq9n2mp0", "ORD01M305WJWR6MRC9V4XQQ9N2MP0"],
@@ -59,7 +59,7 @@ describe("Mercado Pago signed webhook", () => {
         .digest("hex");
       expect(verifyMercadoPagoWebhookSignature({
         signature: `ts=1758196800,v1=${hash}`, requestId: "req-1", dataId: receivedId, secret,
-      }).valid).toBe(false);
+      }).valid).toBe(signedId === signedId.toLowerCase());
     }
   });
 

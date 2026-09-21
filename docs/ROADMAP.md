@@ -324,10 +324,10 @@ Estado: completada y validada.
 
 Estado: completada y validada.
 
-- El webhook público valida HMAC-SHA256 sobre el `data.id` del query preservando
-  el casing exacto como validación primaria, `x-request-id` y `ts`, y persiste el
+- El webhook público valida HMAC-SHA256 sobre el `data.id` del query normalizado
+  a minúsculas como validación primaria, `x-request-id` y `ts`, y persiste el
   inbox antes de consultar al proveedor o producir efectos. Sólo IDs de prueba
-  `ORDTST...` admiten el fallback HMAC lowercase acotado validado en F14E.
+  `ORDTST...` admiten el fallback HMAC con casing exacto acotado para sandbox.
 - `GET /v1/orders/{id}` es la única fuente autoritativa; únicamente
   `processed/accredited`, con recurso, referencia externa, ARS y montos exactos,
   habilita aprobación automática.
@@ -367,8 +367,8 @@ Validaciones reales realizadas en staging aislado con Checkout Pro / Orders API:
   refund y clave para retry, sólo en auto-refund tardío. La confirmación autoritativa
   posterior deja intento `REFUNDED` y refund `CONFIRMED`, incluso si quedó en revisión
   y puede correlacionarse inequívocamente.
-- Firma primaria con casing exacto y compatibilidad lowercase limitada a IDs
-  sandbox `ORDTST...`; Orders productivas continúan exigiendo casing exacto.
+- Firma primaria en minúsculas y compatibilidad con casing exacto limitada a IDs
+  sandbox `ORDTST...`; Orders productivas exigen minúsculas en el manifest.
 
 El retorno del navegador nunca confirma un pago; el GET autoritativo es la fuente
 de verdad. Mercado Pago sigue deshabilitado en producción. Cerrar F14 NO lo habilita
@@ -376,7 +376,19 @@ automáticamente: la habilitación comercial corresponde a F15.
 
 ## Fase 15 — E2E y habilitación comercial
 
-Estado: siguiente fase, pendiente de ejecución y habilitación comercial explícita.
+Estado: en curso; habilitación comercial pendiente de autorización explícita.
+
+F15A implementada: infraestructura E2E inicial con Playwright/Chromium y smoke
+no destructivo de home → catálogo. Ejecución local con `webServer` o contra una
+URL de pruebas mediante `E2E_BASE_URL`; instrucciones en `e2e/README.md`.
+F15B implementada y validada contra `https://staging.tecnoclean.shop` el
+2026-09-21: tres recorridos de catálogo → ficha → carrito, persistencia/eliminación
+del carrito invitado y responsive público mobile. Los tres tests y el smoke F15A
+pasaron; las líneas creadas se eliminaron por UI. Sin pedidos, cambios de stock
+físico, pagos ni operaciones administrativas. La ficha usa su variante
+predeterminada, sin selector visible. Ejecución manual/local; integrar E2E como
+check obligatorio queda para una etapa posterior con entorno aislado, fuera de
+F15B. F15 no está completa y Mercado Pago continúa deshabilitado en producción.
 
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.

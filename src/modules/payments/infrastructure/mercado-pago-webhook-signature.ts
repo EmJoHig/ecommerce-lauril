@@ -8,7 +8,7 @@ export type MercadoPagoWebhookSignatureInput = Readonly<{
 }>;
 
 export type MercadoPagoWebhookSignatureResult =
-  | Readonly<{ valid: true; legacyLowercase?: true }>
+  | Readonly<{ valid: true; sandboxExactCase?: true }>
   | Readonly<{
       valid: false;
       reasonCode: "missing_signature" | "malformed_signature" | "missing_timestamp"
@@ -35,17 +35,17 @@ export function verifyMercadoPagoWebhookSignature(
   const hash = parsed.hashes.get("v1");
   if (!hash) return { valid: false, reasonCode: "missing_hash" };
 
-  const manifest = `id:${dataId};request-id:${requestId};ts:${parsed.timestamp};`;
+  const manifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${parsed.timestamp};`;
   const expected = Buffer.from(createHmac("sha256", secret).update(manifest).digest("hex"));
   const received = Buffer.from(hash);
   if (received.length === expected.length && timingSafeEqual(received, expected)) return { valid: true };
 
-  // Compatibility observed for test Orders only; production requires the exact casing.
+  // Exact-case compatibility is limited to test Orders; production uses lowercase.
   if (/^ORDTST[A-Z0-9]+$/.test(dataId)) {
-    const lowercaseManifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${parsed.timestamp};`;
-    const lowercaseExpected = Buffer.from(createHmac("sha256", secret).update(lowercaseManifest).digest("hex"));
-    if (received.length === lowercaseExpected.length && timingSafeEqual(received, lowercaseExpected)) {
-      return { valid: true, legacyLowercase: true };
+    const exactManifest = `id:${dataId};request-id:${requestId};ts:${parsed.timestamp};`;
+    const exactExpected = Buffer.from(createHmac("sha256", secret).update(exactManifest).digest("hex"));
+    if (received.length === exactExpected.length && timingSafeEqual(received, exactExpected)) {
+      return { valid: true, sandboxExactCase: true };
     }
   }
   return { valid: false, reasonCode: "signature_mismatch" };

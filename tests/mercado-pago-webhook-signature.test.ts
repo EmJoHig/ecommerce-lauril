@@ -9,12 +9,12 @@ const dataId = "ORDTST01M30AJEA9DP593R9KCZRDRZY1";
 const requestId = "req-1";
 const timestamp = "1758196800";
 const hash = createHmac("sha256", secret)
-  .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`).digest("hex");
+  .update(`id:${dataId.toLowerCase()};request-id:${requestId};ts:${timestamp};`).digest("hex");
 const signature = `ts=${timestamp},v1=${hash}`;
 const input = { signature, requestId, dataId, secret };
 
 describe("firma SDK compatible", () => {
-  it("normaliza espacios exteriores sin alterar casing ni espacios internos", () => {
+  it("normaliza espacios exteriores y casing sin alterar espacios internos", () => {
     expect(verifyMercadoPagoWebhookSignature({
       ...input, signature: `  ts = ${timestamp} , v1 = ${hash}  `,
       requestId: ` ${requestId}\t`, dataId: `\t${dataId} `,
@@ -100,30 +100,30 @@ describe("firma SDK compatible", () => {
   });
 });
 
-describe("compatibilidad lowercase Orders de prueba", () => {
-  const lowercaseHash = createHmac("sha256", secret)
-    .update(`id:${dataId.toLowerCase()};request-id:${requestId};ts:${timestamp};`).digest("hex");
-  const lowercaseSignature = `ts=${timestamp},v1=${lowercaseHash}`;
+describe("canonicalización lowercase y compatibilidad sandbox", () => {
+  const exactHash = createHmac("sha256", secret)
+    .update(`id:${dataId};request-id:${requestId};ts:${timestamp};`).digest("hex");
+  const exactSignature = `ts=${timestamp},v1=${exactHash}`;
 
-  it("mantiene válida la firma exacta", () => {
+  it("acepta ORDTST lowercase como firma primaria", () => {
     expect(verifyMercadoPagoWebhookSignature(input)).toEqual({ valid: true });
   });
 
-  it("acepta coincidencia lowercase exclusivamente para ORDTST cuando falla la exacta", () => {
-    expect(verifyMercadoPagoWebhookSignature({ ...input, signature: lowercaseSignature }))
-      .toEqual({ valid: true, legacyLowercase: true });
+  it("acepta casing exacto como fallback para ORDTST", () => {
+    expect(verifyMercadoPagoWebhookSignature({ ...input, signature: exactSignature }))
+      .toEqual({ valid: true, sandboxExactCase: true });
   });
 
-  it("rechaza lowercase para Orders productivas y recursos fuera del prefijo exacto", () => {
+  it("acepta lowercase y rechaza casing exacto para Orders productivas y fuera del prefijo sandbox", () => {
     for (const resourceId of ["ORD01M30AJEA9DP593R9KCZRDRZY1", "PAY123", "ORDTST", "OrdTst123", "XORDTST123"]) {
       const lowercaseHash = createHmac("sha256", secret)
         .update(`id:${resourceId.toLowerCase()};request-id:${requestId};ts:${timestamp};`).digest("hex");
       expect(verifyMercadoPagoWebhookSignature({ ...input, dataId: resourceId, signature: `ts=${timestamp},v1=${lowercaseHash}` }))
-        .toEqual({ valid: false, reasonCode: "signature_mismatch" });
+        .toEqual({ valid: true });
       const exactHash = createHmac("sha256", secret)
         .update(`id:${resourceId};request-id:${requestId};ts:${timestamp};`).digest("hex");
       expect(verifyMercadoPagoWebhookSignature({ ...input, dataId: resourceId, signature: `ts=${timestamp},v1=${exactHash}` }))
-        .toEqual({ valid: true });
+        .toEqual({ valid: false, reasonCode: "signature_mismatch" });
     }
   });
 
@@ -134,9 +134,9 @@ describe("compatibilidad lowercase Orders de prueba", () => {
 
   it("no produce falsos positivos cuando data.id ya es lowercase", () => {
     const lowercaseInput = { ...input, dataId: dataId.toLowerCase() };
-    expect(verifyMercadoPagoWebhookSignature({ ...lowercaseInput, signature: lowercaseSignature }))
-      .toEqual({ valid: true });
     expect(verifyMercadoPagoWebhookSignature(lowercaseInput))
+      .toEqual({ valid: true });
+    expect(verifyMercadoPagoWebhookSignature({ ...lowercaseInput, signature: exactSignature }))
       .toEqual({ valid: false, reasonCode: "signature_mismatch" });
   });
 
@@ -145,7 +145,7 @@ describe("compatibilidad lowercase Orders de prueba", () => {
     try {
       const execute = vi.fn().mockResolvedValue({ kind: "pending" });
       const body = JSON.stringify({ action: "order.processed", type: "order", data: { id: dataId } });
-      const response = await handleMercadoPagoWebhook(webhookRequest(lowercaseSignature, body), {
+      const response = await handleMercadoPagoWebhook(webhookRequest(exactSignature, body), {
         enabled: true, secret, processor: { execute },
       });
       expect(response.status).toBe(200);
@@ -154,7 +154,7 @@ describe("compatibilidad lowercase Orders de prueba", () => {
         providerResourceId: dataId, providerEventId: `request:${requestId}`,
         requestId, eventType: "order", action: "order.processed",
       });
-      expect(info.mock.calls).toEqual([["payment.webhook_legacy_lowercase_signature", {
+      expect(info.mock.calls).toEqual([["payment.webhook_sandbox_exact_case_signature", {
         provider: "MERCADO_PAGO",
       }]]);
     } finally {

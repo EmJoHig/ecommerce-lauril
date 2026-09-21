@@ -41,8 +41,8 @@ export async function handleMercadoPagoWebhook(
     logger.warn("payment.webhook_invalid_signature", { provider: "MERCADO_PAGO", reasonCode: signatureResult.reasonCode });
     return jsonResponse(401);
   }
-  if (signatureResult.legacyLowercase) {
-    logger.info("payment.webhook_legacy_lowercase_signature", { provider: "MERCADO_PAGO" });
+  if (signatureResult.sandboxExactCase) {
+    logger.info("payment.webhook_sandbox_exact_case_signature", { provider: "MERCADO_PAGO" });
   }
 
   let rawBody: unknown;

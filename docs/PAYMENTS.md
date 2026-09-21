@@ -48,11 +48,11 @@ decimales del provider no usa floats.
 
 `POST /api/payments/mercado-pago/webhook` verifica HMAC-SHA256 con
 `timingSafeEqual`. Normaliza espacios y construye el manifest con `data.id` del
-query, `x-request-id` y el timestamp firmado; el casing exacto es siempre primario.
+query, `x-request-id` y el timestamp firmado; `data.id` en minúsculas es siempre primario.
 Sólo si falla esa firma y el ID cumple `^ORDTST[A-Z0-9]+$`, admite compatibilidad
-sandbox con `data.id` en lowercase, usando el mismo secreto, request ID y timestamp.
+sandbox con `data.id` en casing exacto, usando el mismo secreto, request ID y timestamp.
 La consulta y el procesamiento conservan el ID original. Orders productivas
-exigen casing exacto. El log de compatibilidad no incluye firmas ni secretos.
+exigen minúsculas en el manifest. El log de compatibilidad no incluye firmas ni secretos.
 
 Una firma inválida devuelve 401. Tras autenticar se limita y valida el body, cuyo
 `data.id` debe coincidir con el query. El inbox usa `body.id` como `providerEventId`
