@@ -51,8 +51,8 @@ describe("Mercado Pago signed webhook", () => {
 
   it("firma exacta: rechaza la misma firma al cambiar el casing de data.id", () => {
     for (const [signedId, receivedId] of [
-      ["ORDTST01M305WJWR6MRC9V4XQQ9N2MP0", "ordtst01m305wjwr6mrc9v4xqq9n2mp0"],
-      ["ordtst01m305wjwr6mrc9v4xqq9n2mp0", "ORDTST01M305WJWR6MRC9V4XQQ9N2MP0"],
+      ["ORD01M305WJWR6MRC9V4XQQ9N2MP0", "ord01m305wjwr6mrc9v4xqq9n2mp0"],
+      ["ord01m305wjwr6mrc9v4xqq9n2mp0", "ORD01M305WJWR6MRC9V4XQQ9N2MP0"],
     ] as const) {
       const hash = createHmac("sha256", secret)
         .update(`id:${signedId};request-id:req-1;ts:1758196800;`)

@@ -100,7 +100,7 @@ describe("firma SDK compatible", () => {
   });
 });
 
-describe("diagnóstico lowercase", () => {
+describe("compatibilidad lowercase Orders de prueba", () => {
   const lowercaseHash = createHmac("sha256", secret)
     .update(`id:${dataId.toLowerCase()};request-id:${requestId};ts:${timestamp};`).digest("hex");
   const lowercaseSignature = `ts=${timestamp},v1=${lowercaseHash}`;
@@ -109,9 +109,22 @@ describe("diagnóstico lowercase", () => {
     expect(verifyMercadoPagoWebhookSignature(input)).toEqual({ valid: true });
   });
 
-  it("informa coincidencia lowercase como inválida cuando falla la firma exacta", () => {
+  it("acepta coincidencia lowercase exclusivamente para ORDTST cuando falla la exacta", () => {
     expect(verifyMercadoPagoWebhookSignature({ ...input, signature: lowercaseSignature }))
-      .toEqual({ valid: false, reasonCode: "signature_mismatch_lowercase_match" });
+      .toEqual({ valid: true, legacyLowercase: true });
+  });
+
+  it("rechaza lowercase para Orders productivas y recursos fuera del prefijo exacto", () => {
+    for (const resourceId of ["ORD01M30AJEA9DP593R9KCZRDRZY1", "PAY123", "ORDTST", "OrdTst123", "XORDTST123"]) {
+      const lowercaseHash = createHmac("sha256", secret)
+        .update(`id:${resourceId.toLowerCase()};request-id:${requestId};ts:${timestamp};`).digest("hex");
+      expect(verifyMercadoPagoWebhookSignature({ ...input, dataId: resourceId, signature: `ts=${timestamp},v1=${lowercaseHash}` }))
+        .toEqual({ valid: false, reasonCode: "signature_mismatch" });
+      const exactHash = createHmac("sha256", secret)
+        .update(`id:${resourceId};request-id:${requestId};ts:${timestamp};`).digest("hex");
+      expect(verifyMercadoPagoWebhookSignature({ ...input, dataId: resourceId, signature: `ts=${timestamp},v1=${exactHash}` }))
+        .toEqual({ valid: true });
+    }
   });
 
   it("mantiene signature_mismatch cuando ninguna firma coincide", () => {
@@ -127,22 +140,25 @@ describe("diagnóstico lowercase", () => {
       .toEqual({ valid: false, reasonCode: "signature_mismatch" });
   });
 
-  it("rechaza con 401 la coincidencia diagnóstica sin procesar ni exponer firmas", async () => {
-    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+  it("procesa con casing original y registra únicamente el log seguro de compatibilidad", async () => {
+    const info = vi.spyOn(logger, "info").mockImplementation(() => undefined);
     try {
-      const execute = vi.fn();
+      const execute = vi.fn().mockResolvedValue({ kind: "pending" });
       const body = JSON.stringify({ action: "order.processed", type: "order", data: { id: dataId } });
       const response = await handleMercadoPagoWebhook(webhookRequest(lowercaseSignature, body), {
         enabled: true, secret, processor: { execute },
       });
-      expect(response.status).toBe(401);
-      expect(await response.json()).toEqual({ status: "error" });
-      expect(execute).not.toHaveBeenCalled();
-      expect(warn.mock.calls).toEqual([["payment.webhook_invalid_signature", {
-        provider: "MERCADO_PAGO", reasonCode: "signature_mismatch_lowercase_match",
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ status: "ok" });
+      expect(execute).toHaveBeenCalledExactlyOnceWith({
+        providerResourceId: dataId, providerEventId: `request:${requestId}`,
+        requestId, eventType: "order", action: "order.processed",
+      });
+      expect(info.mock.calls).toEqual([["payment.webhook_legacy_lowercase_signature", {
+        provider: "MERCADO_PAGO",
       }]]);
     } finally {
-      warn.mockRestore();
+      info.mockRestore();
     }
   });
 });
