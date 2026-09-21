@@ -381,9 +381,14 @@ Estado: en curso; habilitación comercial pendiente de autorización explícita.
 F15A implementada: infraestructura E2E inicial con Playwright/Chromium y smoke
 no destructivo de home → catálogo. Ejecución local con `webServer` o contra una
 URL de pruebas mediante `E2E_BASE_URL`; instrucciones en `e2e/README.md`.
-Integración CI pendiente para F15B: las rutas públicas requieren MongoDB y el
-workflow actual no provisiona una base ni un entorno E2E aislado. F15 no está
-completa y Mercado Pago continúa deshabilitado en producción.
+F15B implementada y validada contra `https://staging.tecnoclean.shop` el
+2026-09-21: tres recorridos de catálogo → ficha → carrito, persistencia/eliminación
+del carrito invitado y responsive público mobile. Los tres tests y el smoke F15A
+pasaron; las líneas creadas se eliminaron por UI. Sin pedidos, cambios de stock
+físico, pagos ni operaciones administrativas. La ficha usa su variante
+predeterminada, sin selector visible. Ejecución manual/local; integrar E2E como
+check obligatorio queda para una etapa posterior con entorno aislado, fuera de
+F15B. F15 no está completa y Mercado Pago continúa deshabilitado en producción.
 
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.
