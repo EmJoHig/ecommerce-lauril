@@ -371,8 +371,8 @@ Validaciones reales realizadas en staging aislado con Checkout Pro / Orders API:
   sandbox `ORDTST...`; Orders productivas exigen minúsculas en el manifest.
 
 El retorno del navegador nunca confirma un pago; el GET autoritativo es la fuente
-de verdad. Mercado Pago sigue deshabilitado en producción. Cerrar F14 NO lo habilita
-automáticamente: la habilitación comercial corresponde a F15.
+de verdad. Cerrar F14 no implica la habilitación comercial automática:
+la habilitación comercial final corresponde a F15 y continúa pendiente.
 
 ## Fase 15 — E2E y habilitación comercial
 
@@ -388,7 +388,21 @@ pasaron; las líneas creadas se eliminaron por UI. Sin pedidos, cambios de stock
 físico, pagos ni operaciones administrativas. La ficha usa su variante
 predeterminada, sin selector visible. Ejecución manual/local; integrar E2E como
 check obligatorio queda para una etapa posterior con entorno aislado, fuera de
-F15B. F15 no está completa y Mercado Pago continúa deshabilitado en producción.
+F15B. F15 todavía no está completa. Se realizó una validación real controlada de
+Mercado Pago en producción; la habilitación comercial final continúa pendiente.
+
+F15C automatizada hasta checkout: dos recorridos públicos, desktop y mobile,
+de catálogo → ficha → carrito → `Iniciar compra` → `/checkout`. Cubren campos
+obligatorios del invitado, métodos de entrega descubiertos por UI, campos de
+dirección condicionales, producto, subtotal, envío, total y actionability de
+`Confirmar pedido` sin pulsarlo. Reutilizan helpers de F15B y limpian el carrito
+por UI. Requieren un producto disponible y entregas con y sin dirección; no
+fijan datos comerciales ni crean fixtures. No crean pedidos, inician pagos,
+modifican stock físico ni envían emails. La creación de pedido y el pago se
+validan por separado de forma controlada; no se automatiza la confirmación.
+Validación final contra `https://staging.tecnoclean.shop` el 2026-09-21:
+los seis E2E pasaron juntos en una misma ejecución de la suite completa.
+Typecheck correcto; limpieza de carritos verificada por UI.
 
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.
