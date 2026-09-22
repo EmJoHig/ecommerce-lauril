@@ -404,6 +404,31 @@ Validación final contra `https://staging.tecnoclean.shop` el 2026-09-21:
 los seis E2E pasaron juntos en una misma ejecución de la suite completa.
 Typecheck correcto; limpieza de carritos verificada por UI.
 
+### F15D — Validación operativa controlada
+
+Validada según el registro operativo de las pruebas realizadas:
+
+- Creación de pedido invitado en staging con estado inicial `PENDING_PAYMENT`.
+- La reserva incrementa `stockReserved` sin reducir `stockOnHand`.
+- La cancelación administrativa libera la reserva; no se crea movimiento `SALE`.
+- Historial y auditoría correctos.
+- Expiración mediante `npm run db:expire-orders`; segunda ejecución idempotente
+  con `expired: 0`.
+- Limpieza del pedido vencido histórico de producción #10001, sin pago ni
+  `PaymentAttempt`.
+- Scheduler systemd de producción probado en dos ejecuciones automáticas
+  consecutivas, con periodicidad de cinco minutos y exclusión mediante `flock`.
+
+La operación de producción y las unidades systemd de referencia se documentan
+en [OPERATIONS.md](OPERATIONS.md). Staging no usa este timer de producción.
+
+**Siguiente bloque pendiente — Cierre productivo:** backup y verificación de
+Atlas, runbook de deploy/rollback, deploy final y smoke posterior al deploy.
+F15 continúa en curso; la habilitación comercial sigue pendiente de autorización
+explícita. La validación de F15D no completa la fase.
+
+### Alcance general de F15
+
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.
 - Catálogo.
