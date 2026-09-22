@@ -422,7 +422,7 @@ Validada según el registro operativo de las pruebas realizadas:
 La operación de producción y las unidades systemd de referencia se documentan
 en [OPERATIONS.md](OPERATIONS.md). Staging no usa este timer de producción.
 
-### Cierre productivo — En curso
+### Cierre productivo — Completado
 
 Completado según el registro operativo del 2026-09-22:
 
@@ -448,11 +448,27 @@ real porque producción ya estaba en el mismo commit.
 Runbook de deploy productivo y rollback de código documentado en
 [OPERATIONS.md](OPERATIONS.md), junto con la referencia del backup. La restauración
 de MongoDB es una operación de incidente separada y no forma parte automática
-del rollback. Documentar el procedimiento no acredita su ejecución.
+del rollback.
 
-**Siguiente bloque pendiente:** deploy final y smoke posterior al deploy.
-F15 continúa en curso; la habilitación comercial sigue pendiente de autorización
-explícita. La validación de F15D no completa la fase.
+Deploy final y smoke posterior completados el 2026-09-22:
+
+- Commit desplegado: `34d6cb779627fe45dd977c38860cbfe93366627c`, con CI de `main`
+  en estado `success`. Al momento del cierre productivo previo a esta actualización
+  documental, `main` y `dev` se encontraban sincronizadas en ese commit.
+- `npm ci`, `npm run typecheck` y `npm run build` correctos.
+- `next-env.d.ts` fue el único archivo tracked modificado por el build y se
+  restauró explícitamente; el working tree tracked quedó limpio después del build.
+- `npm run db:verify` correcto. No se ejecutó `npm run db:push` porque no hubo
+  cambios de schema ni índices.
+- PM2: `lauril-ecommerce` reiniciado correctamente y en estado `online`.
+- Health local `/api/health` y público `https://tecnoclean.shop/api/health`: OK.
+- `https://tecnoclean.shop/` y `https://tecnoclean.shop/productos`: HTTP 200.
+- Sin errores nuevos en el log de PM2 durante el smoke.
+- `lauril-expire-orders.timer` activo y próxima ejecución programada correctamente.
+
+F15 continúa en curso únicamente porque la habilitación comercial con pagos
+sigue pendiente de autorización explícita. Es una decisión separada y todavía
+no fue ejecutada; el cierre productivo no completa F15.
 
 ### Alcance general de F15
 

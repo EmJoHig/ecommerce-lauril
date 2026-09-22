@@ -309,17 +309,38 @@ ejecución. Si fue pausado durante la intervención, reactivarlo siguiendo la
 sección de expiración programada y verificar su estado.
 Si alguna comprobación falla, no declarar exitoso el deploy o rollback.
 
-## Registro operativo y cierre pendiente
+## Registro operativo y cierre productivo
 
 F15D registra las validaciones controladas en [ROADMAP.md](ROADMAP.md), incluidas
 dos ejecuciones automáticas consecutivas del scheduler de producción.
-Este runbook no implica el cierre de F15.
 
-Dentro del cierre productivo se registran como completados el `db:verify`
-productivo, el backup lógico validado y el punto de rollback remoto validado.
-El procedimiento de deploy/rollback queda documentado aquí; su documentación
-no acredita que se haya ejecutado. Siguen pendientes el deploy final y el smoke
-posterior; F15 y la habilitación comercial no están completadas.
+Cierre productivo completado el 2026-09-22 según los resultados operativos
+validados. Además del `db:verify` productivo, el backup lógico y el punto de
+rollback remoto ya registrados, se ejecutaron y validaron el deploy final y el
+smoke posterior:
+
+- Commit desplegado en producción: `34d6cb779627fe45dd977c38860cbfe93366627c`.
+- CI de `main` para ese commit: `success`.
+- `npm ci`, `npm run typecheck` y `npm run build`: correctos.
+- `next-env.d.ts` fue el único archivo tracked modificado por el build y se
+  restauró explícitamente. Working tree tracked limpio después del build.
+- `npm run db:verify`: correcto. No se ejecutó `npm run db:push` porque no hubo
+  cambios de schema ni índices.
+- PM2: `lauril-ecommerce` reiniciado correctamente, en estado `online`.
+- Health local `/api/health`: OK.
+- Health público `https://tecnoclean.shop/api/health`: OK.
+- `https://tecnoclean.shop/`: HTTP 200.
+- `https://tecnoclean.shop/productos`: HTTP 200.
+- Sin errores nuevos en el log de PM2 durante el smoke.
+- `lauril-expire-orders.timer`: activo, con próxima ejecución programada
+  correctamente.
+- Al momento del cierre productivo previo a esta actualización documental,
+  `main` y `dev` se encontraban sincronizadas en
+  `34d6cb779627fe45dd977c38860cbfe93366627c`.
+
+La habilitación comercial con pagos es una decisión separada, sigue pendiente
+de autorización explícita y todavía no fue ejecutada. F15 permanece en curso
+únicamente por ese pendiente; el cierre productivo no implica completar la fase.
 
 Al registrar evidencias, conservar únicamente resultados operativos necesarios;
 no copiar emails de clientes, tokens, secretos, IDs internos de MongoDB o Mercado
