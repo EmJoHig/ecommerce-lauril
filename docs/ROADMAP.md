@@ -422,8 +422,35 @@ Validada según el registro operativo de las pruebas realizadas:
 La operación de producción y las unidades systemd de referencia se documentan
 en [OPERATIONS.md](OPERATIONS.md). Staging no usa este timer de producción.
 
-**Siguiente bloque pendiente — Cierre productivo:** backup y verificación de
-Atlas, runbook de deploy/rollback, deploy final y smoke posterior al deploy.
+### Cierre productivo — En curso
+
+Completado según el registro operativo del 2026-09-22:
+
+- `npm run db:verify` productivo exitoso.
+- Backup lógico con `mongodump` validado: permisos `600`, SHA-256 registrado,
+  `gzip -t` correcto y `mongorestore --dryRun` correcto con 0 fallos.
+- Punto de rollback remoto validado: tag `pre-f15-final-prod-20260922`, commit
+  `01438d58c0f8e77108f0e04fe7ac0d901439b4e7`.
+
+El 2026-09-22 se validó de forma no destructiva el punto de rollback:
+
+- Tag remoto recuperable desde el VPS y resuelto al commit esperado
+  `01438d58c0f8e77108f0e04fe7ac0d901439b4e7`.
+- `HEAD` productivo coincidía con ese commit.
+- Working tree tracked limpio.
+- SHA-256 del backup validado contra el valor registrado en `OPERATIONS.md`.
+- PM2 productivo `lauril-ecommerce` online.
+- Timer `lauril-expire-orders.timer` activo.
+
+Esto valida el punto y los prerrequisitos de rollback. No se ejecutó un rollback
+real porque producción ya estaba en el mismo commit.
+
+Runbook de deploy productivo y rollback de código documentado en
+[OPERATIONS.md](OPERATIONS.md), junto con la referencia del backup. La restauración
+de MongoDB es una operación de incidente separada y no forma parte automática
+del rollback. Documentar el procedimiento no acredita su ejecución.
+
+**Siguiente bloque pendiente:** deploy final y smoke posterior al deploy.
 F15 continúa en curso; la habilitación comercial sigue pendiente de autorización
 explícita. La validación de F15D no completa la fase.
 
@@ -442,7 +469,8 @@ explícita. La validación de F15D no completa la fase.
 - Expiración.
 - Responsive crítico.
 - Validación final de la infraestructura productiva.
-- Sincronización controlada mediante `npm run db:push`, validación con
+- Sincronización controlada mediante `npm run db:push` sólo ante cambios reales
+  de schema/índices revisados explícitamente; validación con
   `npm run db:verify` y backup de Atlas.
 - Verificación del procedimiento de rollback.
 - Deploy final validado sobre la infraestructura existente.
