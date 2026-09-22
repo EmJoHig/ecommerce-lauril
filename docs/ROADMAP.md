@@ -371,8 +371,8 @@ Validaciones reales realizadas en staging aislado con Checkout Pro / Orders API:
   sandbox `ORDTST...`; Orders productivas exigen minúsculas en el manifest.
 
 El retorno del navegador nunca confirma un pago; el GET autoritativo es la fuente
-de verdad. Mercado Pago sigue deshabilitado en producción. Cerrar F14 NO lo habilita
-automáticamente: la habilitación comercial corresponde a F15.
+de verdad. Cerrar F14 no implica la habilitación comercial automática:
+la habilitación comercial final corresponde a F15 y continúa pendiente.
 
 ## Fase 15 — E2E y habilitación comercial
 
@@ -388,7 +388,73 @@ pasaron; las líneas creadas se eliminaron por UI. Sin pedidos, cambios de stock
 físico, pagos ni operaciones administrativas. La ficha usa su variante
 predeterminada, sin selector visible. Ejecución manual/local; integrar E2E como
 check obligatorio queda para una etapa posterior con entorno aislado, fuera de
-F15B. F15 no está completa y Mercado Pago continúa deshabilitado en producción.
+F15B. F15 todavía no está completa. Se realizó una validación real controlada de
+Mercado Pago en producción; la habilitación comercial final continúa pendiente.
+
+F15C automatizada hasta checkout: dos recorridos públicos, desktop y mobile,
+de catálogo → ficha → carrito → `Iniciar compra` → `/checkout`. Cubren campos
+obligatorios del invitado, métodos de entrega descubiertos por UI, campos de
+dirección condicionales, producto, subtotal, envío, total y actionability de
+`Confirmar pedido` sin pulsarlo. Reutilizan helpers de F15B y limpian el carrito
+por UI. Requieren un producto disponible y entregas con y sin dirección; no
+fijan datos comerciales ni crean fixtures. No crean pedidos, inician pagos,
+modifican stock físico ni envían emails. La creación de pedido y el pago se
+validan por separado de forma controlada; no se automatiza la confirmación.
+Validación final contra `https://staging.tecnoclean.shop` el 2026-09-21:
+los seis E2E pasaron juntos en una misma ejecución de la suite completa.
+Typecheck correcto; limpieza de carritos verificada por UI.
+
+### F15D — Validación operativa controlada
+
+Validada según el registro operativo de las pruebas realizadas:
+
+- Creación de pedido invitado en staging con estado inicial `PENDING_PAYMENT`.
+- La reserva incrementa `stockReserved` sin reducir `stockOnHand`.
+- La cancelación administrativa libera la reserva; no se crea movimiento `SALE`.
+- Historial y auditoría correctos.
+- Expiración mediante `npm run db:expire-orders`; segunda ejecución idempotente
+  con `expired: 0`.
+- Limpieza del pedido vencido histórico de producción #10001, sin pago ni
+  `PaymentAttempt`.
+- Scheduler systemd de producción probado en dos ejecuciones automáticas
+  consecutivas, con periodicidad de cinco minutos y exclusión mediante `flock`.
+
+La operación de producción y las unidades systemd de referencia se documentan
+en [OPERATIONS.md](OPERATIONS.md). Staging no usa este timer de producción.
+
+### Cierre productivo — En curso
+
+Completado según el registro operativo del 2026-09-22:
+
+- `npm run db:verify` productivo exitoso.
+- Backup lógico con `mongodump` validado: permisos `600`, SHA-256 registrado,
+  `gzip -t` correcto y `mongorestore --dryRun` correcto con 0 fallos.
+- Punto de rollback remoto validado: tag `pre-f15-final-prod-20260922`, commit
+  `01438d58c0f8e77108f0e04fe7ac0d901439b4e7`.
+
+El 2026-09-22 se validó de forma no destructiva el punto de rollback:
+
+- Tag remoto recuperable desde el VPS y resuelto al commit esperado
+  `01438d58c0f8e77108f0e04fe7ac0d901439b4e7`.
+- `HEAD` productivo coincidía con ese commit.
+- Working tree tracked limpio.
+- SHA-256 del backup validado contra el valor registrado en `OPERATIONS.md`.
+- PM2 productivo `lauril-ecommerce` online.
+- Timer `lauril-expire-orders.timer` activo.
+
+Esto valida el punto y los prerrequisitos de rollback. No se ejecutó un rollback
+real porque producción ya estaba en el mismo commit.
+
+Runbook de deploy productivo y rollback de código documentado en
+[OPERATIONS.md](OPERATIONS.md), junto con la referencia del backup. La restauración
+de MongoDB es una operación de incidente separada y no forma parte automática
+del rollback. Documentar el procedimiento no acredita su ejecución.
+
+**Siguiente bloque pendiente:** deploy final y smoke posterior al deploy.
+F15 continúa en curso; la habilitación comercial sigue pendiente de autorización
+explícita. La validación de F15D no completa la fase.
+
+### Alcance general de F15
 
 - Automatizar únicamente los recorridos críticos de mayor valor.
 - Visitante y cliente.
@@ -403,7 +469,8 @@ F15B. F15 no está completa y Mercado Pago continúa deshabilitado en producció
 - Expiración.
 - Responsive crítico.
 - Validación final de la infraestructura productiva.
-- Sincronización controlada mediante `npm run db:push`, validación con
+- Sincronización controlada mediante `npm run db:push` sólo ante cambios reales
+  de schema/índices revisados explícitamente; validación con
   `npm run db:verify` y backup de Atlas.
 - Verificación del procedimiento de rollback.
 - Deploy final validado sobre la infraestructura existente.

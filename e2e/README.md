@@ -1,4 +1,4 @@
-# E2E públicos (F15A / F15B)
+# E2E públicos (F15A / F15B / F15C)
 
 Un smoke de Chromium verifica home → Productos y el render del catálogo usando
 la UI real. No requiere productos específicos: admite el catálogo vacío. No crea
@@ -12,6 +12,22 @@ F15B agrega tres tests independientes con sesiones de invitado aisladas:
 - Responsive a 390 × 844: home, menú mobile, catálogo, ficha y carrito;
   controles y CTA visibles, dentro del ancho disponible y accionables.
 
+F15C agrega dos recorridos de catálogo → ficha → carrito → checkout, desktop y
+mobile a 390 × 844. Entran mediante `Iniciar compra` y verifican el render de
+`/checkout`, los campos obligatorios vacíos del invitado (incluida validez nativa),
+los métodos disponibles y la aparición/ocultamiento de la dirección al cambiar
+la entrega. Contrastan producto, cantidad y subtotal con la ficha, el envío con
+la opción seleccionada y el total como subtotal más envío en centavos enteros.
+El botón `Confirmar pedido` se comprueba con `trial: true`, sin pulsarlo.
+En mobile se verifica además que los controles sean utilizables y no exista
+desbordamiento horizontal.
+
+Los helpers de navegación, carrito, limpieza y actionability se comparten en
+`storefront-helpers.ts`. Checkout requiere métodos disponibles con y sin
+dirección para el producto elegido; se descubren por UI, sin fijar IDs, nombres,
+precios ni métodos comerciales. Si falta alguna modalidad, el test falla con
+un mensaje explícito en lugar de omitir cobertura silenciosamente.
+
 Requieren al menos un producto público con su variante predeterminada disponible.
 La ficha actual no expone selector de variantes; se prueba la predeterminada.
 No se fijan IDs, nombres ni precios comerciales. El carrito completo se abre por
@@ -19,7 +35,15 @@ su ruta pública `/carrito`, porque el drawer no ofrece un enlace a esa página.
 Cada test elimina su línea mediante UI al finalizar, incluso si falla; si el
 entorno deja de responder, la limpieza falla explícitamente. Pueden quedar
 carritos invitados vacíos, pero no se crean productos, cuentas ni pedidos.
-No se entra a checkout ni se alteran stock físico, pagos o emails.
+La automatización llega hasta checkout sin enviar el formulario. No crea pedidos,
+no inicia Mercado Pago ni altera stock físico o envía emails. Los tests de checkout
+bloquean cualquier POST accidental a `/checkout` y fallan si se intenta enviar.
+La creación de pedido y el pago se validan por separado de forma controlada;
+las validaciones del servidor al confirmar quedan fuera de estos E2E.
+
+Validación final F15C en staging (`https://staging.tecnoclean.shop`, 2026-09-21):
+los seis E2E pasaron juntos en una misma ejecución de la suite completa.
+Typecheck OK y limpieza de las líneas de carrito comprobada por UI.
 
 ## Ejecución local
 
@@ -59,4 +83,4 @@ Home, layout y catálogo consultan MongoDB mediante Prisma. El workflow actual s
 declara una URI local para validación/build; no provisiona MongoDB ni un entorno
 E2E aislado. La suite sigue siendo manual/local y no es un check obligatorio de
 PR, porque staging es externo. Integrarla a CI requiere un entorno de pruebas
-aislado en una etapa posterior; no forma parte de F15B.
+aislado en una etapa posterior; no forma parte de F15B/F15C.
