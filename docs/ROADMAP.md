@@ -372,11 +372,13 @@ Validaciones reales realizadas en staging aislado con Checkout Pro / Orders API:
 
 El retorno del navegador nunca confirma un pago; el GET autoritativo es la fuente
 de verdad. Cerrar F14 no implica la habilitación comercial automática:
-la habilitación comercial final corresponde a F15 y continúa pendiente.
+la habilitación comercial final quedó verificada como activa en producción al
+completar F15 el 2026-09-22.
 
 ## Fase 15 — E2E y habilitación comercial
 
-Estado: en curso; habilitación comercial pendiente de autorización explícita.
+Estado: completada el 2026-09-22; habilitación comercial de Mercado Pago
+verificada como activa en producción.
 
 F15A implementada: infraestructura E2E inicial con Playwright/Chromium y smoke
 no destructivo de home → catálogo. Ejecución local con `webServer` o contra una
@@ -388,8 +390,8 @@ pasaron; las líneas creadas se eliminaron por UI. Sin pedidos, cambios de stock
 físico, pagos ni operaciones administrativas. La ficha usa su variante
 predeterminada, sin selector visible. Ejecución manual/local; integrar E2E como
 check obligatorio queda para una etapa posterior con entorno aislado, fuera de
-F15B. F15 todavía no está completa. Se realizó una validación real controlada de
-Mercado Pago en producción; la habilitación comercial final continúa pendiente.
+F15B. La integración real de pago/webhook de Mercado Pago ya había sido validada
+previamente de forma controlada en producción.
 
 F15C automatizada hasta checkout: dos recorridos públicos, desktop y mobile,
 de catálogo → ficha → carrito → `Iniciar compra` → `/checkout`. Cubren campos
@@ -466,9 +468,25 @@ Deploy final y smoke posterior completados el 2026-09-22:
 - Sin errores nuevos en el log de PM2 durante el smoke.
 - `lauril-expire-orders.timer` activo y próxima ejecución programada correctamente.
 
-F15 continúa en curso únicamente porque la habilitación comercial con pagos
-sigue pendiente de autorización explícita. Es una decisión separada y todavía
-no fue ejecutada; el cierre productivo no completa F15.
+### Cierre de F15 — Completada el 2026-09-22
+
+La comprobación final confirmó la habilitación comercial de Mercado Pago ya
+activa en producción:
+
+- `MERCADO_PAGO_ENABLED=true`, tomado de `.env` sin override de PM2.
+- `MERCADO_PAGO_ACCESS_TOKEN` configurado y aceptado por
+  `https://api.mercadopago.com/users/me` con HTTP 200.
+- `MERCADO_PAGO_WEBHOOK_SECRET` configurado; una solicitud al webhook sin firma
+  válida devuelve HTTP 401.
+- Modo productivo del panel de Mercado Pago configurado exactamente con
+  `https://tecnoclean.shop/api/payments/mercado-pago/webhook` y el evento
+  `Order (Mercado Pago)` seleccionado.
+- PM2 `lauril-ecommerce` online y `https://tecnoclean.shop/api/health`: OK.
+
+La integración real de pago/webhook ya había sido validada de forma controlada
+en producción. Esta etapa confirmó el estado existente: no requirió modificar
+variables de entorno, código, base de datos, PM2 ni configuración de Mercado Pago.
+Con esta verificación, F15 quedó formalmente completada el 2026-09-22.
 
 ### Alcance general de F15
 

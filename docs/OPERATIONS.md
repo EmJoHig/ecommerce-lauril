@@ -338,9 +338,21 @@ smoke posterior:
   `main` y `dev` se encontraban sincronizadas en
   `34d6cb779627fe45dd977c38860cbfe93366627c`.
 
-La habilitación comercial con pagos es una decisión separada, sigue pendiente
-de autorización explícita y todavía no fue ejecutada. F15 permanece en curso
-únicamente por ese pendiente; el cierre productivo no implica completar la fase.
+F15 quedó completada el 2026-09-22. La comprobación final de Mercado Pago confirmó
+que la habilitación comercial ya estaba activa en producción:
+
+- `MERCADO_PAGO_ENABLED=true` desde `.env`, sin override de PM2.
+- `MERCADO_PAGO_ACCESS_TOKEN` configurado y aceptado por
+  `https://api.mercadopago.com/users/me` con HTTP 200.
+- `MERCADO_PAGO_WEBHOOK_SECRET` configurado; webhook sin firma válida: HTTP 401.
+- Modo productivo del panel configurado exactamente con
+  `https://tecnoclean.shop/api/payments/mercado-pago/webhook` y evento
+  `Order (Mercado Pago)` seleccionado.
+- `https://tecnoclean.shop/api/health`: OK; PM2 `lauril-ecommerce`: online.
+
+La integración real de pago/webhook ya había sido validada previamente de forma
+controlada en producción. La verificación final no requirió cambios en variables
+de entorno, código, base de datos, PM2 ni configuración de Mercado Pago.
 
 Al registrar evidencias, conservar únicamente resultados operativos necesarios;
 no copiar emails de clientes, tokens, secretos, IDs internos de MongoDB o Mercado
