@@ -2,8 +2,11 @@
 
 F14 está completada y validada con integración real de prueba en staging aislado.
 La implementación utiliza Mercado Pago Checkout Pro mediante Orders API, no
-Preferences. Producción continúa deshabilitada mediante `MERCADO_PAGO_ENABLED`;
-cerrar F14 no activa pagos. La habilitación comercial corresponde a F15.
+Preferences. Mercado Pago está habilitado en producción con
+`MERCADO_PAGO_ENABLED=true`. F15 completó la habilitación comercial el 2026-09-22
+al verificar que la configuración ya estaba activa en producción.
+El valor por defecto y la configuración de ejemplo pueden seguir en `false`
+hasta que cada entorno sea habilitado explícitamente; cerrar F14 no activa pagos.
 
 ## Contrato y persistencia
 
@@ -147,5 +150,7 @@ En staging aislado se validaron pagos automáticos aprobados y pendientes,
 cancelación de intento y nuevo intento aprobado, una única SALE/transición PAID,
 webhooks duplicados sin repetir efectos, refunds parciales/totales sin restock y
 pago tardío con retry idempotente y reconciliación final. Son pruebas de integración
-de F14; no equivalen a habilitación comercial ni activan producción. F15 continúa
-con E2E y habilitación comercial explícita.
+de F14; no equivalen a habilitación comercial ni activan producción. F15 quedó
+completada el 2026-09-22 con E2E, validación real controlada de pago/webhook en
+producción y verificación final de la habilitación comercial ya activa, según
+el registro de [ROADMAP.md](ROADMAP.md) y [OPERATIONS.md](OPERATIONS.md).
