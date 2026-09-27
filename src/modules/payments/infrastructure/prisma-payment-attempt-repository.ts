@@ -71,8 +71,8 @@ export class PrismaPaymentAttemptRepository implements PaymentAttemptRepository 
   }
 
   async updateSnapshot(input: UpdatePaymentAttemptSnapshot): Promise<PaymentAttempt> {
-    return mapPaymentAttempt(await this.prisma.paymentAttempt.update({
-      where: { id: input.id },
+    const updated = await this.prisma.paymentAttempt.updateMany({
+      where: { id: input.id, status: { in: ["CREATED", "PENDING"] } },
       data: {
         status: input.status,
         providerResourceId: input.providerResourceId,
@@ -83,7 +83,14 @@ export class PrismaPaymentAttemptRepository implements PaymentAttemptRepository 
         rejectedAt: input.rejectedAt,
         refundedAmountInCents: input.refundedAmountInCents,
       },
-    }));
+    });
+    if (updated.count === 0) {
+      // A webhook may have advanced the attempt while checkout creation was in flight.
+      const current = await this.findById(input.id);
+      if (current) return current;
+      throw new ConflictError("No se encontró el intento de pago.");
+    }
+    return mapPaymentAttempt(await this.prisma.paymentAttempt.findUniqueOrThrow({ where: { id: input.id } }));
   }
 
   private async findActiveByOrderId(orderId: string): Promise<PaymentAttempt | null> {
