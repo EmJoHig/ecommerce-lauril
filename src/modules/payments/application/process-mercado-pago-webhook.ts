@@ -74,12 +74,8 @@ export class ProcessMercadoPagoWebhook {
 
     const attempt = await this.attempts.findByProviderResourceId("MERCADO_PAGO", input.providerResourceId);
     if (!attempt) {
-      await this.events.finishIfPending({
-        id: event.id,
-        processingStatus: "IGNORED",
-        processedAt: now,
-        paymentAttemptId: null,
-      });
+      // Checkout creation may not have persisted the resource yet. Leave the
+      // event retryable so the same providerEventId can resolve it later.
       return { kind: "ignored", reasonCode: "unknown_provider_resource" };
     }
 
