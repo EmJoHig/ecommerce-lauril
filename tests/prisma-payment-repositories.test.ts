@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "@/generated/prisma/client";
-import { createPaymentAttempt, createPaymentEvent } from "@/modules/payments/domain/payment";
+import { createPaymentAttempt, createPaymentEvent, paymentAttemptStatuses } from "@/modules/payments/domain/payment";
 import { PrismaPaymentAttemptRepository } from "@/modules/payments/infrastructure/prisma-payment-attempt-repository";
 import { PrismaPaymentEventRepository } from "@/modules/payments/infrastructure/prisma-payment-event-repository";
+import { paymentRaceFixture } from "./helpers/payment-race-fixture";
 
 const orderId = "10000000-0000-4000-8000-000000000001";
 const now = new Date("2026-09-18T12:00:00.000Z");
@@ -43,7 +44,8 @@ describe("Prisma payment repositories", () => {
     };
     const paymentAttempt = {
       findFirst: vi.fn().mockResolvedValue(persisted),
-      update: vi.fn().mockResolvedValue(persisted),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue(persisted),
     };
     const repository = new PrismaPaymentAttemptRepository({ paymentAttempt } as unknown as PrismaClient);
 
@@ -62,10 +64,44 @@ describe("Prisma payment repositories", () => {
     expect(paymentAttempt.findFirst).toHaveBeenCalledWith({
       where: { provider: "MERCADO_PAGO", providerResourceId: "mp-order-1" },
     });
-    expect(paymentAttempt.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: attempt.id },
+    expect(paymentAttempt.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: attempt.id, status: { in: ["CREATED", "PENDING"] } },
       data: expect.objectContaining({ providerResourceId: "mp-order-1", status: "PENDING" }),
     }));
+  });
+
+  it("sólo CREATED/PENDING admiten snapshot inicial; preserva íntegros los seis estados avanzados", async () => {
+    for (const status of paymentAttemptStatuses) {
+      const fixture = paymentRaceFixture();
+      const current = {
+        ...createPaymentAttempt({ orderId, provider: "MERCADO_PAGO", attemptNumber: 1, amountInCents: 4600n, currency: "ARS" }, now),
+        status,
+        providerResourceId: "existing-resource",
+        checkoutUrl: "https://checkout.example.test/existing",
+        providerStatus: "authoritative-status",
+        providerStatusDetail: "authoritative-detail",
+        approvedAt: now,
+        rejectedAt: now,
+        refundedAmountInCents: 1200n,
+      };
+      await fixture.attempts.create(current);
+      const snapshot = {
+        id: current.id, status: "PENDING" as const,
+        providerResourceId: "creation-resource", checkoutUrl: "https://checkout.example.test/creation",
+        providerStatus: "created", providerStatusDetail: "created",
+        approvedAt: null, rejectedAt: null, refundedAmountInCents: 0n,
+      };
+      const compatible = status === "CREATED" || status === "PENDING";
+      const expected = compatible ? { ...current, ...snapshot } : current;
+      const result = await fixture.attempts.updateSnapshot(snapshot);
+      expect(result, status).toEqual(expected);
+      expect(await fixture.attempts.findById(current.id), status).toEqual(expected);
+      expect(fixture.client.paymentAttempt.updateMany).toHaveBeenCalledExactlyOnceWith({
+        where: { id: current.id, status: { in: ["CREATED", "PENDING"] } },
+        data: Object.fromEntries(Object.entries(snapshot).filter(([key]) => key !== "id")),
+      });
+      expect(fixture.client.paymentAttempt.update).not.toHaveBeenCalled();
+    }
   });
 
   it("persiste un evento una vez y devuelve el existente ante P2002", async () => {
