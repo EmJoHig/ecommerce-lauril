@@ -4,13 +4,13 @@ import type { CustomerAddressInput } from "@/modules/customers/domain/customer";
 import { calculateReservation, calculateReservationRelease } from "@/modules/inventory/domain/inventory";
 import { quoteShippingMethod, type ShippingQuote } from "@/modules/shipping/domain/shipping";
 import type { ShippingProvider } from "@/modules/shipping/application/shipping-provider";
-import { ConflictError, NotFoundError, ValidationError } from "@/shared/domain/errors";
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from "@/shared/domain/errors";
 import { assertOrderTransition, calculateOrderLine, calculateOrderTotals, normalizeBuyerSnapshot, normalizeOrderAddress, validateId } from "../domain/order";
 import { hashCheckoutKey } from "../domain/checkout-key";
 import type { CheckoutAddressRecord, CheckoutCartRecord, CheckoutOwner, OrderItemView, OrderRepository, OrderView } from "./order-repository";
 
 export type CheckoutPreparation = Readonly<{
-  buyer: Readonly<{ firstName: string; lastName: string; email: string; phone: string }> | null;
+  buyer: Readonly<{ firstName: string; lastName: string; email: string; phone: string }>;
   addresses: ReadonlyArray<CheckoutAddressRecord>;
   items: ReadonlyArray<OrderItemView>;
   shippingQuotes: ReadonlyArray<ShippingQuote & Readonly<{ totalInCents: bigint }>>;
@@ -21,7 +21,6 @@ export type ConfirmCheckoutInput = Readonly<{
   owner: CheckoutOwner;
   checkoutKey: string;
   shippingMethodId: string;
-  guestBuyer?: Readonly<{ firstName: string; lastName: string; email: string; phone: string }>;
   savedAddressId?: string | null;
   newAddress?: CustomerAddressInput | null;
 }>;
@@ -36,20 +35,19 @@ export class CheckoutService {
   ) {}
 
   async prepare(owner: CheckoutOwner, now = new Date()): Promise<CheckoutPreparation> {
-    const cart = await this.repository.findCheckoutCart(validateOwner(owner), now);
+    const customerOwner = validateOwner(owner);
+    const cart = await this.repository.findCheckoutCart(customerOwner, now);
     if (!cart || cart.items.length === 0) throw new ValidationError("El carrito está vacío.");
     const itemsSubtotalInCents = validateCartAndSubtotal(cart);
-    const customer = owner.kind === "customer"
-      ? await this.repository.findCustomer(owner.customerId)
-      : null;
-    if (owner.kind === "customer" && (!customer || customer.status !== "ACTIVE" || customer.userStatus !== "ACTIVE")) {
+    const customer = await this.repository.findCustomer(customerOwner.customerId);
+    if (!customer || customer.status !== "ACTIVE" || customer.userStatus !== "ACTIVE") {
       throw new NotFoundError("No se encontró la cuenta activa.");
     }
     const items = checkoutItems(cart);
     const shippingQuotes = await this.shippingProvider.quoteAll(itemsSubtotalInCents);
     return {
-      buyer: customer ? normalizeBuyerSnapshot(customer) : null,
-      addresses: customer ? await this.repository.listCustomerAddresses(customer.id) : [],
+      buyer: normalizeBuyerSnapshot(customer),
+      addresses: await this.repository.listCustomerAddresses(customer.id),
       items: items.map(toOrderItemView),
       shippingQuotes: shippingQuotes.map((quote) => ({
         ...quote,
@@ -69,6 +67,10 @@ export class CheckoutService {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         return await this.repository.run(async (transaction) => {
+          const customer = await transaction.findCustomer(owner.customerId);
+          if (!customer || customer.status !== "ACTIVE" || customer.userStatus !== "ACTIVE") {
+            throw new NotFoundError("No se encontró la cuenta activa.");
+          }
           const existing = await transaction.findOrderByCheckoutKey(checkoutKeyHash);
           if (existing) {
             assertOrderOwner(existing, owner);
@@ -79,15 +81,7 @@ export class CheckoutService {
           if (!cart || cart.status !== "ACTIVE" || cart.expiresAt <= now || cart.items.length === 0) {
             throw new ValidationError("El carrito está vacío o ya fue convertido.");
           }
-          const customer = owner.kind === "customer"
-            ? await transaction.findCustomer(owner.customerId)
-            : null;
-          if (owner.kind === "customer" && (!customer || customer.status !== "ACTIVE" || customer.userStatus !== "ACTIVE")) {
-            throw new NotFoundError("No se encontró la cuenta activa.");
-          }
-          const buyer = customer
-            ? normalizeBuyerSnapshot(customer)
-            : normalizeBuyerSnapshot(input.guestBuyer ?? missingGuestBuyer());
+          const buyer = normalizeBuyerSnapshot(customer);
 
           const items = checkoutItems(cart);
           const itemsSubtotalInCents = calculateOrderTotals({
@@ -120,10 +114,10 @@ export class CheckoutService {
 
           const order = await transaction.createOrder({
             cartId: cart.id,
-            customerId: owner.kind === "customer" ? owner.customerId : null,
+            customerId: owner.customerId,
             shippingMethodId: quote.methodId,
             checkoutKeyHash,
-            guestAccessTokenHash: owner.kind === "guest" ? owner.tokenHash : null,
+            guestAccessTokenHash: null,
             buyer,
             shipping: {
               methodName: quote.name,
@@ -200,10 +194,9 @@ export class CheckoutService {
   }
 }
 
-function validateOwner(owner: CheckoutOwner): CheckoutOwner {
-  return owner.kind === "customer"
-    ? { kind: "customer", customerId: z.uuid().parse(owner.customerId) }
-    : { kind: "guest", tokenHash: z.string().regex(/^[a-f0-9]{64}$/).parse(owner.tokenHash) };
+function validateOwner(owner: CheckoutOwner): Extract<CheckoutOwner, { kind: "customer" }> {
+  if (owner?.kind !== "customer") throw new UnauthorizedError("Ingresá a tu cuenta para comprar.");
+  return { kind: "customer", customerId: z.uuid().parse(owner.customerId) };
 }
 
 function validateCartAndSubtotal(cart: CheckoutCartRecord): bigint {
@@ -272,10 +265,6 @@ async function resolveAddress(
   }
   if (!input.newAddress) throw new ValidationError("Ingresá una dirección de entrega.");
   return normalizeOrderAddress(input.newAddress);
-}
-
-function missingGuestBuyer(): never {
-  throw new ValidationError("Completá los datos del comprador.");
 }
 
 function assertOrderOwner(order: OrderView, owner: CheckoutOwner): void {

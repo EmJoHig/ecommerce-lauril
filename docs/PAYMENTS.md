@@ -39,8 +39,10 @@ decimales del provider no usa floats.
 
 1. El checkout local valida carrito, identidad, envío y stock; crea el pedido
    `PENDING_PAYMENT` y reserva `stockReserved` sin movimientos físicos.
-2. `StartPaymentCheckout` exige pedido pendiente, no vencido y reserva no liberada.
-   La presentación comprueba acceso del cliente/invitado y aplica rate limit.
+2. La Server Action exige sesión customer válida y aplica rate limit.
+   `StartPaymentCheckout` revalida customer/usuario activos y ownership del pedido,
+   además de pedido pendiente, no vencido y reserva no liberada. Tokens guest
+   históricos permiten lectura, nunca iniciar un nuevo pago.
 3. Adquiere o reutiliza un `PaymentAttempt` y llama fuera de la transacción a
    `POST /v1/orders` con su `X-Idempotency-Key` persistida.
 4. Guarda recurso externo, estado y URL HTTPS del checkout. Si ya dispone de esa

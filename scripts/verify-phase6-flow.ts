@@ -1,6 +1,7 @@
 import "dotenv/config";
+import { hashPassword } from "../src/modules/auth/domain/password";
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CartService } from "../src/modules/cart/application/cart-service";
 import { createGuestCartToken, hashGuestCartToken } from "../src/modules/cart/domain/guest-cart-token";
@@ -18,6 +19,8 @@ import { ValidationError, NotFoundError } from "../src/shared/domain/errors";
 const mongodbUri = process.env.MONGODB_URI;
 if (!mongodbUri) throw new Error("MONGODB_URI es obligatoria.");
 const prisma = new PrismaClient();
+const customerIds: string[] = [];
+const userIds: string[] = [];
 const orderIds: string[] = [];
 const cartIds: string[] = [];
 
@@ -36,14 +39,21 @@ async function main(): Promise<void> {
   const token = createGuestCartToken();
   const tokenHash = hashGuestCartToken(token);
   await new CartService(new PrismaCartRepository(prisma), 30).addItem({ tokenHash, variantId: variant.id, quantity: 2 });
+  const fixtureUser = await prisma.user.create({ data: {
+    email: `phase6-pending-${randomUUID()}@test.local`, passwordHash: await hashPassword(randomUUID(), 10),
+    firstName: "Verificador", lastName: "Checkout", status: "ACTIVE",
+    customer: { create: { phone: "+54 11 5555-0000", status: "ACTIVE" } },
+  }, include: { customer: true } });
+  const customerId = fixtureUser.customer!.id;
+  customerIds.push(customerId); userIds.push(fixtureUser.id);
+  await new CartService(new PrismaCartRepository(prisma), 30).mergeGuestCart(customerId, tokenHash);
   const checkout = new CheckoutService(
     new PrismaOrderRepository(prisma),
     new CustomShippingProvider(new PrismaShippingRepository(prisma)),
     15,
   );
   const pending = (await checkout.confirm({
-    owner: { kind: "guest", tokenHash }, checkoutKey: createCheckoutKey(), shippingMethodId: pickup.id,
-    guestBuyer: { firstName: "Pendiente", lastName: "Fase Seis", email: "phase6-pending@test.local", phone: "+54 11 5555-0601" },
+    owner: { kind: "customer" as const, customerId }, checkoutKey: createCheckoutKey(), shippingMethodId: pickup.id,
   })).order;
   orderIds.push(pending.id); cartIds.push(pending.cartId);
   const inventoryBeforeCancel = await prisma.inventory.findUniqueOrThrow({ where: { id: variant.inventory.id } });
@@ -140,6 +150,9 @@ async function cleanup(): Promise<void> {
   await prisma.auditLog.deleteMany({ where: { entityType: "Order", entityId: { in: orderIds } } });
   await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
   await prisma.cart.deleteMany({ where: { id: { in: cartIds } } });
+  await prisma.cart.deleteMany({ where: { customerId: { in: customerIds } } });
+  await prisma.customer.deleteMany({ where: { id: { in: customerIds } } });
+  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
 }
 
 main().catch((error: unknown) => { console.error(error); process.exitCode = 1; }).finally(async () => { await cleanup(); await prisma.$disconnect(); });

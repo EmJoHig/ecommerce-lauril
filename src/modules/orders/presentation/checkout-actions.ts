@@ -5,15 +5,12 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentCustomer } from "@/modules/customers/presentation/customer-session";
-import { deleteGuestCartCookie, getGuestCartToken } from "@/modules/cart/presentation/guest-cart-cookie";
-import { hashGuestCartToken } from "@/modules/cart/domain/guest-cart-token";
 import { DomainError } from "@/shared/domain/errors";
 import { assertRateLimit } from "@/shared/infrastructure/rate-limit";
 import { resolveRequestIp } from "@/shared/infrastructure/request-ip";
 import { getCheckoutService } from "../infrastructure/order-composition";
 import type { ConfirmCheckoutInput } from "../application/checkout-service";
 import type { CheckoutActionState, CheckoutFormValues } from "./checkout-action-state";
-import { setGuestOrderCookie } from "./guest-order-cookie";
 
 const formSchema = z.object({
   checkoutKey: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
@@ -36,32 +33,16 @@ const formSchema = z.object({
   references: z.string().trim().max(500),
 });
 
-const guestBuyerSchema = z.object({
-  firstName: z.string().trim().min(1, "El nombre es obligatorio.").max(100, "El nombre admite hasta 100 caracteres."),
-  lastName: z.string().trim().min(1, "El apellido es obligatorio.").max(100, "El apellido admite hasta 100 caracteres."),
-  email: z.string().trim().pipe(z.email("Ingresá un email válido.").max(320, "El email admite hasta 320 caracteres.")),
-  phone: z.string().trim()
-    .min(1, "El teléfono es obligatorio.")
-    .max(30, "El teléfono admite hasta 30 caracteres.")
-    .regex(/^[+()0-9 .-]+$/, "Ingresá un teléfono válido.")
-    .refine((phone) => phone.length >= 6, "Ingresá un teléfono válido."),
-});
-
 export async function confirmCheckoutAction(
   _previous: CheckoutActionState,
   formData: FormData,
 ): Promise<CheckoutActionState> {
+  const customer = await getCurrentCustomer();
+  if (!customer) redirect("/login?returnTo=/checkout");
   const values = checkoutFormValues(formData);
   const parsed = formSchema.safeParse({ checkoutKey: formData.get("checkoutKey"), ...values });
   if (!parsed.success) return invalidFields(parsed.error, values);
-  const customer = await getCurrentCustomer();
-  if (!customer) {
-    const buyer = guestBuyerSchema.safeParse(parsed.data);
-    if (!buyer.success) return invalidFields(buyer.error, values);
-  }
-  const guestToken = customer ? null : await getGuestCartToken();
-  if (!customer && !guestToken) return failure("No se encontró un carrito activo.", values);
-  const identity = customer?.id ?? hashGuestCartToken(guestToken!);
+  const identity = customer.id;
   const requestHeaders = await headers();
   const ip = resolveRequestIp(requestHeaders) ?? "unknown";
   let orderNumber: string;
@@ -70,12 +51,9 @@ export async function confirmCheckoutAction(
     assertRateLimit({ scope: "checkout-confirm:owner", identity, limit: 8, windowMs: 10 * 60_000 });
     const data = parsed.data;
     const input: ConfirmCheckoutInput = {
-      owner: customer
-        ? { kind: "customer", customerId: customer.id }
-        : { kind: "guest", tokenHash: hashGuestCartToken(guestToken!) },
+      owner: { kind: "customer", customerId: customer.id },
       checkoutKey: data.checkoutKey,
       shippingMethodId: data.shippingMethodId,
-      ...(!customer ? { guestBuyer: { firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone } } : {}),
       savedAddressId: data.addressMode === "saved" && data.savedAddressId ? data.savedAddressId : null,
       newAddress: data.addressMode === "new" ? {
         label: "Checkout",
@@ -94,10 +72,6 @@ export async function confirmCheckoutAction(
     };
     const result = await getCheckoutService().confirm(input);
     orderNumber = result.order.number.toString();
-    if (guestToken) {
-      await setGuestOrderCookie(orderNumber, guestToken);
-      await deleteGuestCartCookie();
-    }
     revalidatePath("/", "layout");
     revalidatePath("/carrito");
   } catch (error) {

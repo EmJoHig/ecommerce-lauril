@@ -20,6 +20,7 @@ import {
   setCustomerSessionCookie,
 } from "./customer-session-cookie";
 import { requireCustomer } from "./customer-session";
+import { customerReturnPath } from "./customer-return-path";
 
 const profileFields = {
   firstName: z.string().trim().min(1).max(100),
@@ -74,7 +75,7 @@ export async function registerCustomerAction(
   } catch (error) {
     return failure(error, "No pudimos crear la cuenta. Revisá los datos e intentá nuevamente.");
   }
-  return finishAuthentication(session.token, session.expiresAt, session.customer.id);
+  return finishAuthentication(session.token, session.expiresAt, session.customer.id, formData.get("returnTo"));
 }
 
 export async function loginCustomerAction(
@@ -94,7 +95,7 @@ export async function loginCustomerAction(
     }
     return failure(error, "Email o contraseña incorrectos.");
   }
-  return finishAuthentication(session.token, session.expiresAt, session.customer.id);
+  return finishAuthentication(session.token, session.expiresAt, session.customer.id, formData.get("returnTo"));
 }
 
 export async function logoutCustomerAction(): Promise<never> {
@@ -208,7 +209,7 @@ export async function defaultCustomerAddressAction(formData: FormData): Promise<
   revalidatePath("/mi-cuenta/direcciones");
 }
 
-async function finishAuthentication(token: string, expiresAt: Date, customerId: string): Promise<never> {
+async function finishAuthentication(token: string, expiresAt: Date, customerId: string, returnTo: unknown): Promise<never> {
   await setCustomerSessionCookie(token, expiresAt);
   let mergeStatus = "ok";
   try {
@@ -224,7 +225,8 @@ async function finishAuthentication(token: string, expiresAt: Date, customerId: 
     logger.warn("customer.cart_merge_failed", { customerId });
   }
   revalidatePath("/", "layout");
-  redirect(`/mi-cuenta?carrito=${mergeStatus}`);
+  const destination = mergeStatus === "pendiente" ? "/mi-cuenta" : customerReturnPath(returnTo);
+  redirect(`${destination}?carrito=${mergeStatus}`);
 }
 
 async function requestContext() {

@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { randomUUID } from "node:crypto";
+import { hashPassword } from "../src/modules/auth/domain/password";
 
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CartService } from "../src/modules/cart/application/cart-service";
@@ -13,6 +15,8 @@ import { PrismaShippingRepository } from "../src/modules/shipping/infrastructure
 const mongodbUri = process.env.MONGODB_URI;
 if (!mongodbUri) throw new Error("MONGODB_URI es obligatoria.");
 const prisma = new PrismaClient();
+const customerIds: string[] = [];
+const userIds: string[] = [];
 const orderIds: string[] = [];
 const cartHashes: string[] = [];
 
@@ -27,19 +31,26 @@ async function main(): Promise<void> {
   const tokenHash = hashGuestCartToken(token);
   cartHashes.push(tokenHash);
   await new CartService(new PrismaCartRepository(prisma), 30).addItem({ tokenHash, variantId: variant.id, quantity: 2 });
+  const fixtureUser = await prisma.user.create({ data: {
+    email: `phase5-${randomUUID()}@test.local`, passwordHash: await hashPassword(randomUUID(), 10),
+    firstName: "Verificador", lastName: "Checkout", status: "ACTIVE",
+    customer: { create: { phone: "+54 11 5555-0000", status: "ACTIVE" } },
+  }, include: { customer: true } });
+  const customerId = fixtureUser.customer!.id;
+  customerIds.push(customerId); userIds.push(fixtureUser.id);
+  await new CartService(new PrismaCartRepository(prisma), 30).mergeGuestCart(customerId, tokenHash);
   const repository = new PrismaOrderRepository(prisma);
   const checkout = new CheckoutService(repository, new CustomShippingProvider(new PrismaShippingRepository(prisma)), 15);
   const key = createCheckoutKey();
   const before = await prisma.inventory.findUniqueOrThrow({ where: { id: variant.inventory.id } });
   const movementCount = await prisma.inventoryMovement.count();
   const input = {
-    owner: { kind: "guest" as const, tokenHash }, checkoutKey: key, shippingMethodId: pickup.id,
-    guestBuyer: { firstName: "Verificador", lastName: "Fase Cinco", email: "phase5@test.local", phone: "+54 11 5555-0505" },
+    owner: { kind: "customer" as const, customerId }, checkoutKey: key, shippingMethodId: pickup.id,
   };
   const concurrent = await Promise.all([checkout.confirm(input), checkout.confirm(input)]);
   const order = concurrent[0]!.order;
   orderIds.push(order.id);
-  if (concurrent[1]!.order.id !== order.id || (await prisma.order.count({ where: { checkoutKeyHash: { not: "" }, cart: { guestTokenHash: tokenHash } } })) !== 1) {
+  if (concurrent[1]!.order.id !== order.id || (await prisma.order.count({ where: { checkoutKeyHash: { not: "" }, customerId } })) !== 1) {
     throw new Error("La idempotencia concurrente generó pedidos inconsistentes.");
   }
   const afterReserve = await prisma.inventory.findUniqueOrThrow({ where: { id: before.id } });
@@ -55,8 +66,8 @@ async function main(): Promise<void> {
   if (order.items[0]?.unitPriceInCents !== (variant.promotionalPriceInCents ?? variant.priceInCents)) {
     throw new Error("El snapshot no conservó el precio vigente.");
   }
-  if (!(await repository.findPublicOrder(order.number, { customerId: null, guestTokenHash: tokenHash }))) {
-    throw new Error("El invitado no pudo acceder con su token.");
+  if (!(await repository.findPublicOrder(order.number, { customerId, guestTokenHash: null }))) {
+    throw new Error("El cliente no pudo acceder a su pedido.");
   }
   if (await repository.findPublicOrder(order.number, { customerId: null, guestTokenHash: "f".repeat(64) })) {
     throw new Error("Se permitió acceso invitado con token ajeno.");
@@ -72,7 +83,7 @@ async function main(): Promise<void> {
   if (persisted.status !== "CANCELLED" || persisted.statusHistory.length !== 2 || persisted.items.length !== 1) {
     throw new Error("Pedido, snapshot o historial incompletos.");
   }
-  console.info(JSON.stringify({ status: "ok", guestCheckout: true, serverRevalidation: true, singleOrderOnConcurrentSubmit: true, reservationOnly: true, cartConverted: true, snapshot: true, guestOwnership: true, expirationRelease: true, releaseIdempotent: true }));
+  console.info(JSON.stringify({ status: "ok", customerCheckout: true, serverRevalidation: true, singleOrderOnConcurrentSubmit: true, reservationOnly: true, cartConverted: true, snapshot: true, customerOwnership: true, expirationRelease: true, releaseIdempotent: true }));
 }
 
 async function cleanup(): Promise<void> {
@@ -84,8 +95,10 @@ async function cleanup(): Promise<void> {
     }
   }
   await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
-  await prisma.cartItem.deleteMany({ where: { cart: { guestTokenHash: { in: cartHashes } } } });
-  await prisma.cart.deleteMany({ where: { guestTokenHash: { in: cartHashes } } });
+  await prisma.cartItem.deleteMany({ where: { cart: { OR: [{ guestTokenHash: { in: cartHashes } }, { customerId: { in: customerIds } }] } } });
+  await prisma.cart.deleteMany({ where: { OR: [{ guestTokenHash: { in: cartHashes } }, { customerId: { in: customerIds } }] } });
+  await prisma.customer.deleteMany({ where: { id: { in: customerIds } } });
+  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
 }
 
 main().catch((error: unknown) => { console.error(error); process.exitCode = 1; }).finally(async () => { await cleanup(); await prisma.$disconnect(); });
