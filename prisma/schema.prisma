@@ -544,6 +544,7 @@ model PaymentAttempt {
   @@unique([orderId, attemptNumber])
   @@index([orderId, createdAt])
   @@index([status, updatedAt])
+  @@index([provider, updatedAt, id], map: "payment_attempts_reconciliation_cursor_idx")
   @@map("payment_attempts")
 }
 
