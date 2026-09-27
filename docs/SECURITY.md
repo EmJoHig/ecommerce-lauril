@@ -134,9 +134,14 @@ capacidad, evitando revelar su existencia y sin depender de la navegación visib
   IDs, cantidades indirectas del carrito y datos de contacto/dirección validados.
 - Una clave CSPRNG se persiste sólo como SHA-256; `cartId` y clave son únicos. La
   transacción MongoDB y `Inventory.version` evitan doble reserva y sobreventa.
-- El pedido autenticado exige `customerId` derivado de sesión. El invitado exige
-  una cookie opaca `HttpOnly`, `SameSite=Lax`, `Secure` en producción y restringida
-  a su ruta; conocer el número de pedido no concede acceso.
+- Visitantes conservan navegación y carrito. Checkout y Mercado Pago exigen sesión
+  customer válida y customer/usuario activos. Las acciones derivan la identidad
+  de sesión; los casos de uso rechazan invitados y el pago exige ownership.
+- Todo nuevo checkout guarda customerId. Login/registro conservan la fusión;
+  el retorno sólo admite `/checkout` o `/mi-cuenta`. Una fusión fallida conserva
+  la cookie invitada y vuelve a Mi cuenta con el aviso existente.
+- Las cookies de pedidos guest históricos conservan acceso de lectura, pero no
+  autorizan iniciar pagos. Conocer el número de pedido no concede acceso.
 - La reserva sólo cambia `stockReserved`. La liberación por vencimiento es
   idempotente y no escribe movimientos físicos falsos.
 - `ORDER_RESERVATION_MINUTES` admite de 5 a 120 minutos. El comando de expiración

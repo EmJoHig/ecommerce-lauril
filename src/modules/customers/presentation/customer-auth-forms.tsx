@@ -9,6 +9,7 @@ import {
   resetPasswordAction,
 } from "./customer-actions";
 import { initialCustomerActionState } from "./customer-action-state";
+import { customerReturnPath } from "./customer-return-path";
 
 function Feedback({ state }: { state: typeof initialCustomerActionState }) {
   if (state.status === "idle") return null;
@@ -20,10 +21,12 @@ function ErrorFor({ state, field }: { state: typeof initialCustomerActionState; 
   return error ? <small className="field-error">{error}</small> : null;
 }
 
-export function CustomerRegisterForm() {
+export function CustomerRegisterForm({ returnTo }: { returnTo?: string }) {
+  const destination = customerReturnPath(returnTo);
   const [state, action, pending] = useActionState(registerCustomerAction, initialCustomerActionState);
   return (
     <form action={action} className="customer-form">
+      <input name="returnTo" type="hidden" value={destination} />
       <Feedback state={state} />
       <div className="form-grid form-grid--two">
         <label>Nombre<input autoComplete="given-name" name="firstName" required /><ErrorFor field="firstName" state={state} /></label>
@@ -37,15 +40,17 @@ export function CustomerRegisterForm() {
       </div>
       <p className="form-help">Usá al menos 12 caracteres. Nunca guardamos la contraseña en texto plano.</p>
       <button className="button button--primary button--wide" disabled={pending} type="submit">{pending ? "Creando cuenta…" : "Crear cuenta"}</button>
-      <p className="form-switch">¿Ya tenés cuenta? <Link href="/login">Ingresá</Link></p>
+      <p className="form-switch">¿Ya tenés cuenta? <Link href={`/login?returnTo=${destination}`}>Ingresá</Link></p>
     </form>
   );
 }
 
-export function CustomerLoginForm({ resetCompleted = false, loggedOut = false }: { resetCompleted?: boolean; loggedOut?: boolean }) {
+export function CustomerLoginForm({ resetCompleted = false, loggedOut = false, returnTo }: { resetCompleted?: boolean; loggedOut?: boolean; returnTo?: string }) {
+  const destination = customerReturnPath(returnTo);
   const [state, action, pending] = useActionState(loginCustomerAction, initialCustomerActionState);
   return (
     <form action={action} className="customer-form">
+      <input name="returnTo" type="hidden" value={destination} />
       {resetCompleted ? <div className="form-success">Tu contraseña fue actualizada. Ya podés ingresar.</div> : null}
       {loggedOut ? <div className="form-success">Cerraste sesión correctamente.</div> : null}
       <Feedback state={state} />
@@ -53,7 +58,7 @@ export function CustomerLoginForm({ resetCompleted = false, loggedOut = false }:
       <label>Contraseña<input autoComplete="current-password" name="password" required type="password" /></label>
       <div className="form-row-between"><Link href="/recuperar-clave">Olvidé mi contraseña</Link></div>
       <button className="button button--primary button--wide" disabled={pending} type="submit">{pending ? "Ingresando…" : "Ingresar"}</button>
-      <p className="form-switch">¿No tenés cuenta? <Link href="/registro">Creala ahora</Link></p>
+      <p className="form-switch">¿No tenés cuenta? <Link href={`/registro?returnTo=${destination}`}>Creala ahora</Link></p>
     </form>
   );
 }

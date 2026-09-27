@@ -216,7 +216,9 @@ sesión posterior.
 
 `CheckoutService` coordina `orders`, `cart`, `shipping`, `customers` e `inventory`
 a través de puertos. La presentación entrega identidad, clave de idempotencia,
-método y datos de comprador/dirección; el caso de uso vuelve a leer carrito,
+método y dirección; la identidad proviene de sesión customer. El caso de uso
+rechaza invitados, exige customer/usuario activos y obtiene el comprador de DB.
+Todo nuevo checkout vincula customerId y vuelve a leer carrito,
 producto, variante, precio e inventario dentro de una transacción MongoDB.
 `PrismaOrderRepository` concentra las consultas y escrituras Prisma.
 
@@ -256,9 +258,11 @@ Las ejecuciones repetidas son seguras: cada pedido vuelve a validar estado y
 vencimiento, y la liberación de `stockReserved`, cancelación e historial ocurren
 en una transacción MongoDB con compare-and-set de la versión de inventario.
 
-Los clientes acceden sólo a pedidos vinculados a su sesión. Un invitado recibe una
-cookie `HttpOnly` restringida a `/pedido/<número>` con el token opaco del carrito;
-MongoDB conserva únicamente su hash. El número humano no autoriza por sí solo.
+Los clientes acceden sólo a pedidos vinculados a su sesión. Los pedidos guest
+históricos conservan lectura mediante su cookie `HttpOnly` restringida a
+`/pedido/<número>`; MongoDB conserva únicamente su hash. Esa cookie no permite
+iniciar pagos. Visitantes conservan carrito y su fusión al autenticarse;
+`/checkout` requiere sesión y retorna allí después de login/registro y fusión.
 
 ## Operación administrativa de pedidos en Fase 6
 
@@ -295,7 +299,8 @@ Pago. La integración implementada es Checkout Pro mediante Mercado Pago Orders 
 consulta autoritativa mediante `GET /v1/orders/{id}`. El token queda exclusivamente
 en infraestructura server-side.
 
-`StartPaymentCheckout` vuelve a leer el pedido y exige estado `PENDING_PAYMENT`,
+`StartPaymentCheckout` exige customer/usuario activos y ownership customer,
+vuelve a leer el pedido y exige estado `PENDING_PAYMENT`,
 reserva vigente y no liberada. Adquiere o reutiliza el intento activo, envía su
 clave persistida en `X-Idempotency-Key` y guarda el recurso, checkout URL y estado
 original del proveedor. Si el recurso ya tiene checkout URL, no repite el POST.
@@ -303,7 +308,7 @@ Un índice único parcial por pedido para estados `CREATED`/`PENDING`, combinado
 `unique(orderId, attemptNumber)` y recuperación de colisiones, evita dos intentos
 activos aun entre procesos distintos.
 
-La Server Action vuelve a comprobar ownership customer/guest, aplica rate limit y
+La Server Action exige sesión customer y ownership, aplica rate limit y
 solo redirige a una URL HTTPS obtenida server-side. `MERCADO_PAGO_ENABLED` vale
 `false` por defecto; sin flag y token no se muestra el botón ni se compone el
 gateway. Los parámetros `payment_return` muestran únicamente un mensaje neutro y

@@ -35,35 +35,21 @@ describe("confirmCheckoutAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getCurrentCustomer.mockResolvedValue(null);
+    mocks.redirect.mockImplementation(() => { throw new Error("NEXT_REDIRECT"); });
   });
 
-  it("asocia el teléfono invitado vacío al campo y preserva los datos normales", async () => {
-    const result = await confirmCheckoutAction(initialCheckoutActionState, form({ phone: "" }));
-
-    expect(result.fieldErrors?.phone).toBe("El teléfono es obligatorio.");
-    expect(result.values).toMatchObject({
-      shippingMethodId,
-      firstName: "Ana",
-      lastName: "Pérez",
-      email: "ana@example.com",
-      phone: "",
-      addressMode: "new",
-      street: "San Martín",
-      streetNumber: "1234",
-      floorApartment: "2 B",
-      city: "CABA",
-      province: "Buenos Aires",
-      postalCode: "1000",
-      references: "Portón negro",
-    });
-    expect(result.values).not.toHaveProperty("checkoutKey");
+  it("rechaza invocación invitada aunque tenga cookie y datos de comprador", async () => {
+    mocks.getGuestCartToken.mockResolvedValue("guest-cookie");
+    await expect(confirmCheckoutAction(initialCheckoutActionState, form())).rejects.toThrow("NEXT_REDIRECT");
+    expect(mocks.redirect).toHaveBeenCalledWith("/login?returnTo=/checkout");
+    expect(mocks.confirm).not.toHaveBeenCalled();
+    expect(mocks.getGuestCartToken).not.toHaveBeenCalled();
   });
 
-  it("asocia un email invitado inválido al campo email", async () => {
-    const result = await confirmCheckoutAction(initialCheckoutActionState, form({ email: "no-es-email" }));
-
-    expect(result.fieldErrors?.email).toBe("Ingresá un email válido.");
-    expect(result.values?.email).toBe("no-es-email");
+  it("rechaza sin sesión válida antes de procesar datos manipulados", async () => {
+    await expect(confirmCheckoutAction(initialCheckoutActionState, form({ email: "no-es-email", customerId: "otro" }))).rejects.toThrow("NEXT_REDIRECT");
+    expect(mocks.confirm).not.toHaveBeenCalled();
+    expect(mocks.assertRateLimit).not.toHaveBeenCalled();
   });
 
   it("ignora datos de comprador enviados por cliente para una sesión autenticada", async () => {

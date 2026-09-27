@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { hashPassword } from "../src/modules/auth/domain/password";
 
 import { createHash, randomUUID } from "node:crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -32,9 +33,15 @@ async function main(): Promise<void> {
 
   const guestTokenHash = hashGuestCartToken(createGuestCartToken());
   await new CartService(new PrismaCartRepository(prisma), 30).addItem({ tokenHash: guestTokenHash, variantId: variant.id, quantity: 1 });
+  const fixtureUser = await prisma.user.create({ data: {
+    email: `phase6-manual-pending-${randomUUID()}@test.local`, passwordHash: await hashPassword(randomUUID(), 10),
+    firstName: "Verificador", lastName: "Checkout", status: "ACTIVE",
+    customer: { create: { phone: "+54 11 5555-0000", status: "ACTIVE" } },
+  }, include: { customer: true } });
+  const customerId = fixtureUser.customer!.id;
+  await new CartService(new PrismaCartRepository(prisma), 30).mergeGuestCart(customerId, guestTokenHash);
   const pending = (await new CheckoutService(new PrismaOrderRepository(prisma), new CustomShippingProvider(new PrismaShippingRepository(prisma)), 15).confirm({
-    owner: { kind: "guest", tokenHash: guestTokenHash }, checkoutKey: createCheckoutKey(), shippingMethodId: pickup.id,
-    guestBuyer: { firstName: "Manual", lastName: "Pendiente", email: "phase6-manual-pending@test.local", phone: "+54 11 5555-0610" },
+    owner: { kind: "customer" as const, customerId }, checkoutKey: createCheckoutKey(), shippingMethodId: pickup.id,
   })).order;
   const paidShipping = await createPaidFixture("shipping", shipping, variant);
   const paidPickup = await createPaidFixture("pickup", pickup, variant);
@@ -84,6 +91,10 @@ async function cleanup(): Promise<void> {
   await prisma.auditLog.deleteMany({ where: { entityType: "Order", entityId: { in: ids } } });
   await prisma.order.deleteMany({ where: { id: { in: ids } } });
   await prisma.cart.deleteMany({ where: { id: { in: orders.map(({ cartId }) => cartId) } } });
+  const fixtureCustomers = await prisma.customer.findMany({ where: { user: { email: { startsWith: "phase6-manual-pending-", endsWith: "@test.local" } } }, select: { id: true, userId: true } });
+  await prisma.cart.deleteMany({ where: { customerId: { in: fixtureCustomers.map(({ id }) => id) } } });
+  await prisma.customer.deleteMany({ where: { id: { in: fixtureCustomers.map(({ id }) => id) } } });
+  await prisma.user.deleteMany({ where: { id: { in: fixtureCustomers.map(({ userId }) => userId) } } });
   if (command === "cleanup") console.info(JSON.stringify({ status: "clean", orders: orders.length }));
 }
 

@@ -3,17 +3,19 @@ import { redirect } from "next/navigation";
 import { CustomerRegisterForm } from "@/modules/customers/presentation/customer-auth-forms";
 import { getCurrentCustomer } from "@/modules/customers/presentation/customer-session";
 import { getPublicStoreSettings } from "@/modules/store-settings/infrastructure/store-settings-composition";
+import { customerReturnPath } from "@/modules/customers/presentation/customer-return-path";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Crear cuenta", robots: { index: false, follow: false } };
 
-export default async function RegisterPage() {
-  if (await getCurrentCustomer()) redirect("/mi-cuenta");
+export default async function RegisterPage({ searchParams }: { searchParams: Promise<{ returnTo?: string | string[] }> }) {
+  const returnTo = customerReturnPath((await searchParams).returnTo);
+  if (await getCurrentCustomer()) redirect(returnTo);
   const settings = await getPublicStoreSettings();
   return (
     <section className="customer-auth-page section">
       <div className="customer-auth-copy"><p className="eyebrow">Tu cuenta {settings.storeName}</p><h1>Creá tu cuenta</h1><p>Guardá tus datos, administrá direcciones y conservá el carrito entre visitas.</p></div>
-      <CustomerRegisterForm />
+      <CustomerRegisterForm returnTo={returnTo} />
     </section>
   );
 }

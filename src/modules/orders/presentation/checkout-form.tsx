@@ -31,7 +31,7 @@ export function CheckoutForm({
   itemsSubtotal,
 }: Readonly<{
   checkoutKey: string;
-  authenticatedBuyer: { firstName: string; lastName: string; email: string; phone: string } | null;
+  authenticatedBuyer: { firstName: string; lastName: string; email: string; phone: string };
   addresses: Address[];
   quotes: Quote[];
   items: Array<{ sku: string; productName: string; variantName: string; quantity: number; unitPrice: string; subtotal: string }>;
@@ -50,21 +50,12 @@ export function CheckoutForm({
         <section className="checkout-card">
           <p className="eyebrow">1 · Comprador</p>
           <h2>Datos de contacto</h2>
-          {authenticatedBuyer ? (
             <div className="form-grid form-grid--two">
               <Field label="Nombre"><input autoComplete="given-name" readOnly value={authenticatedBuyer.firstName} /></Field>
               <Field label="Apellido"><input autoComplete="family-name" readOnly value={authenticatedBuyer.lastName} /></Field>
               <Field label="Email"><input autoComplete="email" readOnly type="email" value={authenticatedBuyer.email} /></Field>
               <Field label="Teléfono"><input autoComplete="tel" readOnly value={authenticatedBuyer.phone} /></Field>
             </div>
-          ) : (
-            <div className="form-grid form-grid--two">
-              <Field error={state.fieldErrors?.firstName} label="Nombre"><input autoComplete="given-name" defaultValue={state.values?.firstName} maxLength={100} name="firstName" required /></Field>
-              <Field error={state.fieldErrors?.lastName} label="Apellido"><input autoComplete="family-name" defaultValue={state.values?.lastName} maxLength={100} name="lastName" required /></Field>
-              <Field error={state.fieldErrors?.email} label="Email"><input autoComplete="email" defaultValue={state.values?.email} maxLength={320} name="email" required type="email" /></Field>
-              <Field error={state.fieldErrors?.phone} label="Teléfono"><input autoComplete="tel" defaultValue={state.values?.phone} maxLength={30} minLength={6} name="phone" pattern="[+()0-9 .-]+" required /></Field>
-            </div>
-          )}
         </section>
 
         <section className="checkout-card">

@@ -1,5 +1,28 @@
 # Operación de Lauril Ecommerce
 
+## Antes de desplegar checkout exclusivamente autenticado
+
+Visitantes conservan navegación y carrito; confirmar Order e iniciar Mercado Pago
+requieren customer autenticado y activo. No se reasignan pedidos guest históricos.
+
+En la consola MongoDB autorizada de producción, sobre la base de la aplicación,
+ejecutar esta consulta de sólo lectura y registrar el conteo:
+
+```javascript
+db.orders.countDocuments({
+  customer_id: null,
+  status: "PENDING_PAYMENT",
+  payment_expires_at: { $gt: new Date() }
+})
+```
+
+Si el resultado es mayor que cero, requieren una decisión operativa antes del
+deploy o esperar su expiración automática y verificar nuevamente. No asociarlos
+silenciosamente a cuentas. Esta consulta no fue ejecutada desde Codex.
+La lectura histórica se conserva, pero el token guest no inicia nuevos pagos.
+Los enlaces de Mercado Pago emitidos previamente no son revocados por este cambio;
+su tratamiento sigue en el webhook autoritativo y la lógica existente de pago tardío.
+
 ## Referencias de producción
 
 - Repositorio en el VPS: `/root/ecommerce-lauril`.

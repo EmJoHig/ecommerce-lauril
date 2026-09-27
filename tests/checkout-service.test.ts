@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CheckoutService } from "@/modules/orders/application/checkout-service";
-import type { CheckoutCartRecord, CheckoutOwner, CheckoutTransaction, CreateOrderRecordInput, OrderRepository, OrderView, PendingOrderRecord } from "@/modules/orders/application/order-repository";
+import type { CheckoutCartRecord, CheckoutCustomerRecord, CheckoutOwner, CheckoutTransaction, CreateOrderRecordInput, OrderRepository, OrderView, PendingOrderRecord } from "@/modules/orders/application/order-repository";
 import { CustomShippingProvider } from "@/modules/shipping/application/custom-shipping-provider";
 import type { ShippingMethodState } from "@/modules/shipping/domain/shipping";
-import { NotFoundError, ValidationError } from "@/shared/domain/errors";
+import { NotFoundError, UnauthorizedError, ValidationError } from "@/shared/domain/errors";
 
 const ids = {
   cart: "10000000-0000-4000-8000-000000000001", customer: "10000000-0000-4000-8000-000000000002",
@@ -21,7 +21,7 @@ function shipping(overrides: Partial<ShippingMethodState> = {}): ShippingMethodS
 }
 
 function cart(overrides: Partial<CheckoutCartRecord> = {}): CheckoutCartRecord {
-  return { id: ids.cart, status: "ACTIVE", expiresAt: new Date("2026-09-02T12:00:00.000Z"), guestTokenHash: guestHash, customerId: null, items: [{ quantity: 2, variant: { id: ids.variant, sku: "SKU-001", name: "Única", isActive: true, priceInCents: 410000n, promotionalPriceInCents: null, product: { id: ids.product, name: "Producto", status: "ACTIVE" }, inventory: { id: ids.inventory, stockOnHand: 10, stockReserved: 1, version: 0 } } }], ...overrides };
+  return { id: ids.cart, status: "ACTIVE", expiresAt: new Date("2026-09-02T12:00:00.000Z"), guestTokenHash: null, customerId: ids.customer, items: [{ quantity: 2, variant: { id: ids.variant, sku: "SKU-001", name: "Única", isActive: true, priceInCents: 410000n, promotionalPriceInCents: null, product: { id: ids.product, name: "Producto", status: "ACTIVE" }, inventory: { id: ids.inventory, stockOnHand: 10, stockReserved: 1, version: 0 } } }], ...overrides };
 }
 
 class MemoryRepository implements OrderRepository {
@@ -34,7 +34,7 @@ class MemoryRepository implements OrderRepository {
   pending: PendingOrderRecord | null = null;
 
   findCheckoutCart(owner: CheckoutOwner) { return Promise.resolve(matchesOwner(this.cart, owner) ? this.cart : null); }
-  findCustomer(customerId: string) { return Promise.resolve(customerId === ids.customer ? { id: ids.customer, userId: ids.user, firstName: "Cliente", lastName: "Prueba", email: "cliente@test.local", phone: "+54 11 5555-0000", status: "ACTIVE" as const, userStatus: "ACTIVE" as const } : null); }
+  findCustomer(customerId: string): Promise<CheckoutCustomerRecord | null> { return Promise.resolve(customerId === ids.customer ? { id: ids.customer, userId: ids.user, firstName: "Cliente", lastName: "Prueba", email: "cliente@test.local", phone: "+54 11 5555-0000", status: "ACTIVE" as const, userStatus: "ACTIVE" as const } : null); }
   listCustomerAddresses(customerId: string) { return Promise.resolve(customerId === ids.customer ? [{ id: ids.address, customerId: ids.customer, label: "Casa", recipientFirstName: "Cliente", recipientLastName: "Prueba", phone: "+54 11 5555-0000", street: "Calle", streetNumber: "123", floorApartment: null, city: "CABA", province: "Buenos Aires", postalCode: "1000", references: null, isDefault: true }] : []); }
   listCustomerOrders() { return Promise.resolve([]); }
   findPublicOrder(number: bigint, owner: { customerId: string | null; guestTokenHash: string | null }) { return Promise.resolve(this.saved?.number === number && (this.saved.customerId === owner.customerId || this.saved.guestAccessTokenHash === owner.guestTokenHash) ? this.saved : null); }
@@ -69,61 +69,65 @@ function service(repository = new MemoryRepository()) {
 describe("checkout", () => {
   it("prepara precios y totales actuales desde servidor", async () => {
     const { checkout } = service();
-    const result = await checkout.prepare({ kind: "guest", tokenHash: guestHash }, now);
+    const result = await checkout.prepare({ kind: "customer", customerId: ids.customer }, now);
     expect(result.items[0]).toMatchObject({ unitPriceInCents: 410000n, subtotalInCents: 820000n });
     expect(result.shippingQuotes[0]?.totalInCents).toBe(1270000n);
   });
 
-  it("crea checkout invitado con snapshot, reserva y convierte carrito", async () => {
+  it("rechaza al invitado antes de preparar, reservar o crear un pedido", async () => {
     const { checkout, repository } = service();
-    const result = await checkout.confirm(guestInput(), now);
-    expect(result.order).toMatchObject({ customerId: null, buyerEmail: "guest@test.local", status: "PENDING_PAYMENT", totalInCents: 1270000n });
-    expect(result.order.items[0]).toMatchObject({ sku: "SKU-001", unitPriceInCents: 410000n, quantity: 2, subtotalInCents: 820000n });
-    expect(repository.reserved).toBe(3);
-    expect(repository.converted).toBe(true);
+    const owner = { kind: "guest" as const, tokenHash: guestHash };
+    await expect(checkout.prepare(owner, now)).rejects.toThrow(UnauthorizedError);
+    await expect(checkout.confirm({ ...customerInput(), owner }, now)).rejects.toThrow(UnauthorizedError);
+    expect(repository.saved).toBeNull();
+    expect(repository.reserved).toBe(1);
+    expect(repository.converted).toBe(false);
   });
 
   it("crea checkout cliente usando perfil y dirección propia", async () => {
     const { checkout, repository } = service();
     repository.cart = { ...repository.cart, customerId: ids.customer, guestTokenHash: null };
     const result = await checkout.confirm({ owner: { kind: "customer", customerId: ids.customer }, checkoutKey, shippingMethodId: ids.shipping, savedAddressId: ids.address }, now);
-    expect(result.order).toMatchObject({ customerId: ids.customer, buyerEmail: "cliente@test.local", shippingStreet: "Calle" });
+    expect(result.order).toMatchObject({ customerId: ids.customer, guestAccessTokenHash: null, buyerEmail: "cliente@test.local", shippingStreet: "Calle", status: "PENDING_PAYMENT", totalInCents: 1270000n });
+    expect(result.order.items[0]).toMatchObject({ sku: "SKU-001", unitPriceInCents: 410000n, quantity: 2, subtotalInCents: 820000n });
+    expect(repository.reserved).toBe(3);
+    expect(repository.converted).toBe(true);
   });
 
   it("rechaza carrito vacío, producto inactivo y variante inactiva", async () => {
     const first = service(); first.repository.cart = { ...first.repository.cart, items: [] };
-    await expect(first.checkout.prepare({ kind: "guest", tokenHash: guestHash }, now)).rejects.toThrow("vacío");
+    await expect(first.checkout.prepare({ kind: "customer", customerId: ids.customer }, now)).rejects.toThrow("vacío");
     const second = service(); second.repository.cart = withVariant(second.repository.cart, { product: { id: ids.product, name: "Producto", status: "INACTIVE" } });
-    await expect(second.checkout.confirm(guestInput(), now)).rejects.toThrow(ValidationError);
+    await expect(second.checkout.confirm(customerInput(), now)).rejects.toThrow(ValidationError);
     const third = service(); third.repository.cart = withVariant(third.repository.cart, { isActive: false });
-    await expect(third.checkout.confirm(guestInput(), now)).rejects.toThrow(ValidationError);
+    await expect(third.checkout.confirm(customerInput(), now)).rejects.toThrow(ValidationError);
   });
 
   it("recalcula un precio modificado antes del snapshot", async () => {
     const { checkout, repository } = service();
     repository.cart = withVariant(repository.cart, { priceInCents: 500001n });
-    expect((await checkout.confirm(guestInput(), now)).order.items[0]?.unitPriceInCents).toBe(500001n);
+    expect((await checkout.confirm(customerInput(), now)).order.items[0]?.unitPriceInCents).toBe(500001n);
   });
 
   it("rechaza stock insuficiente", async () => {
     const { checkout, repository } = service();
     repository.cart = withVariant(repository.cart, { inventory: { id: ids.inventory, stockOnHand: 2, stockReserved: 1, version: 0 } });
-    await expect(checkout.confirm(guestInput(), now)).rejects.toThrow(ValidationError);
+    await expect(checkout.confirm(customerInput(), now)).rejects.toThrow(ValidationError);
   });
 
   it("exige dirección para envío y permite pickup sin dirección", async () => {
     const first = service();
-    await expect(first.checkout.confirm({ ...guestInput(), newAddress: null }, now)).rejects.toThrow("dirección");
+    await expect(first.checkout.confirm({ ...customerInput(), newAddress: null }, now)).rejects.toThrow("dirección");
     const second = service(); second.repository.method = shipping({ type: "PICKUP", code: "RETIRO", name: "Retiro", costInCents: 0n, requiresAddress: false });
-    const result = await second.checkout.confirm({ ...guestInput(), newAddress: null }, now);
+    const result = await second.checkout.confirm({ ...customerInput(), newAddress: null }, now);
     expect(result.order.shippingStreet).toBeNull();
     expect(result.order.totalInCents).toBe(820000n);
   });
 
   it("es idempotente para la misma clave", async () => {
     const { checkout, repository } = service();
-    const first = await checkout.confirm(guestInput(), now);
-    const second = await checkout.confirm(guestInput(), now);
+    const first = await checkout.confirm(customerInput(), now);
+    const second = await checkout.confirm(customerInput(), now);
     expect(second.reused).toBe(true);
     expect(second.order.id).toBe(first.order.id);
     expect(repository.reserved).toBe(3);
@@ -131,9 +135,25 @@ describe("checkout", () => {
 
   it("impide reutilizar la clave desde otro propietario", async () => {
     const { checkout, repository } = service();
-    await checkout.confirm(guestInput(), now);
+    await checkout.confirm(customerInput(), now);
+    const active = (await repository.findCustomer(ids.customer))!;
+    vi.spyOn(repository, "findCustomer").mockImplementation(async (customerId) => ({ ...active, id: customerId }));
     repository.cart = { ...cart(), guestTokenHash: "b".repeat(64) };
-    await expect(checkout.confirm({ ...guestInput(), owner: { kind: "guest", tokenHash: "b".repeat(64) } }, now)).rejects.toThrow(NotFoundError);
+    await expect(checkout.confirm({ ...customerInput(), owner: { kind: "customer", customerId: ids.user } }, now)).rejects.toThrow(NotFoundError);
+  });
+
+  it("exige Customer y User activos incluso al repetir una confirmación", async () => {
+    for (const state of ["missing", "customer-disabled", "user-disabled"]) {
+      const { checkout, repository } = service();
+      const active = (await repository.findCustomer(ids.customer))!;
+      await checkout.confirm(customerInput(), now);
+      vi.spyOn(repository, "findCustomer").mockResolvedValue(state === "missing" ? null : {
+        ...active,
+        ...(state === "customer-disabled" ? { status: "DISABLED" } : { userStatus: "DISABLED" }),
+      } as Awaited<ReturnType<typeof repository.findCustomer>>);
+      await expect(checkout.confirm(customerInput(), now)).rejects.toThrow(NotFoundError);
+      expect(repository.reserved).toBe(3);
+    }
   });
 
   it("expira y libera la reserva una sola vez", async () => {
@@ -155,8 +175,8 @@ describe("checkout", () => {
   });
 });
 
-function guestInput() {
-  return { owner: { kind: "guest" as const, tokenHash: guestHash }, checkoutKey, shippingMethodId: ids.shipping, guestBuyer: { firstName: "Guest", lastName: "Prueba", email: "GUEST@TEST.LOCAL", phone: "+54 11 5555-0000" }, newAddress: { label: "Checkout", recipientFirstName: "Guest", recipientLastName: "Prueba", phone: "+54 11 5555-0000", street: "Calle", streetNumber: "123", city: "CABA", province: "Buenos Aires", postalCode: "1000", isDefault: false } };
+function customerInput() {
+  return { owner: { kind: "customer" as const, customerId: ids.customer }, checkoutKey, shippingMethodId: ids.shipping, newAddress: { label: "Checkout", recipientFirstName: "Guest", recipientLastName: "Prueba", phone: "+54 11 5555-0000", street: "Calle", streetNumber: "123", city: "CABA", province: "Buenos Aires", postalCode: "1000", isDefault: false } };
 }
 
 function withVariant(value: CheckoutCartRecord, overrides: Partial<CheckoutCartRecord["items"][number]["variant"]>): CheckoutCartRecord {

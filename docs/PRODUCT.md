@@ -58,7 +58,7 @@ roles y permisos.
 ## Alcance actual
 
 Las Fases 1 a 11 están completadas y validadas. El alcance actual incluye
-fundación, catálogo e inventario, carrito, cuentas, checkout cliente/invitado,
+fundación, catálogo e inventario, carrito, cuentas, checkout de clientes autenticados,
 métodos propios de entrega, pedidos con snapshots y reservas, operación de ventas,
 backoffice consolidado, storefront público responsive y configuración single-store.
 El catálogo permite importación `.xlsx` con plantilla, preview y validación antes

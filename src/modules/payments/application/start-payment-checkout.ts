@@ -1,4 +1,5 @@
-import { ConflictError, NotFoundError, ValidationError } from "@/shared/domain/errors";
+import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from "@/shared/domain/errors";
+import { validateId } from "@/modules/orders/domain/order";
 import type { PaymentOrderReader } from "@/modules/orders/application/order-repository";
 import type { PaymentAttemptRepository } from "./payment-attempt-repository";
 import type { PaymentGateway } from "./payment-gateway";
@@ -17,9 +18,14 @@ export class StartPaymentCheckout {
     private readonly gateway: PaymentGateway,
   ) {}
 
-  async execute(orderId: string, now = new Date()): Promise<StartPaymentCheckoutResult> {
-    const order = await this.orders.findPaymentOrder(orderId);
-    if (!order) throw new NotFoundError("No se encontró el pedido.");
+  async execute(orderId: string, customerId: string, now = new Date()): Promise<StartPaymentCheckoutResult> {
+    if (typeof customerId !== "string" || !customerId) throw new UnauthorizedError("Ingresá a tu cuenta para pagar.");
+    const customer = await this.orders.findCustomer(validateId(customerId));
+    if (!customer || customer.status !== "ACTIVE" || customer.userStatus !== "ACTIVE") {
+      throw new UnauthorizedError("No se encontró la cuenta activa.");
+    }
+    const order = await this.orders.findPaymentOrder(validateId(orderId));
+    if (!order || order.customerId !== customer.id) throw new NotFoundError("No se encontró el pedido.");
     if (order.status !== "PENDING_PAYMENT") {
       throw new ValidationError("El pedido no está pendiente de pago.");
     }

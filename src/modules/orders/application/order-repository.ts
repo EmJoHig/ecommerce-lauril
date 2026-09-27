@@ -117,6 +117,7 @@ export type AdminOrderRow = Readonly<{
 
 export type PaymentOrderRecord = Readonly<{
   id: string;
+  customerId: string | null;
   number: bigint;
   status: OrderStatusValue;
   buyerEmail: string;
@@ -128,6 +129,7 @@ export type PaymentOrderRecord = Readonly<{
 
 export interface PaymentOrderReader {
   findPaymentOrder(id: string): Promise<PaymentOrderRecord | null>;
+  findCustomer(customerId: string): Promise<CheckoutCustomerRecord | null>;
 }
 
 export interface CheckoutTransaction {

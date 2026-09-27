@@ -38,7 +38,8 @@ export default async function OrderPage({
   const reservationActive = order.status === "PENDING_PAYMENT"
     && order.reservationReleasedAt === null
     && order.paymentExpiresAt > new Date();
-  const paymentAvailable = reservationActive && isMercadoPagoCheckoutAvailable();
+  const paymentAvailable = Boolean(customer && order.customerId === customer.id)
+    && reservationActive && isMercadoPagoCheckoutAvailable();
   const paymentAction = startPaymentCheckoutAction.bind(null, order.number.toString());
   return <section className="order-page section">
       <div className="order-hero"><p className="eyebrow">Detalle del pedido</p><h1>Pedido #{order.number.toString()}</h1><span className={`status-badge status-badge--${orderStatusClass(order.status)}`}>{orderStatusLabel(order.status)}</span><p>{reservationActive ? `Reservamos temporalmente tus productos hasta ${order.paymentExpiresAt.toLocaleString("es-AR")}.` : "La reserva de este pedido ya no está activa."}</p>{paymentReturn ? <p role="status">Volviste de Mercado Pago. Estamos verificando la acreditación del pago.</p> : null}{paymentError ? <p role="alert">No pudimos iniciar el pago. Volvé a intentarlo más tarde.</p> : null}</div>

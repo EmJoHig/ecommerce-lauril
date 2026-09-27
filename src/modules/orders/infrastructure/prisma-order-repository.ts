@@ -144,6 +144,7 @@ export class PrismaOrderRepository implements OrderRepository {
       where: { id },
       select: {
         id: true,
+        customerId: true,
         number: true,
         status: true,
         buyerEmail: true,
