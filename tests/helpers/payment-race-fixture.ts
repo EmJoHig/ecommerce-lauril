@@ -25,8 +25,8 @@ const duplicate = () => Object.assign(new Error("test database unique constraint
 
 // Only operations used by these real Prisma adapters are modeled. Reads return
 // detached copies; WHERE predicates are evaluated, never silently discarded.
-// This is NOT a MongoDB isolation/locking simulation: each webhook transaction
-// finishes before the deferred creation response is released in these tests.
+// This is NOT a MongoDB isolation/locking simulation. Transactions are serialized
+// to model committed visibility; provider calls may overlap using test barriers.
 function matches(row: Row, where: Row = {}): boolean {
   return Object.entries(where).every(([key, value]) => {
     if (key === "OR") return (value as Row[]).some((part) => matches(row, part));
@@ -141,15 +141,21 @@ export function paymentRaceFixture() {
   }]);
   const paymentRefund = table();
   const tables = [paymentAttempt, paymentEvent, inventory, inventoryMovement, orderStatusHistory, order, customer, paymentRefund];
+  let transactionTail = Promise.resolve();
   const client = {
     paymentAttempt, paymentEvent, inventory, inventoryMovement, orderStatusHistory, order, customer, paymentRefund,
     $transaction: async <T>(work: (tx: PrismaClient) => Promise<T>): Promise<T> => {
+      const previous = transactionTail;
+      const finished = deferred<void>();
+      transactionTail = finished.promise;
+      await previous;
       const before = tables.map((item) => structuredClone(item.rows));
       try { return await work(client as unknown as PrismaClient); }
       catch (error) {
         tables.forEach((item, index) => item.restore(before[index]!));
         throw error;
       }
+      finally { finished.resolve(); }
     },
   };
   const prisma = client as unknown as PrismaClient;
