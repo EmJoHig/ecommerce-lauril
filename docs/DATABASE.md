@@ -240,19 +240,31 @@ se deriva de pagos, no de un único campo mutable sin historial.
 - notas de cliente: `(customerId, createdAt)` y `(actorUserId, createdAt)`.
 - pagos: `(orderId, attemptNumber)` e idempotencia únicas, consulta por
   `(orderId, createdAt)`, operación por `(status, updatedAt)` y referencia externa
-  única parcial por proveedor.
+  única parcial por proveedor. El índice no único
+  `payment_attempts_reconciliation_cursor_idx`, declarado en Prisma sobre
+  `(provider, updatedAt, id)`, permite recorrer los candidatos del reconciliador
+  en orden `(updated_at, _id)`, también con cursor lexicográfico. Es un índice
+  completo: los estados `CREATED/PENDING` se filtran durante la lectura. En
+  MongoDB 7.0.9, con 100.000 intentos sintéticos de estados mixtos, la agregación
+  real de Prisma examinó 49–51 documentos para devolver 25, sin `SORT` bloqueante.
+  El trabajo depende de la proporción de estados elegibles en el tramo recorrido.
+  El índice parcial por proveedor/estados no fue elegido para esa agregación con
+  `$expr`; agregar `status` al final no redujo documentos ni claves examinados.
+  Se administra en el schema porque Prisma representa toda su semántica y
+  elimina los índices completos manuales que no están declarados allí.
 - eventos de pago: `(provider, providerEventId)` único y cola operativa por
   `(processingStatus, receivedAt)`.
 - auditoría: `(actorUserId, createdAt)` y `(entityType, entityId, createdAt)`.
 
 Además de los índices expresables en Prisma Schema, el script
-`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente ocho índices
+`scripts/ensure-mongodb-indexes.ts` mantiene idempotentemente diez índices
 únicos parciales activos: una variante predeterminada por producto, una dirección
 predeterminada por cliente, un carrito activo por cliente y unicidad para los
 hashes opcionales de carrito invitado y acceso a pedido invitado, más la referencia
 externa informada de un intento de pago por proveedor, un único intento de pago
-activo por pedido y un único movimiento `SALE` por inventario/pedido. Esta última
-defensa, junto con la transacción de confirmación y `Inventory.version`, impide
+activo por pedido, un único refund activo por intento, unicidad de referencia
+externa de refund por proveedor y un único movimiento `SALE` por inventario/pedido.
+Esta última defensa, junto con la transacción de confirmación y `Inventory.version`, impide
 que webhooks duplicados o concurrentes descuenten físicamente dos veces.
 
 ## Sincronización y seed
