@@ -182,6 +182,17 @@ Un índice único parcial por `payment_attempt_id` para `CREATED/SUBMITTED` evit
 dos refunds activos; otro índice parcial único por proveedor/ID externo deduplica
 el refund cuando Mercado Pago informa ese ID.
 
+`PaymentReconciliationCheckpoint` conserva el progreso del job de confirmación
+de pagos pendientes en la colección `payment_reconciliation_checkpoints`. Su ID
+fijo `mercado-pago-reconciliation` identifica job/proveedor; contiene cutoff UTC,
+cursor `(cursorUpdatedAt, cursorId)`, versión y `updatedAt` operativo. Cutoff y
+cursor nulos representan un ciclo cerrado. El cursor guarda visitas, no éxito
+de pago, y puede avanzar ante errores individuales. Cada cambio usa CAS por ID
+y versión con incremento atómico; la versión no se reinicia entre ciclos.
+No requiere índices secundarios ni cambios en PaymentAttempt. La primera
+creación resuelve carreras por unicidad del ID. La sincronización futura usa
+`npm run db:push`; no se utiliza Prisma Migrate ni se requiere seed.
+
 Los importes reembolsados se derivan del GET autoritativo de Orders API. Cambiar
 un pedido a `PARTIALLY_REFUNDED` o `REFUNDED` no modifica `Inventory`, no crea
 `RETURN`/`CANCELLATION` y no reconstruye reservas.

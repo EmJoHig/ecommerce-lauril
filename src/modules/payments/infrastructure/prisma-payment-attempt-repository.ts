@@ -7,10 +7,11 @@ import type {
 } from "../application/payment-attempt-repository";
 import type { PaymentAttempt, PaymentProvider } from "../domain/payment";
 import { createPaymentAttempt } from "../domain/payment";
+import type { PaymentReconciliationCandidates, ReconciliationCursor } from "../application/reconcile-mercado-pago-payments";
 
 type PaymentAttemptRow = Prisma.PaymentAttemptGetPayload<object>;
 
-export class PrismaPaymentAttemptRepository implements PaymentAttemptRepository {
+export class PrismaPaymentAttemptRepository implements PaymentAttemptRepository, PaymentReconciliationCandidates {
   constructor(private readonly prisma: PrismaClient) {}
 
   async create(attempt: PaymentAttempt): Promise<PaymentAttempt> {
@@ -66,6 +67,25 @@ export class PrismaPaymentAttemptRepository implements PaymentAttemptRepository 
     const rows = await this.prisma.paymentAttempt.findMany({
       where: { orderId },
       orderBy: [{ attemptNumber: "asc" }, { createdAt: "asc" }],
+    });
+    return rows.map(mapPaymentAttempt);
+  }
+
+  async listReconciliationCandidates(input: {
+    before: Date; after?: ReconciliationCursor; limit: number;
+  }): Promise<ReadonlyArray<PaymentAttempt>> {
+    const rows = await this.prisma.paymentAttempt.findMany({
+      where: {
+        provider: "MERCADO_PAGO",
+        status: { in: ["CREATED", "PENDING"] },
+        updatedAt: { lt: input.before },
+        ...(input.after ? { OR: [
+          { updatedAt: { gt: input.after.updatedAt } },
+          { updatedAt: input.after.updatedAt, id: { gt: input.after.id } },
+        ] } : {}),
+      },
+      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+      take: input.limit,
     });
     return rows.map(mapPaymentAttempt);
   }

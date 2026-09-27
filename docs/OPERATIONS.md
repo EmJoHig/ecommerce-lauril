@@ -164,6 +164,188 @@ systemctl status lauril-expire-orders.timer
 systemctl list-timers --all | grep lauril-expire-orders
 ```
 
+## Reconciliación de pagos: propuesta pendiente de instalación
+
+**El timer `lauril-reconcile-payments.timer` NO está instalado ni activo por este
+cambio.** Esta sección prepara una operación posterior manual; no modifica el VPS.
+
+El job concilia la confirmación de pagos pendientes (pending payment settlement).
+El progreso entre corridas se conserva en MongoDB mediante
+`PaymentReconciliationCheckpoint`; no requiere cursor manual ni memoria del
+proceso. La prueba de 150 candidatos confirma que, tras 100 errores persistentes,
+la siguiente corrida alcanza las otras 50 aprobaciones.
+
+El webhook es el mecanismo primario. Proponemos una corrida cada **10 minutos**,
+con gracia de **5 minutos**, páginas de **25** y máximo **100** intentos secuenciales
+por corrida. Es una red de seguridad, evita competir con startPayment y no agrega
+tráfico cada minuto. A lo sumo realiza 100 GET por corrida, más los auto-refunds
+tardíos que determine la lógica existente. Usa configuración Mercado Pago/DB
+existente, sin variables nuevas. El modelo nuevo requiere la sincronización de
+schema indicada abajo antes de la activación futura.
+
+Selecciona `CREATED/PENDING` de Mercado Pago por `(updatedAt, id)` ascendente.
+Excluye terminales y `REQUIRES_REVIEW`. No puede recuperar automáticamente un
+intento sin recurso externo: registra skip sin cambiarlo. Consultar las garantías
+y limitaciones en [PAYMENTS.md](PAYMENTS.md#reconciliación-periódica-de-mercado-pago).
+
+Ejecución manual en el entorno elegido y con su configuración ya verificada:
+
+```bash
+npm run db:reconcile-payments
+```
+
+Requiere `MONGODB_URI`, `MERCADO_PAGO_ENABLED=true`, `MERCADO_PAGO_ACCESS_TOKEN`
+y `APP_URL` existentes. No es dry-run: puede confirmar ventas y solicitar el
+auto-refund tardío existente. Las pruebas de desarrollo ejecutan el script con
+DB/gateway simulados, nunca contra producción.
+
+Cada intento emite JSON con `source: "reconciliation"`, `paymentAttemptId`,
+`outcome` y, cuando corresponde, `reasonCode`. No registra PII, tokens, firmas,
+payloads ni mensajes crudos de excepciones. Ejemplo de resumen:
+
+```json
+{"job":"mercado-pago-reconciliation","status":"ok","scanned":4,"reconciled":1,"unchanged":1,"skipped":1,"requiresReview":1,"failed":0,"nextCursor":null,"cycleCutoff":"2026-09-27T12:00:00.000Z","cycleCompleted":true,"checkpointAdvanced":true,"checkpointConflict":false,"checkpointVersion":5}
+```
+
+Los contadores son excluyentes: `reconciled` incluye aprobación, rechazo,
+cancelación o refund; `unchanged` corresponde a pendiente/duplicado; `skipped`
+a falta de recurso o cambio concurrente; `requiresReview` a incoherencia o pago
+tardío; `failed` a un error individual recuperable. Todos suman `scanned`.
+`unchanged` no implica ausencia de actualización de metadata del proveedor.
+
+Errores individuales de GET o conflictos permiten seguir con el siguiente.
+`failed > 0` produce `status: "partial"` y exit 1. Fallos de consulta DB,
+configuración, autenticación del proveedor, rate limit o errores inesperados
+detienen la corrida, imprimen `status: "error"` y devuelven exit 1; los logs por
+intento anteriores conservan el progreso. No hay retry HTTP agresivo. Prisma se
+desconecta en `finally`. Revisar logs y credenciales/configuración sin publicarlas;
+tras corregir la causa puede repetirse la corrida con seguridad.
+Los fallos globales distinguen `reasonCode: "configuration_failed"` (argumentos,
+variables o carga de configuración) de `"execution_failed"` sin revelar valores.
+Importar el script no ejecuta el job: sólo el entrypoint CLI o una llamada explícita
+a `runReconciliationJob` lo inicia.
+
+### Ciclos y checkpoint persistente
+
+El comando normal sin argumentos crea o lee un único checkpoint con ID
+`mercado-pago-reconciliation`. Al abrir ciclo fija `cycleCutoff = now - 5 minutos`
+y cursor nulo. Las corridas intermedias conservan ese cutoff y continúan después
+de `(cursorUpdatedAt, cursorId)`, sin offsets. Al no encontrar más candidatos,
+un CAS cierra el ciclo dejando cutoff/cursor nulos. Termina esa ejecución: sólo
+la siguiente abre otro ciclo con un nuevo cutoff. Si el límite de 100 coincide
+exactamente con el final, una corrida posterior puede cerrar el ciclo con cero
+visitas; nunca abre y recorre otro ciclo inmediatamente.
+
+Después de cada candidato evaluado persiste su cursor con `updateMany` por ID y
+versión esperada, incrementando la versión. Visitado no significa pago exitoso:
+avanza también sobre unchanged, revisión, skips y errores individuales (404,
+5xx, timeout/red). Los fallidos que sigan CREATED/PENDING se reintentan al volver
+a pasar por ellos en un ciclo posterior. Se conserva la selección de intentos
+sin recurso para mantener su visibilidad operativa: producen skip sin mutar el
+PaymentAttempt y ya no pueden bloquear a los siguientes ciclos/candidatos.
+
+401/403, 429, configuración inválida o fallo global DB detienen la ejecución.
+Los avances previos persisten; el candidato cuyo procesamiento fue interrumpido
+no se adelanta. Si el proceso cae después de confirmar un pago pero antes de
+guardar progreso, la próxima corrida puede repetir lecturas: las guardas de pago
+mantienen una única venta. No existe transacción distribuida entre MP y checkpoint.
+
+Si pierde un CAS, relee el checkpoint vigente y termina con
+`checkpointConflict: true`, sin sobrescribir el cursor ajeno ni reintentar en
+loop. Ese solapamiento no es un error global; conserva exit 1 si hubo fallos
+individuales. La versión nunca se reinicia al cerrar/abrir ciclos.
+
+`cycleCutoff` indica el límite de la corrida/ciclo; `cycleCompleted` confirma que
+esta corrida cerró el ciclo; `checkpointAdvanced` indica que consiguió guardar
+al menos una transición del checkpoint (visita, apertura o cierre).
+`checkpointVersion` muestra la versión guardada u observada tras conflicto;
+`nextCursor` queda como diagnóstico, no debe copiarse manualmente. La opción
+anterior `--after` se retiró para que ninguna invocación normal omita el checkpoint.
+
+### Preparación futura de base de datos
+
+Cambio de schema: colección `payment_reconciliation_checkpoints`, una fila por
+identidad fija de job/proveedor, con cutoff, cursor, versión y timestamp operativo.
+No modifica PaymentAttempt ni guarda PII/secretos. Su clave primaria es suficiente;
+no requiere nuevos índices parciales. Se conserva el índice de intentos
+`(status, updatedAt)`; no se agregó un índice compuesto sin evidencia de necesidad.
+Verificar el plan de consulta y el costo del sort por id en staging con volumen
+representativo antes de producción; no hay un índice adicional demostrado como
+requisito de esta implementación.
+
+En el despliegue futuro, un operador deberá regenerar Prisma Client con
+`npx prisma generate` y aplicar `npm run db:push` en el entorno autorizado (incluye
+la verificación idempotente de índices existentes). Validar primero en staging.
+MongoDB no utiliza Prisma Migrate; no hay migración SQL ni seed nuevo. No crear
+manualmente el checkpoint: la primera corrida lo inicializa con unicidad por ID
+y resuelve creaciones concurrentes. En este trabajo sólo se ejecutó generate;
+no se hizo db push ni cambios de datos en producción.
+
+### Relación con la expiración
+
+Conviene ejecutar **reconcile primero y expire después** cuando se coordinan
+ambos jobs: reduce cancelaciones de pagos ya aprobados cuyo webhook se perdió.
+No elimina la carrera ni garantiza procesar todo un backlog antes de expirar.
+El timer de expiración existente corre cada cinco minutos: el nuevo timer aislado
+no lo ordena ni lo bloquea. Una futura coordinación debe usar el mismo lock
+`/run/lauril-expire-orders.lock` y secuenciar ambas corridas en un wrapper revisado,
+manteniendo la frecuencia de expiración necesaria. No activar sólo un `After=`
+esperando que ordene timers independientes. Este cambio no modifica expire-orders
+ni instala esa coordinación. Si expire gana, aplica el auto-refund tardío existente;
+revisar sus estados `CREATED/SUBMITTED/REQUIRES_REVIEW` como indica PAYMENTS.
+
+### Unidades de referencia para instalación futura
+
+Verificar ruta de Node y entorno antes de copiar estos ejemplos. El lock evita
+solapamientos entre invocaciones que lo compartan; la integridad también se
+mantiene cuando alguien ejecuta el comando directamente. `flock` evita overlap
+normal en el VPS; el CAS del checkpoint protege progreso entre procesos incluso
+si no comparten ese lock. No es un lock distribuido del proveedor.
+
+```ini
+# /etc/systemd/system/lauril-reconcile-payments.service
+[Unit]
+Description=Lauril - Reconciliar Mercado Pago
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/root/ecommerce-lauril
+Environment="PATH=/root/.nvm/versions/node/v22.23.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/usr/bin/flock -n -E 75 /run/lauril-reconcile-payments.lock /root/.nvm/versions/node/v22.23.2/bin/npm run db:reconcile-payments
+SuccessExitStatus=75
+TimeoutStartSec=45min
+```
+
+```ini
+# /etc/systemd/system/lauril-reconcile-payments.timer
+[Unit]
+Description=Lauril - Reconciliación de pagos cada 10 minutos
+
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=10min
+AccuracySec=30s
+Unit=lauril-reconcile-payments.service
+
+[Install]
+WantedBy=timers.target
+```
+
+`OnUnitInactiveSec` deja diez minutos entre el final de una corrida y la siguiente.
+El timeout contempla hasta 100 GET y sus eventuales auto-refunds secuenciales.
+Para una instalación **futura y manual**: validar primero en staging aislado,
+sincronizar el schema del checkpoint, revisar backlog y coordinación con
+expire-orders, copiar ambas unidades,
+validarlas con `systemd-analyze verify`, ejecutar `systemctl daemon-reload` y
+recién entonces `systemctl enable --now lauril-reconcile-payments.timer`.
+Comprobar `systemctl list-timers --all` y
+`journalctl -u lauril-reconcile-payments.service`. Para desactivar:
+`systemctl disable --now lauril-reconcile-payments.timer` (no interrumpe una
+corrida ya iniciada). **Instalación y activación productivas: PENDIENTES.**
+
 ## Backup de base de datos
 
 Registro operativo informado para el cierre productivo del 2026-09-22:

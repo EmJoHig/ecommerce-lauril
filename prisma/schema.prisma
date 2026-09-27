@@ -547,6 +547,17 @@ model PaymentAttempt {
   @@map("payment_attempts")
 }
 
+model PaymentReconciliationCheckpoint {
+  id              String    @id @map("_id")
+  cycleCutoff     DateTime? @map("cycle_cutoff")
+  cursorUpdatedAt DateTime? @map("cursor_updated_at")
+  cursorId        String?   @map("cursor_id")
+  version         Int       @default(0)
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("payment_reconciliation_checkpoints")
+}
+
 model PaymentRefund {
   id                   String              @id @default(uuid()) @map("_id")
   paymentAttemptId     String              @map("payment_attempt_id")
