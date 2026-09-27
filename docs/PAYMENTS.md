@@ -143,8 +143,88 @@ el estado del provider, sin crear otro refund.
 El pedido permanece `CANCELLED`: no hubo venta local, no hay SALE ni cambios de
 `stockOnHand`, y `stockReserved` permanece en cero tras la expiración.
 
-No existe un scheduler de conciliación. La recuperación utiliza webhooks y su
-consulta autoritativa; los casos ambiguos requieren intervención operativa.
+Existe una corrida operativa de reconciliación; su timer productivo está pendiente
+de instalación manual. Los casos ambiguos requieren intervención operativa.
+
+## Reconciliación periódica de Mercado Pago
+
+`npm run db:reconcile-payments` concilia la confirmación de pagos pendientes
+(pending payment settlement), recuperando notificaciones perdidas mediante un GET
+actual de `/v1/orders/{providerResourceId}` usando el gateway existente (timeout
+de 10 segundos, sin nuevos retries HTTP). El webhook sigue siendo primario.
+`ProcessMercadoPagoWebhook` y `ReconcileMercadoPagoPayments` invocan
+`FinalizeMercadoPagoPayment`: una sola implementación de integridad, clasificación
+de estados, confirmación transaccional, refunds y pago tardío. La reconciliación
+no crea `PaymentEvent` ni inventa IDs de notificación.
+
+- Selecciona exclusivamente proveedor `MERCADO_PAGO`, estados `CREATED/PENDING`,
+  `updatedAt < cycleCutoff`, fijado al inicio de cada ciclo como `now - 5 minutos`. Orden ascendente `(updatedAt, id)`, páginas
+  de 25, máximo 100 candidatos por corrida y procesamiento secuencial.
+- Usa el índice existente `(status, updatedAt)`. El único modelo nuevo es el
+  checkpoint separado; no cambia PaymentAttempt ni agrega índices secundarios.
+- No selecciona `APPROVED`, `REJECTED`, `CANCELLED`, `PARTIALLY_REFUNDED`,
+  `REFUNDED` ni `REQUIRES_REVIEW`. Este último puede contener un auto-refund
+  ambiguo o rechazado permanentemente: incluirlo indiscriminadamente sería inseguro.
+- Sin `providerResourceId`: `skipped/missing_provider_resource`, sin mutación ni
+  búsqueda externa. No hay identificador alternativo seguro implementado.
+- Antes de finalizar, dentro de la transacción y de cada retry, relee el intento
+  y exige que continúe `CREATED/PENDING` con el mismo `updatedAt` seleccionado.
+  Si cambió, devuelve `ignored/candidate_changed` sin escribir. Una respuesta
+  PENDING tardía no degrada un APPROVED confirmado por webhook u otra corrida.
+- `updatedAt` es una guarda de frescura, no un contador de versión: se compara
+  mediante `Date.getTime()` (milisegundos). Dos actualizaciones pueden coincidir.
+  Los cambios de snapshot y de finalización actualizan este campo; incluso una
+  modificación de metadata puede provocar un skip inocuo. Si dos cambios dejan
+  el mismo estado/timestamp, esta guarda puede no distinguirlos. La seguridad
+  monetaria depende además de releer/validar datos vigentes, del estado permitido,
+  de la transacción, del CAS de pedido/inventario y del índice SALE; no del reloj.
+- Para candidatos vigentes conserva todas las comprobaciones existentes de
+  proveedor/recurso, referencia externa, moneda, importe esperado y pagado,
+  pedido y refunds. Inconsistencias pasan a revisión, nunca autorizan una venta.
+- Mantiene transacción, CAS del pedido/inventario, unicidad SALE y protección
+  `updateSnapshot` de checkout. No depende de un lock del scheduler para integridad.
+- Un pedido PAID con intento PENDING sigue la regla existente de revisión por
+  inconsistencia. Refund remoto parcial/total sigue las reglas comunes, sin restock.
+
+La expiración no consulta Mercado Pago. Si cancela/libera reserva antes de la
+confirmación, el reconciliador usa el mismo auto-refund FULL idempotente del
+webhook; no reconstruye reserva ni crea SALE. Si el envío falla transitoriamente,
+el intento queda `REQUIRES_REVIEW` y el refund `CREATED`; este job no lo reintenta.
+Si fue enviado, queda `SUBMITTED` hasta confirmación autoritativa por webhook.
+Revisar operativamente estos casos (incluido webhook perdido después del refund);
+no ejecutar un nuevo reembolso a ciegas. La conciliación de todos los refunds y
+estados terminales queda fuera del alcance de esta corrida.
+
+En particular, un refund ocurrido después de `PaymentAttempt=APPROVED` cuyo
+webhook se pierde **NO será detectado por este reconciliador**. Los tests de refund
+parten de un intento local PENDING inconsistente con un pedido ya PAID y un GET
+que devuelve el refund: prueban las reglas compartidas, no un barrido de APPROVED.
+
+### Continuidad autónoma entre corridas
+
+`PaymentReconciliationCheckpoint` conserva cutoff fijo, cursor lexicográfico
+`(updatedAt, id)` y versión. Cada registro visitado avanza el checkpoint mediante
+CAS, incluso ante skip o error individual. Al agotar el conjunto elegible se
+cierra el ciclo; la próxima ejecución abre otro, con nuevo cutoff y cursor nulo.
+Los candidatos nuevos o actualizados fuera del cutoff esperan el próximo ciclo.
+No se modifica artificialmente updatedAt de PaymentAttempt para mover la cola.
+
+Dos procesos pueden consultar el mismo candidato, pero los pagos conservan las
+mismas guardas y sólo un CAS puede avanzar desde una versión dada. El perdedor
+relee y termina. Un crash entre pago y checkpoint permite repetir sin duplicar
+SALE. Fallos globales detienen la corrida sin adelantar el registro interrumpido;
+los avances previos permanecen. La primera creación se protege con el ID único.
+
+La prueba de 150 candidatos verifica: corrida 1 visita los primeros 100 con 404;
+corrida 2, sin parámetros y con una nueva instancia, aprueba los otros 50 y cierra
+el ciclo; corrida 3 abre otro ciclo y vuelve a intentar los 404. El bloqueo por
+starvation anterior queda corregido, sin cursor manual ni almacenamiento local.
+
+POST-PAYMENT / REFUND RECONCILIATION: **PENDIENTE**.
+Automatización de REQUIRES_REVIEW: **PENDIENTE; tratamiento MANUAL/webhook**.
+
+Resumen, errores, paginación operativa y propuesta de timer: ver
+[OPERATIONS.md](OPERATIONS.md#reconciliación-de-pagos-propuesta-pendiente-de-instalación).
 
 ## Validación de F14E
 

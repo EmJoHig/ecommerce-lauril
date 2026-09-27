@@ -20,7 +20,7 @@ export function deferred<T>() {
 }
 
 type Row = Record<string, unknown>;
-type Query = { where?: Row; data?: Row; orderBy?: Array<Record<string, "asc" | "desc">> };
+type Query = { where?: Row; data?: Row; orderBy?: Array<Record<string, "asc" | "desc">>; take?: number };
 const duplicate = () => Object.assign(new Error("test database unique constraint"), { code: "P2002" });
 
 // Only operations used by these real Prisma adapters are modeled. Reads return
@@ -34,14 +34,18 @@ function matches(row: Row, where: Row = {}): boolean {
     if (value !== null && typeof value === "object" && !(value instanceof Date)) {
       const filter = value as Row;
       if ("in" in filter) return (filter.in as unknown[]).includes(row[key]);
+      if ("lt" in filter) return (row[key] as Date) < (filter.lt as Date);
+      if ("lte" in filter) return (row[key] as Date) <= (filter.lte as Date);
+      if ("gt" in filter) return (row[key] as string) > (filter.gt as string);
       if ("isSet" in filter) return (row[key] !== undefined) === filter.isSet;
       throw new Error(`Unsupported test WHERE: ${key}`);
     }
+    if (value instanceof Date) return row[key] instanceof Date && (row[key] as Date).getTime() === value.getTime();
     return row[key] === value;
   });
 }
 
-function table(initial: Row[] = [], unique: (next: Row, rows: Row[]) => boolean = () => true) {
+function table(initial: Row[] = [], unique: (next: Row, rows: Row[]) => boolean = () => true, updatedAt?: Date) {
   let rows = structuredClone(initial);
   function apply(row: Row, data: Row) {
     const next = { ...row };
@@ -51,11 +55,25 @@ function table(initial: Row[] = [], unique: (next: Row, rows: Row[]) => boolean 
         ? Number(row[key]) + Number(value.increment) : value;
     }
     if (!unique(next, rows.filter((other) => other.id !== row.id))) throw duplicate();
+    if (updatedAt) next.updatedAt = updatedAt;
     Object.assign(row, structuredClone(next));
   }
   return {
     get rows() { return rows; },
     restore(snapshot: Row[]) { rows = snapshot; },
+    findMany: vi.fn(async ({ where, orderBy, take }: Query) => {
+      const candidates = rows.filter((row) => matches(row, where));
+      if (orderBy) candidates.sort((a, b) => {
+        for (const clause of orderBy) {
+          const [key, direction] = Object.entries(clause)[0]!;
+          const left = a[key] as string, right = b[key] as string;
+          const delta = left < right ? -1 : left > right ? 1 : 0;
+          if (delta) return direction === "desc" ? -delta : delta;
+        }
+        return 0;
+      });
+      return structuredClone(candidates.slice(0, take));
+    }),
     findFirst: vi.fn(async ({ where, orderBy }: Query) => {
       const candidates = rows.filter((row) => matches(row, where));
       if (orderBy) candidates.sort((a, b) => {
@@ -112,13 +130,13 @@ export function creationResponse(): ExternalCheckout {
   };
 }
 
-export function paymentRaceFixture() {
+export function paymentRaceFixture(updatedAt?: Date) {
   const active = (row: Row) => ["CREATED", "PENDING"].includes(String(row.status));
   const paymentAttempt = table([], (next, rows) => !rows.some((row) =>
     row.id === next.id || row.idempotencyKey === next.idempotencyKey
     || (row.orderId === next.orderId && row.attemptNumber === next.attemptNumber)
     || (row.orderId === next.orderId && active(row) && active(next))
-    || (typeof next.providerResourceId === "string" && row.provider === next.provider && row.providerResourceId === next.providerResourceId)));
+    || (typeof next.providerResourceId === "string" && row.provider === next.provider && row.providerResourceId === next.providerResourceId)), updatedAt);
   const paymentEvent = table([], (next, rows) => !rows.some((row) => row.provider === next.provider && row.providerEventId === next.providerEventId));
   const inventory = table([{ id: "inventory-1", stockOnHand: 100, stockReserved: 5, version: 7 }]);
   const inventoryMovement = table([], (next, rows) => !rows.some((row) =>
@@ -140,10 +158,11 @@ export function paymentRaceFixture() {
     user: { status: "ACTIVE", firstName: "Test", lastName: "Customer", email: "buyer@example.test" },
   }]);
   const paymentRefund = table();
+  const paymentReconciliationCheckpoint = table([], (next, rows) => !rows.some((row) => row.id === next.id));
   const tables = [paymentAttempt, paymentEvent, inventory, inventoryMovement, orderStatusHistory, order, customer, paymentRefund];
   let transactionTail = Promise.resolve();
   const client = {
-    paymentAttempt, paymentEvent, inventory, inventoryMovement, orderStatusHistory, order, customer, paymentRefund,
+    paymentAttempt, paymentEvent, inventory, inventoryMovement, orderStatusHistory, order, customer, paymentRefund, paymentReconciliationCheckpoint,
     $transaction: async <T>(work: (tx: PrismaClient) => Promise<T>): Promise<T> => {
       const previous = transactionTail;
       const finished = deferred<void>();
