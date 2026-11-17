@@ -74,6 +74,38 @@ ejecución correctamente. Revisar el resultado y los logs, además de confirmar
 que el timer permanece activo y tiene una próxima ejecución programada.
 `expired: 0` es un resultado válido cuando no hay pedidos elegibles para expirar.
 
+### A2: diagnóstico básico de errores
+
+En el VPS, comprobar HTTPS y proceso. `/api/health` confirma que responde la
+aplicación; no consulta MongoDB en producción. Si falla una operación concreta,
+revisar los logs de esa operación aunque el health responda `ok`.
+
+```bash
+curl --fail --show-error --silent https://tecnoclean.shop/api/health
+pm2 status lauril-ecommerce
+pm2 logs lauril-ecommerce --err --lines 100 --nostream
+journalctl -u lauril-expire-orders.service -n 100 --no-pager
+systemctl status lauril-expire-orders.timer
+systemctl status lauril-reconcile-payments.timer
+journalctl -u lauril-reconcile-payments.service -n 100 --no-pager
+```
+
+Tras el backup del 17/11/2026, el operador comprobó en el VPS PM2 `online`,
+ambos timers `active` y health HTTP 200. Comprobar el estado actual antes de
+interpretar la ausencia de entradas. En PM2 buscar `payment.webhook_failed`,
+`payment.checkout_start_failed` y `payment.requires_review`; en journal buscar
+`status":"error"` o `status":"partial"`. Los fallos de webhook y jobs indican
+`category` (`application`, `database` o `payment_provider`); los jobs incluyen
+`job` y, cuando corresponde, `reasonCode`. Las excepciones completas no se
+imprimen porque podrían contener URIs, tokens o datos personales.
+
+Ante un error crítico, anotar hora UTC, proceso/job, categoría y código seguro;
+comprobar si se repite y si afecta pedidos o pagos. Revisar configuración,
+conectividad y estado del proveedor por canales privados. Para pagos con
+`requires_review` o conciliación parcial, seguir el procedimiento manual de
+[PAYMENTS.md](PAYMENTS.md) antes de reintentar o intervenir datos. No compartir
+logs sin revisar y ocultar cualquier dato sensible presente.
+
 ## Expiración programada
 
 El timer activa el servicio aproximadamente cada cinco minutos. `OnBootSec=2min`
@@ -164,10 +196,11 @@ systemctl status lauril-expire-orders.timer
 systemctl list-timers --all | grep lauril-expire-orders
 ```
 
-## Reconciliación de pagos: propuesta pendiente de instalación
+## Reconciliación de pagos
 
-**El timer `lauril-reconcile-payments.timer` NO está instalado ni activo por este
-cambio.** Esta sección prepara una operación posterior manual; no modifica el VPS.
+La instalación no formó parte del cambio original descrito en esta sección.
+Tras el backup del 17/11/2026, el operador comprobó en el VPS que
+`lauril-reconcile-payments.timer` estaba `active`.
 
 El job concilia la confirmación de pagos pendientes (pending payment settlement).
 El progreso entre corridas se conserva en MongoDB mediante
@@ -336,7 +369,7 @@ WantedBy=timers.target
 
 `OnUnitInactiveSec` deja diez minutos entre el final de una corrida y la siguiente.
 El timeout contempla hasta 100 GET y sus eventuales auto-refunds secuenciales.
-Para una instalación **futura y manual**: validar primero en staging aislado,
+La instalación manual requería validar primero en staging aislado,
 sincronizar el schema del checkpoint, revisar backlog y coordinación con
 expire-orders, copiar ambas unidades,
 validarlas con `systemd-analyze verify`, ejecutar `systemctl daemon-reload` y
@@ -344,7 +377,7 @@ recién entonces `systemctl enable --now lauril-reconcile-payments.timer`.
 Comprobar `systemctl list-timers --all` y
 `journalctl -u lauril-reconcile-payments.service`. Para desactivar:
 `systemctl disable --now lauril-reconcile-payments.timer` (no interrumpe una
-corrida ya iniciada). **Instalación y activación productivas: PENDIENTES.**
+corrida ya iniciada). Comprobar el estado actual antes de intervenir.
 
 ## Backup de base de datos
 

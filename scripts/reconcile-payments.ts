@@ -8,6 +8,7 @@ import { PrismaPaymentReconciliationCheckpointRepository } from "../src/modules/
 import { MercadoPagoOrdersGateway } from "../src/modules/payments/infrastructure/mercado-pago-orders-gateway";
 import { FinalizeMercadoPagoPayment } from "../src/modules/payments/application/finalize-mercado-pago-payment";
 import { RECONCILIATION_JOB, ReconcileMercadoPagoPayments } from "../src/modules/payments/application/reconcile-mercado-pago-payments";
+import { operationalErrorCategory } from "../src/shared/infrastructure/logger";
 
 export async function runReconciliationJob(): Promise<void> {
   let stage = "configuration";
@@ -37,8 +38,8 @@ export async function runReconciliationJob(): Promise<void> {
     } finally {
       await prisma.$disconnect();
     }
-  } catch {
-    console.error(JSON.stringify({ job: RECONCILIATION_JOB, status: "error", reasonCode: `${stage}_failed` }));
+  } catch (error) {
+    console.error(JSON.stringify({ job: RECONCILIATION_JOB, status: "error", reasonCode: `${stage}_failed`, category: operationalErrorCategory(error) }));
     process.exitCode = 1;
   }
 }

@@ -81,7 +81,7 @@ describe("reconcile script with isolated database/provider doubles only", () => 
     await runReconciliationJob();
     expect(process.exitCode).toBe(1);
     expect(disconnect).toHaveBeenCalledOnce();
-    expect(console.error).toHaveBeenCalledExactlyOnceWith(JSON.stringify({ job: "mercado-pago-reconciliation", status: "error", reasonCode: "execution_failed" }));
+    expect(console.error).toHaveBeenCalledExactlyOnceWith(JSON.stringify({ job: "mercado-pago-reconciliation", status: "error", reasonCode: "execution_failed", category: "application" }));
   });
 
   it("fallo individual imprime resumen parcial y exit 1", async () => {
@@ -103,7 +103,7 @@ describe("reconcile script with isolated database/provider doubles only", () => 
     expect(disconnect).not.toHaveBeenCalled();
     expect(f.gateway.getPaymentState).not.toHaveBeenCalled();
     expect(console.error).toHaveBeenCalledExactlyOnceWith(JSON.stringify({
-      job: "mercado-pago-reconciliation", status: "error", reasonCode: "configuration_failed",
+      job: "mercado-pago-reconciliation", status: "error", reasonCode: "configuration_failed", category: "application",
     }));
   });
 });

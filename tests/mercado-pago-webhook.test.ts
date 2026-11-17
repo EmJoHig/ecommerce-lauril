@@ -75,6 +75,28 @@ describe("Mercado Pago signed webhook", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  it("registra un fallo técnico del proveedor sin revelar el mensaje privado", async () => {
+    const signature = createHmac("sha256", secret)
+      .update("id:mp-order-1;request-id:req-1;ts:1758196800;")
+      .digest("hex");
+    const providerError = new Error("token privado");
+    providerError.name = "PaymentGatewayError";
+    const execute = vi.fn().mockRejectedValue(new PaymentWebhookTechnicalError("Fallo técnico", { cause: providerError }));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const response = await handleMercadoPagoWebhook(webhookRequest({ signature: `ts=1758196800,v1=${signature}` }), {
+        enabled: true, secret, processor: { execute },
+      });
+      expect(response.status).toBe(503);
+      expect(JSON.parse(log.mock.calls[0]![0])).toMatchObject({
+        message: "payment.webhook_failed", category: "payment_provider", reasonCode: "technical_processing_failure",
+      });
+      expect(log.mock.calls[0]![0]).not.toContain("token privado");
+    } finally {
+      log.mockRestore();
+    }
+  });
+
   it("persiste RECEIVED antes del GET y conserva PENDING para un estado esperado", async () => {
     const fixture = paymentFixture(state({ providerStatus: "processing", providerStatusDetail: "in_process", totalPaidAmountInCents: 0n }));
     const outcome = await fixture.processor.execute(input("event-pending"));

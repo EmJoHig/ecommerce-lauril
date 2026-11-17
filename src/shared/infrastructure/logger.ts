@@ -2,6 +2,16 @@ type LogLevel = "info" | "warn" | "error";
 
 type LogContext = Record<string, boolean | number | string | null | undefined>;
 
+export function operationalErrorCategory(error: unknown): "database" | "payment_provider" | "application" {
+  let current = error;
+  for (let depth = 0; depth < 3 && current instanceof Error; depth++) {
+    if (/^(Prisma|Mongo)/.test(current.name)) return "database";
+    if (current.name === "PaymentGatewayError") return "payment_provider";
+    current = current.cause;
+  }
+  return "application";
+}
+
 function write(level: LogLevel, message: string, context: LogContext = {}): void {
   const entry = JSON.stringify({
     timestamp: new Date().toISOString(),
