@@ -395,6 +395,255 @@ El dry run no equivale a una restauración real. Antes de una intervención futu
 confirmar que el backup disponible sea suficientemente reciente y esté accesible.
 No registrar credenciales ni cadenas de conexión en la documentación o evidencias.
 
+### A1.1: respaldo manual desde Windows con Google Drive
+
+Esta preparación local ejecuta `scripts/backup-mongodb.mjs` bajo demanda. Usa
+`mongodump --archive --gzip`, SHA-256 y el remoto Rclone Crypt
+`lauril_crypt:`, que cifra nombres y contenido antes de subir a Google Drive.
+Requiere Node.js, Rclone, MongoDB Database Tools y `mongosh` en `PATH`,
+además de `npm install`. No modifica el VPS ni crea tareas programadas.
+
+Copiar `.env.backup.example` a `.env.backup.local` (ignorado por Git).
+Completar `BACKUP_MONGODB_URI` con una cuenta de Atlas de lectura suficiente.
+Para A1 el script acepta una URI `mongodb+srv://` cuyo host termina en
+`.mongodb.net` y cuya base es `lauril_ecommerce`; una URI estándar con varios
+hosts requiere revisión antes de ampliar esta validación.
+La URI se transmite a las herramientas MongoDB por archivo temporal privado,
+nunca por argumento. El archivo local y el registro se crean bajo
+`%LOCALAPPDATA%\Lauril\backup-runs\run-*`. No incluir secretos ni datos
+personales en registros compartidos.
+
+Rclone usa las conexiones Windows ya configuradas `lauril_drive` y
+`lauril_crypt`. Su `rclone.conf` permanece fuera del repositorio y cifrado.
+Cada invocación de Rclone puede pedir la contraseña de configuración en la
+consola. El script no lee, imprime ni guarda esa contraseña, las claves Crypt
+o el salt; tampoco los pasa por argumentos o variables persistentes. Se limpian
+`RCLONE_CONFIG_PASS` y `RCLONE_PASSWORD_COMMAND` heredados para forzar la
+entrada interactiva. Custodiar el archivo de configuración y sus claves
+fuera del repositorio: perderlos impide descifrar los respaldos.
+
+Datos informados y verificados para preparar A1: proyecto `ecommerce-lauril`,
+`Cluster-lauril`, M0 Free, MongoDB 8.0.37, replica set de tres nodos,
+aproximadamente 7 MB y backups nativos inactivos. Database Tools 100.20.1 (mismo número para dump
+y restore) fueron informadas como instaladas; confirmarlas en la consola
+Windows que vaya a ejecutar el comando. El script rechaza servidores de
+origen o destino distintos de la serie 8.0 en A1.
+
+Este script hace un dump de la base `lauril_ecommerce`, por lo que **no usa
+`--oplog`**: MongoDB no admite `--oplog` junto con `--db`, y Atlas Free
+también lo restringe. Se requiere una ventana con escrituras detenidas
+durante todo el dump. Detener y comprobar aplicaciones, webhooks y jobs que
+escriben; esperar las operaciones en curso; configurar
+`BACKUP_CONSISTENCY_MODE=writes_paused` solo cuando esto sea cierto. Los
+inventarios antes y después detectan cambios de conteos, índices y relaciones,
+pero no prueban una instantánea temporal si hubo escrituras compensadas. Si no
+puede garantizarse la pausa, posponer el backup hasta definir otra estrategia.
+Esta intervención sobre producción requiere autorización separada.
+
+Preflight autorizado del primer respaldo (sin imprimir URI ni datos):
+
+1. Confirmar en la consola operativa `mongodump --version` y
+   `mongorestore --version`: ambos 100.20.1; y que la URI SRV de lectura
+   corresponde a `Cluster-lauril` y `lauril_ecommerce`. Autorizar la IP
+   Windows en Atlas solo cuando se programe la ventana.
+2. En Atlas, proyecto `ecommerce-lauril` > **Security > Database & Network
+   Access > Database Users > Add New Database User**, crear una identidad
+   exclusiva de respaldo con contraseña fuerte, rol integrado **read** solo
+   sobre `lauril_ecommerce` y acceso restringido a `Cluster-lauril`.
+   `read` incluye `find`, `listCollections` y `listIndexes`; confirmar
+   que permite también las agregaciones de verificación antes de la corrida.
+   No otorgar `readWrite`, `atlasAdmin` ni `backup` global por defecto.
+   Guardar la URI únicamente en `.env.backup.local` ignorado por Git.
+3. Identificar y pausar **todas** las escrituras: checkout y administración
+   web, webhook de Mercado Pago, job de expiración de pedidos, cualquier
+   reconciliación activada posteriormente y otros procesos que usen la URI.
+   Una página estática visible no demuestra que no haya webhooks o jobs.
+   Acordar cómo se retienen o reintentan eventos recibidos durante la pausa
+   y cómo se verifica el drenaje de operaciones en curso.
+4. Solo con la pausa efectiva, completar la configuración local y autorizar
+   el comando. Mantener las escrituras detenidas hasta que termine el dump
+   y el inventario posterior. Si no se puede garantizar, no ejecutar este
+   mecanismo como copia consistente.
+
+Secuencia de mantenimiento **futura, sujeta a autorización**: anunciar la
+ventana y acordar cómo se recuperarán pagos y webhooks recibidos durante ella;
+no responder éxito a un webhook que no quedó persistido. Bloquear nuevos
+checkouts, pagos y cambios administrativos; esperar las operaciones en curso.
+Deshabilitar el timer `lauril-expire-orders.timer` y esperar que su servicio
+esté inactivo. Comprobar si se instaló después el timer de reconciliación y
+pausarlo de la misma manera. Detener o aislar `lauril-ecommerce` y cualquier
+otro proceso con la URI de producción, incluidos lanzamientos manuales de
+jobs. Verificar con el equipo operativo que no quedan escritores activos.
+Ejecutar el backup únicamente entonces. Después del inventario posterior al
+dump, reactivar aplicación y timers que estaban activos, comprobar health,
+logs y reintentos de webhooks, y conciliar pagos pendientes según el runbook
+de pagos. Si no hay forma confirmada de recuperar eventos externos de la
+ventana, no iniciar la pausa ni declarar la copia consistente.
+
+Desde PowerShell, en la raíz del checkout:
+
+```powershell
+npm run backup:manual
+```
+
+También puede abrirse `backup-manual.cmd` con doble clic; invoca el mismo
+comando. Se solicita escribir `RESPALDAR LAURIL` antes de acceder a Atlas o
+Google Drive. Repetirlo solo en una nueva ventana con escrituras detenidas.
+
+El flujo comprueba dependencias y remoto Crypt, inventaría origen, crea el
+archivo comprimido, calcula SHA-256, vuelve a inventariar y rechaza cambios
+detectados. Sube con nombre UTC y UUID; comprueba que no exista y usa
+`--ignore-existing`. Luego verifica tamaño remoto, descarga a un archivo
+nuevo y compara tamaño y SHA-256. Google Drive no ofrece en este flujo una
+creación condicional atómica: no ejecutar dos corridas con la misma clave ni
+modificar manualmente el objeto durante la copia. No usa `sync`, `move`
+ni borrado automático. El límite de archivo es 5 GiB.
+
+La restauración de prueba es opcional. Sin `BACKUP_RESTORE_URI`, el resultado
+es `integrity_verified` / `restore_pending`, que acredita almacenamiento
+íntegro pero **no** recuperación comprobada. Para restaurar, usar una
+instancia local aislada de `mongod.exe`, enlazada a
+`127.0.0.1:27018` con directorio de datos exclusivo, sin túnel ni
+aplicaciones productivas. El servicio MongoDB habitual de este Windows ya
+ocupa `27017`; no detenerlo ni usar su directorio de datos para la prueba.
+Configurar
+`BACKUP_RESTORE_URI=mongodb://127.0.0.1:27018/lauril_restore_...` y
+`BACKUP_RESTORE_ALLOWED_TARGET=127.0.0.1:27018`. El script exige URI,
+puerto y prefijo permitidos, proceso local `mongod` dueño del listener,
+topología standalone, versión 8.0 y base vacía. Rechaza cualquier listener
+adicional o externo en `27018`, y compara tanto el PID dueño del puerto como
+el `processId` anunciado por MongoDB antes y después de restaurar.
+Antes de la restauración real solicita
+`RESTAURAR EN LOCAL`; ejecuta `mongorestore --dryRun` y después restaura
+sin `--drop`. Compara colecciones, conteos, índices y relaciones comerciales.
+El resultado `restore_verified` / `complete` solo aparece al pasar todo.
+La comprobación del proceso reduce el riesgo de un túnel accidental; el
+operador también debe confirmar el aislamiento de esa instancia.
+
+### Preparar MongoDB 8.0 aislado (sin instalar ni iniciar en A1)
+
+El servidor local instalado es 7.0.9 y **no** es destino compatible para el
+archivo de Atlas 8.0.37: MongoDB exige la misma versión mayor o FCV
+compatible y advierte especialmente sobre metadata de archivos `--archive`
+entre versiones. Descargar MongoDB Community **8.0 para Windows x64 en ZIP**
+desde el centro oficial, preferentemente 8.0.37, verificar el paquete según
+la guía de MongoDB y extraerlo en una carpeta nueva fuera del servidor 7.0,
+del repositorio y de su `dbPath`. No usar MSI ni registrar otro servicio.
+Comprobar el ejecutable extraído con `& $mongo8 --version`.
+
+En una futura consola PowerShell autorizada, ajustar solo la primera ruta y
+preparar un directorio exclusivo:
+
+```powershell
+$mongo8 = 'C:\ruta\MongoDB-8.0\bin\mongod.exe'
+$base = Join-Path $env:LOCALAPPDATA 'Lauril\restore-sandbox'
+$run = Join-Path $base ('run-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $run -Force | Out-Null
+$sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+$grant = '*' + $sid + ':(OI)(CI)F'
+icacls.exe $run /inheritance:r /grant:r $grant
+$dbpath = Join-Path $run 'db'
+New-Item -ItemType Directory -Path $dbpath | Out-Null
+& $mongo8 --version
+& $mongo8 --dbpath $dbpath --bind_ip 127.0.0.1 --port 27018
+```
+
+Mantener esa consola abierta. No agregar `--bind_ip_all`, no abrir el puerto
+en Windows Firewall y no permitir otros usuarios o aplicaciones locales en
+la estación durante la prueba: sin autenticación, cualquier proceso local
+podría leer el contenido restaurado. Comprobar con
+`Get-NetTCPConnection -LocalPort 27018 -State Listen` que hay **solo**
+`127.0.0.1:27018`; verificar el PID y el directorio de datos del proceso.
+El script también comprueba el listener y rechaza 27017, Atlas, versiones
+distintas de 8.0 y bases no vacías. El operador debe conservar la identidad
+del directorio `$run` para su limpieza posterior.
+
+### Ensayo con datos ficticios, después de preparar 8.0
+
+Crear en esa instancia local colecciones ficticias `lauril_fixture.orders`
+y `lauril_fixture.order_items`, un índice único de prueba y una referencia
+válida de item a pedido. Con Database Tools 100.20.1, generar un
+`--archive --gzip` local, ejecutar primero `mongorestore --dryRun` y luego
+restaurar con `--nsFrom=lauril_fixture.*` y
+`--nsTo=lauril_restore_fixture.*` a una base vacía, sin `--drop`.
+Ejecutar `backup-check.mongosh.js` contra ambas bases con URI local ficticia,
+comparar colecciones, conteos, índice, suma comercial y referencia de pedido.
+Este ensayo valida herramientas y formato en 8.0; no sustituye la posterior
+restauración de una copia real autorizada.
+
+Ejemplo para ejecutar **solo después** de iniciar la instancia 8.0 anterior:
+
+```powershell
+$archive = Join-Path $run 'fixture.archive.gz'
+mongosh 'mongodb://127.0.0.1:27018/lauril_fixture' --quiet --eval 'db.orders.createIndex({order_number:1},{unique:true}); db.orders.insertOne({_id:"fixture-order",order_number:NumberLong("1"),total_in_cents:NumberLong("1000")}); db.order_items.insertOne({_id:"fixture-item",order_id:"fixture-order",subtotal_in_cents:NumberLong("1000")})'
+mongosh 'mongodb://127.0.0.1:27018/lauril_restore_fixture' --quiet --eval 'printjson(db.getCollectionNames())'
+mongodump --uri='mongodb://127.0.0.1:27018/lauril_fixture' --db=lauril_fixture --archive=$archive --gzip
+mongorestore --uri='mongodb://127.0.0.1:27018/' --archive=$archive --gzip '--nsFrom=lauril_fixture.*' '--nsTo=lauril_restore_fixture.*' --dryRun
+mongorestore --uri='mongodb://127.0.0.1:27018/' --archive=$archive --gzip '--nsFrom=lauril_fixture.*' '--nsTo=lauril_restore_fixture.*'
+$env:BACKUP_CHECK_URI = 'mongodb://127.0.0.1:27018/'
+$env:BACKUP_CHECK_DB = 'lauril_restore_fixture'
+mongosh --nodb --quiet --file scripts/backup-check.mongosh.js
+Remove-Item Env:BACKUP_CHECK_URI,Env:BACKUP_CHECK_DB
+```
+
+La segunda línea debe mostrar una lista vacía; el inventario final debe
+mostrar un pedido, un item, el índice único, suma de 1000 centavos y cero
+relaciones huérfanas. Si cualquier paso falla, no declarar restauración
+validada y conservar los archivos ficticios para revisar antes de limpiar.
+
+Al terminar, cerrar `mongod` con Ctrl+C en **su** consola y confirmar que
+`Get-NetTCPConnection -LocalPort 27018 -State Listen` ya no devuelve
+listeners. Comprobar que `$run` sigue bajo `$base` y es la carpeta creada
+para esta prueba antes de eliminarla:
+
+```powershell
+$resolvedBase = [IO.Path]::GetFullPath($base).TrimEnd('\')
+$resolvedRun = [IO.Path]::GetFullPath($run)
+if (-not $resolvedRun.StartsWith($resolvedBase + '\',
+    [StringComparison]::OrdinalIgnoreCase) -or
+    [IO.Path]::GetFileName($resolvedRun) -notlike 'run-*') {
+  throw 'Ruta de limpieza inesperada'
+}
+Remove-Item -LiteralPath $resolvedRun -Recurse -Force
+```
+
+No eliminar el `dbPath` del servidor 7.0. Borrar archivos en SSD no garantiza
+borrado forense; usar un volumen cifrado para cualquier restauración con
+datos reales y aplicar la política local de retención y eliminación.
+
+Cada corrida que supera el preflight guarda `result.json` sin secretos.
+`failed` indica fallo antes
+de completar las comprobaciones; `restore_pending` indica copia íntegra;
+`complete` indica restauración comprobada. Si el proceso falla después de
+subir, revisar la clave y el registro: puede haber un objeto remoto aunque la
+verificación esté incompleta. Los archivos locales se conservan ante fallos
+para investigación y se retiran manualmente tras verificar. No hay retención
+ni eliminación automática; llevar un historial manual de fecha, clave, SHA-256,
+tamaño, estado y restauración, y revisar periódicamente el espacio de Drive.
+
+Para listar o descargar de forma manual:
+
+```powershell
+npm run backup:list
+npm run backup:download -- "lauril/mongodb/CLAVE.archive.gz" "C:\ruta\privada\backup.archive.gz" "SHA256_DEL_RESULT_JSON"
+```
+
+La descarga requiere una ruta absoluta fuera del repositorio y el SHA-256 de
+`result.json` de la corrida original. Crea un archivo nuevo y compara hash
+y tamaño; Google Drive/Rclone no guarda el hash original como metadata.
+
+Al interrumpir normalmente la consola, el proceso registra el último estado
+y retira los archivos temporales con URI. Un apagado o terminación forzada
+puede impedir esta limpieza: antes de una nueva corrida, revisar
+`%LOCALAPPDATA%\Lauril\backup-runs` localmente y retirar con cuidado
+`mongo.yml` y `restore.yml` residuales. No compartir su contenido.
+
+El 17/11/2026 se generó un backup real, se descargó desde Google Drive cifrado
+y se verificó su SHA-256. La restauración real quedó pospuesta por decisión
+operativa; integridad verificada no equivale a restauración comprobada. Los
+backups diarios, semanales, cron, timers y alertas automáticas permanecen
+pospuestos.
+
 **Un rollback de código no implica restaurar la base de datos.** Una restauración
 de MongoDB es una operación de incidente separada: requiere evaluar los datos
 posteriores al backup, la compatibilidad y el impacto antes de autorizarla.
