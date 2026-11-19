@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useId, useMemo, useState } from "react";
-import { isLocalUploadUrl } from "@/shared/presentation/image-url";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { ProductImage } from "@/shared/presentation/product-image";
 
 export type HeaderSearchItem = Readonly<{
   name: string;
@@ -15,7 +15,11 @@ export type HeaderSearchItem = Readonly<{
 export function HeaderSearch({ products }: { products: readonly HeaderSearchItem[] }) {
   const [query, setQuery] = useState("");
   const [focused, setFocused] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const formId = useId();
   const resultsId = useId();
+  useEffect(() => { if (mobileOpen) inputRef.current?.focus(); }, [mobileOpen]);
   const normalizedQuery = normalize(query.trim());
   const results = useMemo(
     () => normalizedQuery.length < 2
@@ -25,8 +29,9 @@ export function HeaderSearch({ products }: { products: readonly HeaderSearchItem
   );
   const expanded = focused && normalizedQuery.length >= 2;
 
-  return <div className="header-search-wrap">
-    <form action="/productos" className="header-search" role="search">
+  return <div className="header-search-wrap" onKeyDown={(event) => { if (event.key === "Escape") setMobileOpen(false); }}>
+    <button aria-controls={formId} aria-expanded={mobileOpen} aria-label={mobileOpen ? "Cerrar búsqueda" : "Abrir búsqueda"} className="header-search__toggle" onClick={() => setMobileOpen((open) => !open)} type="button"><SearchIcon /></button>
+    <form action="/productos" className={mobileOpen ? "header-search header-search--open" : "header-search"} id={formId} role="search">
       <label className="sr-only" htmlFor="header-search">Buscar productos</label>
       <input
         aria-autocomplete="list"
@@ -39,6 +44,7 @@ export function HeaderSearch({ products }: { products: readonly HeaderSearchItem
         onChange={(event) => setQuery(event.target.value)}
         onFocus={() => setFocused(true)}
         placeholder="Buscar productos"
+        ref={inputRef}
         role="combobox"
         type="search"
         value={query}
@@ -47,7 +53,7 @@ export function HeaderSearch({ products }: { products: readonly HeaderSearchItem
     </form>
     {expanded ? <div className="header-search-results" id={resultsId} role="listbox">
       {results.length > 0 ? results.map((product) => <Link href={`/producto/${product.slug}`} key={product.slug} role="option">
-        <span className="header-search-results__image"><Image alt={product.imageAlt} fill sizes="52px" src={product.imageUrl ?? "/product-placeholder.svg"} unoptimized={isLocalUploadUrl(product.imageUrl)} /></span>
+        <span className="header-search-results__image"><ProductImage alt={product.imageAlt} sizes="52px" src={product.imageUrl} /></span>
         <strong>{product.name}</strong>
         <span aria-hidden="true">→</span>
       </Link>) : <p>No encontramos productos.</p>}

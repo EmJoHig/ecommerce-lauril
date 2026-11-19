@@ -1779,6 +1779,32 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-title) !important; }
   .navigation-loading__spinner, .catalog-inline-loading::before { animation-duration: 1.4s; }
 }
 
+/* B2: mobile search, product choices and image fallback. */
+.store-shell .header-search__toggle { display: none; }
+.store-shell .product-card__variants { color: var(--muted); font-size: .7rem; line-height: 1.35; margin: .35rem 0 0; }
+.store-shell .product-card__choose { text-decoration: none; }
+.store-shell .variant-picker fieldset { display: grid; gap: .6rem; min-width: 0; }
+.store-shell .variant-picker legend { font-size: .8rem; font-weight: 800; margin-bottom: .5rem; }
+.store-shell .variant-option { display: grid; gap: .2rem; min-height: 58px; text-align: left; width: 100%; }
+.store-shell .variant-option strong { color: var(--brand-red-dark); font-size: .88rem; }
+.store-shell .variant-option:focus-visible, .store-shell .product-card__choose:focus-visible { outline: 3px solid var(--brand-red); outline-offset: 2px; }
+.store-shell .pagination--store [aria-disabled="true"] { color: var(--muted); opacity: .6; }
+
+@media (max-width: 1180px) {
+  .store-shell .header-search__toggle { align-items: center; background: transparent; border: 0; border-radius: 999px; color: #fff; cursor: pointer; display: inline-flex; height: 42px; justify-content: center; width: 42px; }
+  .store-shell .header-search__toggle:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  .store-shell .header-search { display: none; }
+  .store-shell .header-search--open { box-shadow: 0 16px 40px rgb(30 7 9 / 25%); display: flex; min-width: 0; padding: 0 .35rem 0 .9rem; position: absolute; right: 0; top: calc(100% + .7rem); width: min(360px, calc(100vw - 2rem)); z-index: 150; }
+  .store-shell .header-search--open input { clip: auto; clip-path: none; height: auto; position: static; width: 100%; }
+}
+
+@media (max-width: 560px) {
+  .store-shell .product-card h3 { font-size: .95rem; overflow-wrap: anywhere; }
+  .store-shell .product-card__add { font-size: .68rem; min-height: 44px; }
+  .store-shell .catalog-results .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .store-shell .pagination--store { flex-wrap: wrap; }
+}
+
 /* Catalog fragrance list, contact and quick actions */
 .store-shell .fragrance-filter { border: 0; display: grid; gap: .55rem; margin: 0; padding: 0; }
 .store-shell .fragrance-filter legend { border-bottom: 3px solid var(--brand-red); color: var(--ink); font-size: 1rem; font-weight: 800; margin-bottom: .8rem; padding: 0 0 .65rem; width: 100%; }

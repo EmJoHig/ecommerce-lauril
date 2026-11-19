@@ -87,7 +87,7 @@ export function CheckoutForm({
       </div>
 
       <aside className="cart-summary checkout-summary">
-        <p className="eyebrow">4 · Resumen</p>
+        <p className="eyebrow">{quote?.requiresAddress ? "4" : "3"} · Resumen</p>
         {items.map((item) => <div className="checkout-summary__item" key={item.sku}>
           <span><strong>{item.productName}</strong><small>{item.variantName} · {item.quantity} × {item.unitPrice}</small></span><strong>{item.subtotal}</strong>
         </div>)}
