@@ -104,7 +104,18 @@ button { color: inherit; }
 .store-footer { background: #20271f; color: #bfc5b8; display: grid; font-size: .82rem; gap: 5rem; grid-template-columns: 2fr 1fr 1fr; padding: 4rem clamp(2rem,6vw,6.5rem); }
 .store-footer > div { display: flex; flex-direction: column; gap: .7rem; }
 .store-footer strong { color: white; }
+.store-footer .withdrawal-link { color: #fff; font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
 .brand--footer { color: white; margin: 0; }
+.store-shell .legal-page { margin-inline: auto; max-width: 900px; padding-inline: clamp(1rem, 4vw, 2rem); }
+.store-shell .legal-page h1 { font-family: var(--font-sans); font-size: clamp(2.5rem, 6vw, 4.5rem); letter-spacing: -.05em; line-height: 1.05; }
+.store-shell .legal-page h2 { font-family: var(--font-sans); font-size: clamp(1.25rem, 3vw, 1.65rem); }
+.store-shell .legal-page p { line-height: 1.7; }
+.store-shell .legal-page section { border-top: 1px solid var(--line); margin-top: 2rem; padding-top: 1.5rem; }
+.store-shell .legal-page a { color: var(--brand-red); text-decoration: underline; text-underline-offset: 3px; }
+.store-shell .legal-form { display: grid; gap: 1rem; margin-top: 2rem; max-width: 560px; }
+.store-shell .legal-form label { display: grid; font-weight: 700; gap: .4rem; }
+.store-shell .legal-form input:not([type="hidden"]) { border: 1px solid var(--line); border-radius: 10px; min-height: 46px; padding: .7rem; width: 100%; }
+.store-shell .legal-form .contact-dialog__honeypot { display: none; }
 
 .catalog-intro { max-width: 760px; padding: 2rem 0 3rem; }
 .catalog-intro h1 { font-size: clamp(3.5rem,7vw,7rem); }
@@ -614,6 +625,9 @@ button { color: inherit; }
 }
 
 .store-shell .announcement span { align-items: center; display: inline-flex; }
+.store-shell .announcement { gap: clamp(.7rem, 3vw, 2rem); }
+.store-shell .announcement__withdrawal { color: #fff; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.store-shell .store-footer .withdrawal-link { color: var(--brand-red); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
 .store-shell .announcement span + span::before { color: var(--brand-red); content: "•"; margin: 0 1.4rem; }
 
 .store-shell .store-header {

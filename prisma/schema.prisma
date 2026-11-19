@@ -686,6 +686,19 @@ model StoreSettings {
   @@map("store_settings")
 }
 
+model WithdrawalRequest {
+  id           String   @id @default(uuid()) @map("_id")
+  requestKey   String   @unique @map("request_key")
+  code         String   @unique
+  orderNumber  BigInt   @map("order_number")
+  name         String
+  email        String
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("withdrawal_requests")
+}
+
 model Sequence {
   id        String   @id @map("_id")
   value     BigInt

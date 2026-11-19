@@ -7,3 +7,7 @@ import { PrismaShippingRepository } from "./prisma-shipping-repository";
 export function getShippingAdminService() {
   return new ShippingAdminService(new PrismaShippingRepository(getPrisma()));
 }
+
+export function getPublicShippingMethods() {
+  return new PrismaShippingRepository(getPrisma()).listActive();
+}

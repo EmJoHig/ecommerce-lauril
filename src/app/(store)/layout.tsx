@@ -20,7 +20,8 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
     <div className="store-shell">
       <Suspense fallback={null}><NavigationLoading /></Suspense>
       <div className="announcement">
-        <span><TruckIcon /> Envíos a todo el país</span>
+        <span><TruckIcon /> Consultá las opciones de entrega</span>
+        <Link className="announcement__withdrawal" href="/arrepentimiento">Botón de arrepentimiento</Link>
         {/* <span><HeartIcon /> Productos que acompañan</span> */}
         {/* <span><CardIcon /> Múltiples medios de pago</span> */}
       </div>
@@ -42,7 +43,7 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
       </header>
       <main>{children}</main>
       <section aria-label="Beneficios de comprar en Lauril" className="footer-benefits">
-        <div><TruckIcon /><span><strong>TE LLEVAMOS TU PEDIDO</strong><small>Envíos dentro del caso Urbano</small></span></div>
+        <div><TruckIcon /><span><strong>OPCIONES DE ENTREGA</strong><small>Consultalas antes de confirmar tu pedido</small></span></div>
         {/* <div><CardIcon /><span><strong>Múltiples medios de pago</strong><small>Compra simple y transparente</small></span></div> */}
         <div><ShieldIcon /><span><strong>Compra segura</strong><small>Tus datos siempre protegidos</small></span></div>
         <div><HeartIcon /><span><strong>Calidad Lauril</strong><small>Selección pensada para durar</small></span></div>
@@ -55,21 +56,25 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
         <div>
           <strong>Tienda</strong>
           <Link href="/productos">Todos los productos</Link>
+          <Link href="/informacion-comercial">Información comercial</Link>
         </div>
         <div>
           <strong>Información</strong>
-          <span>Envíos</span>
-          <span>Cambios y devoluciones</span>
+          <Link href="/envios-y-entregas">Envíos y entregas</Link>
+          <Link href="/cambios-y-devoluciones">Cambios y devoluciones</Link>
+          <Link href="/terminos-y-condiciones">Términos y condiciones</Link>
+          <Link href="/politica-de-privacidad">Política de privacidad</Link>
+          <Link className="withdrawal-link" href="/arrepentimiento">Botón de arrepentimiento</Link>
           {settings.businessAddress ? <span>{settings.businessAddress}</span> : null}
           <a href={`mailto:${settings.publicEmail}`}>{settings.publicEmail}</a>
           {settings.phone ? <a href={`tel:${settings.phone}`}>{settings.phone}</a> : null}
           {settings.whatsapp ? <a href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}>WhatsApp</a> : null}
           {settings.facebookUrl ? <a href={settings.facebookUrl} rel="noreferrer" target="_blank">Facebook</a> : null}
         </div>
-        <a aria-label="Lauril en Instagram" className="footer-instagram" href="https://www.instagram.com/lauril.quimica" rel="noreferrer" target="_blank"><InstagramIcon /><span>Instagram</span></a>
+        {settings.instagramUrl ? <a aria-label={`${settings.storeName} en Instagram`} className="footer-instagram" href={settings.instagramUrl} rel="noreferrer" target="_blank"><InstagramIcon /><span>Instagram</span></a> : null}
       </footer>
       <div className="store-copyright"><span>© {new Date().getFullYear()} {settings.storeName}. Todos los derechos reservados.</span><span>Hecho con <HeartIcon /> en Argentina</span></div>
-      <a aria-label="Contactar a Lauril por WhatsApp" className="whatsapp-float" href="https://wa.me/5492216901425" rel="noreferrer" target="_blank"><WhatsAppIcon /></a>
+      {settings.whatsapp ? <a aria-label={`Contactar a ${settings.storeName} por WhatsApp`} className="whatsapp-float" href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`} rel="noreferrer" target="_blank"><WhatsAppIcon /></a> : null}
     </div>
   );
 }
