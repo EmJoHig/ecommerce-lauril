@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ConflictError, ValidationError } from "@/shared/domain/errors";
+import { ConflictError, ForbiddenError, ValidationError } from "@/shared/domain/errors";
 import { hashPassword, validatePassword } from "../domain/password";
 import type { AdminAccessRepository } from "./admin-access-repository";
 
@@ -11,13 +11,14 @@ export class AdminAccessService {
 
   async create(input: Readonly<{
     email: string; password: string; firstName: string; lastName: string;
-    roleIds: ReadonlyArray<string>; actorUserId: string;
+    roleIds: ReadonlyArray<string>; actorUserId: string; actorPermissions: ReadonlyArray<string>;
   }>, now = new Date()) {
     const email = z.email().max(320).parse(input.email.trim().toLowerCase());
     validatePassword(input.password);
     const firstName = requiredName(input.firstName, "El nombre");
     const lastName = requiredName(input.lastName, "El apellido");
     const roleIds = uniqueIds(input.roleIds);
+    await this.assertAssignableRoles(roleIds, input.actorPermissions);
     if (!(await this.repository.rolesGrantAdminAccess(roleIds))) {
       throw new ValidationError("Seleccioná al menos un rol con acceso administrativo.");
     }
@@ -36,14 +37,24 @@ export class AdminAccessService {
     await this.repository.setStatus({ userId, actorUserId, status: z.enum(["ACTIVE", "DISABLED"]).parse(input.status), occurredAt: now });
   }
 
-  async updateRoles(input: Readonly<{ userId: string; roleIds: ReadonlyArray<string>; actorUserId: string }>, now = new Date()) {
+  async updateRoles(input: Readonly<{ userId: string; roleIds: ReadonlyArray<string>; actorUserId: string; actorPermissions: ReadonlyArray<string> }>, now = new Date()) {
     const roleIds = uniqueIds(input.roleIds);
+    await this.assertAssignableRoles(roleIds, input.actorPermissions);
     if (!(await this.repository.rolesGrantAdminAccess(roleIds))) {
       throw new ValidationError("Un administrador debe conservar al menos un rol con admin.access.");
     }
     await this.repository.updateRoles({
       userId: z.uuid().parse(input.userId), actorUserId: z.uuid().parse(input.actorUserId), roleIds, occurredAt: now,
     });
+  }
+
+  private async assertAssignableRoles(roleIds: ReadonlyArray<string>, actorPermissions: ReadonlyArray<string>): Promise<void> {
+    const permissions = new Set(actorPermissions);
+    const roles = await this.repository.listRoles();
+    if (roles.some((role) => roleIds.includes(role.id)
+      && role.permissions.some((permission) => !permissions.has(permission.code)))) {
+      throw new ForbiddenError("No podés asignar permisos que no tenés.");
+    }
   }
 }
 

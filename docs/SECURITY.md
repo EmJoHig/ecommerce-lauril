@@ -73,7 +73,8 @@ lectura/escritura. Email y contraseña del cliente no son editables desde el
 backoffice. Deshabilitar un cliente conserva su historia, bloquea el login y
 revoca sus sesiones; una reactivación posterior exige iniciar sesión nuevamente. Un
 administrador no puede deshabilitarse a sí mismo ni deshabilitar al último
-administrador activo; asignar roles exige conservar `admin.access`.
+administrador activo; asignar roles exige conservar `admin.access` y no permite
+conceder permisos que el administrador actor no tenga.
 Las rutas protegidas responden como recurso no encontrado cuando falta una
 capacidad, evitando revelar su existencia y sin depender de la navegación visible.
 
