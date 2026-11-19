@@ -8,7 +8,7 @@ import type { InventoryAdminRepository } from "@/modules/inventory/application/i
 import { AuditService, sanitizeAuditMetadata } from "@/modules/audit/application/audit-service";
 import type { AuditRepository } from "@/modules/audit/application/audit-repository";
 import { boundedPageSize, businessDate, normalizedSearch, positivePage } from "@/shared/application/admin-list-query";
-import { ConflictError, NotFoundError, ValidationError } from "@/shared/domain/errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/shared/domain/errors";
 
 const customerId = "70000000-0000-4000-8000-000000000001";
 const actorId = "70000000-0000-4000-8000-000000000002";
@@ -74,7 +74,34 @@ describe("fase 7: consolidación del backoffice", () => {
   });
 
   it("impide asignar roles que no conceden acceso administrativo", async () => {
-    await expect(new AdminAccessService(adminRepository(false)).updateRoles({ userId: customerId, actorUserId: actorId, roleIds: [roleId] })).rejects.toBeInstanceOf(ValidationError);
+    await expect(new AdminAccessService(adminRepository(false)).updateRoles({ userId: customerId, actorUserId: actorId, roleIds: [roleId], actorPermissions: ["admin.access", "users.write"] })).rejects.toBeInstanceOf(ValidationError);
+  });
+
+  it("impide crear administradores o cambiar roles con permisos superiores a los del actor", async () => {
+    const repository = adminRepository();
+    repository.listRoles = vi.fn(async () => [{
+      id: roleId, code: "ADMIN", name: "Administrador", description: null, userCount: 1,
+      permissions: [{ code: "admin.access", name: "Acceso" }, { code: "orders.write", name: "Pedidos" }],
+    }]);
+    const service = new AdminAccessService(repository);
+    const actorPermissions = ["admin.access", "users.write"];
+    await expect(service.create({ email: "admin@example.test", password: "PasswordForTest123!", firstName: "Ana", lastName: "Pérez", roleIds: [roleId], actorUserId: actorId, actorPermissions })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(service.updateRoles({ userId: customerId, roleIds: [roleId], actorUserId: actorId, actorPermissions })).rejects.toBeInstanceOf(ForbiddenError);
+    expect(repository.createAdmin).not.toHaveBeenCalled();
+    expect(repository.updateRoles).not.toHaveBeenCalled();
+  });
+
+  it("permite asignar roles cuyos permisos ya posee el actor", async () => {
+    const repository = adminRepository();
+    repository.listRoles = vi.fn(async () => [{
+      id: roleId, code: "OPERADOR", name: "Operador", description: null, userCount: 1,
+      permissions: [{ code: "admin.access", name: "Acceso" }, { code: "users.write", name: "Usuarios" }],
+    }]);
+    await new AdminAccessService(repository).updateRoles({
+      userId: customerId, roleIds: [roleId], actorUserId: actorId,
+      actorPermissions: ["admin.access", "users.write"],
+    });
+    expect(repository.updateRoles).toHaveBeenCalledOnce();
   });
 
   it("elimina metadatos sensibles del registro de auditoría incluso si están anidados", async () => {

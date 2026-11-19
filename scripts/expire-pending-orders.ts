@@ -5,6 +5,7 @@ import { CheckoutService } from "../src/modules/orders/application/checkout-serv
 import { PrismaOrderRepository } from "../src/modules/orders/infrastructure/prisma-order-repository";
 import { CustomShippingProvider } from "../src/modules/shipping/application/custom-shipping-provider";
 import { PrismaShippingRepository } from "../src/modules/shipping/infrastructure/prisma-shipping-repository";
+import { operationalErrorCategory } from "../src/shared/infrastructure/logger";
 
 const job = "expire-pending-orders";
 
@@ -24,7 +25,7 @@ try {
     await prisma.$disconnect();
   }
   console.info(JSON.stringify({ job, status: "ok", expired }));
-} catch {
-  console.error(JSON.stringify({ job, status: "error" }));
+} catch (error) {
+  console.error(JSON.stringify({ job, status: "error", category: operationalErrorCategory(error) }));
   process.exitCode = 1;
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ValidationError } from "@/shared/domain/errors";
-import { logger } from "@/shared/infrastructure/logger";
+import { logger, operationalErrorCategory } from "@/shared/infrastructure/logger";
 import type { ProcessMercadoPagoWebhook } from "../application/process-mercado-pago-webhook";
 import { PaymentWebhookTechnicalError } from "../application/process-mercado-pago-webhook";
 import { verifyMercadoPagoWebhookSignature } from "../infrastructure/mercado-pago-webhook-signature";
@@ -94,6 +94,7 @@ export async function handleMercadoPagoWebhook(
     logger.error("payment.webhook_failed", {
       provider: "MERCADO_PAGO",
       reasonCode: error instanceof PaymentWebhookTechnicalError ? "technical_processing_failure" : "unexpected_failure",
+      category: operationalErrorCategory(error),
     });
     return jsonResponse(503);
   }
