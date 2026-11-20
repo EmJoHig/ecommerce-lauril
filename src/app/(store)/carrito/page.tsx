@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { formatMoney } from "@/shared/domain/money";
-import { isLocalUploadUrl } from "@/shared/presentation/image-url";
+import { ProductImage } from "@/shared/presentation/product-image";
 import { getRequestCart } from "@/modules/cart/presentation/cart-query";
 import {
   CartQuantityControl,
@@ -46,7 +45,7 @@ export default async function CartPage() {
           {cart.items.map((item) => (
             <article className={item.availability === "AVAILABLE" ? "cart-line" : "cart-line cart-line--issue"} key={item.id}>
               <Link className="cart-line__image" href={`/producto/${item.productSlug}`}>
-                <Image alt={item.imageAlt} fill sizes="120px" src={item.imageUrl ?? "/product-placeholder.svg"} unoptimized={isLocalUploadUrl(item.imageUrl)} />
+                <ProductImage alt={item.imageAlt} sizes="120px" src={item.imageUrl} />
               </Link>
               <div className="cart-line__info">
                 <p className="eyebrow">SKU {item.sku}</p>

@@ -31,7 +31,7 @@ export function PublicCatalog({ page, categories, fragrances, currentCategory, c
             <div className="product-grid">{page.items.map((product) => <ProductCard key={product.id} product={product} storeName={storeName} />)}</div>
             {page.items.length === 0 ? <div className="empty-state"><h2>No encontramos productos</h2><p>Probá con otra búsqueda o categoría.</p></div> : null}
           </CatalogProductArea>
-          <nav className="pagination pagination--store" aria-label="Paginación"><Link aria-disabled={page.page <= 1} href={publicPageHref({ page: page.page - 1, search, sort, category: currentCategory, fragrance: currentFragrance })}>← Anterior</Link><span>Página {page.page} de {page.pageCount}</span><Link aria-disabled={page.page >= page.pageCount} href={publicPageHref({ page: page.page + 1, search, sort, category: currentCategory, fragrance: currentFragrance })}>Siguiente →</Link></nav>
+          {page.pageCount > 1 ? <nav className="pagination pagination--store" aria-label="Paginación">{page.page > 1 ? <Link href={publicPageHref({ page: page.page - 1, search, sort, category: currentCategory, fragrance: currentFragrance })}>← Anterior</Link> : <span aria-disabled="true">← Anterior</span>}<span>Página {page.page} de {page.pageCount}</span>{page.page < page.pageCount ? <Link href={publicPageHref({ page: page.page + 1, search, sort, category: currentCategory, fragrance: currentFragrance })}>Siguiente →</Link> : <span aria-disabled="true">Siguiente →</span>}</nav> : null}
         </div>
       </div>
     </div>
