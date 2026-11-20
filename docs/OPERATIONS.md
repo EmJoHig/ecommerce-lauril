@@ -644,6 +644,80 @@ operativa; integridad verificada no equivale a restauración comprobada. Los
 backups diarios, semanales, cron, timers y alertas automáticas permanecen
 pospuestos.
 
+### C1: respaldo manual de imágenes del catálogo
+
+Revisión de dependencias del 20/11/2026: `npm audit` identificó riesgos en
+Next.js 16.3.6 (incluidos RCE condicional y DoS de Server Actions) y Zod 4.5.4
+(agotamiento de memoria con arrays grandes). Se actualizaron a Next.js 16.4.6,
+`eslint-config-next` 16.4.6 y Zod 4.6.7; el árbol resultante incluye Sharp
+0.35.5. El riesgo de Server Actions sí aplica a esta tienda. No se encontró
+`use cache` en el código; las imágenes locales del catálogo se muestran sin
+optimización de Next.js. `npm audit` aún informa 17 alertas (6 altas, 11
+moderadas): Prisma CLI/Effect y Vite/Vitest/ESLint corresponden a herramientas;
+`source-map-js` llega por PostCSS durante el build. ExcelJS se usa en la
+importación y plantilla del catálogo administrativo y arrastra `uuid` y una
+ruta de `brace-expansion`; esta última también llega por ESLint. La auditoría
+de paquetes no demuestra por sí sola una vía de explotación pública de esas
+rutas, ni demuestra que sean inocuas. Revisarlas en un mantenimiento posterior;
+no degradar Prisma ni ExcelJS para silenciar `npm audit`.
+
+El backup A1 de MongoDB no contiene `/var/lib/lauril/uploads/catalog/`.
+Ejecutar este procedimiento desde Windows, con `ssh`, `scp`, `tar` y Rclone
+disponibles. Usar la conexión Rclone Crypt `lauril_crypt:` ya configurada;
+su archivo de configuración y clave permanecen fuera del repositorio.
+
+1. En un momento sin edición de imágenes, crear una carpeta local privada fuera
+   del repositorio. Sustituir `USUARIO@VPS` por el acceso SSH habitual. Descargar
+   el directorio completo, incluidos los nombres de archivo:
+
+   ```powershell
+   $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+   $run = Join-Path $env:LOCALAPPDATA "Lauril\catalog-backups\$stamp"
+   New-Item -ItemType Directory -Path $run -Force | Out-Null
+   scp -r 'USUARIO@VPS:/var/lib/lauril/uploads/catalog' $run
+   ```
+
+2. Confirmar que `scp` terminó sin error y que `$run\catalog` contiene los
+   archivos esperados. Crear y comprobar el archivo local:
+
+   ```powershell
+   tar -C $run -czf "$run\catalog.tar.gz" catalog
+   tar -tzf "$run\catalog.tar.gz" | Measure-Object -Line
+   Get-FileHash "$run\catalog.tar.gz" -Algorithm SHA256
+   ```
+
+   El listado debe recorrer el archivo completo y terminar sin error. Guardar
+   fecha, tamaño, cantidad de entradas y SHA-256 en un registro privado.
+   Si `scp` o `tar` falla, descartar esa copia y repetir; no subirla como backup.
+
+3. Subir el archivo a Google Drive cifrado y descargarlo a otra ruta para
+   comparar el SHA-256 con el original:
+
+   ```powershell
+   rclone copyto "$run\catalog.tar.gz" "lauril_crypt:lauril/catalogo/catalog-$stamp.tar.gz"
+   rclone copyto "lauril_crypt:lauril/catalogo/catalog-$stamp.tar.gz" "$run\verificacion.tar.gz"
+   Get-FileHash "$run\verificacion.tar.gz" -Algorithm SHA256
+   ```
+
+   Conservar el respaldo en Drive y el registro SHA-256 fuera del VPS. Se puede
+   retirar la descarga de verificación y la copia intermedia local después de
+   comprobar que coinciden los hashes; conservarlos temporalmente si se va a
+   ensayar la recuperación.
+
+4. Para recuperar, descargar el archivo de Drive con `rclone copyto`, comprobar
+   su SHA-256 contra el registro y listar su contenido con `tar -tzf`. Extraer
+   primero en una carpeta local vacía con `tar -C CARPETA -xzf ARCHIVO` y revisar
+   imágenes de muestra. En un incidente, evaluar los archivos actuales y hacer
+   una copia de ellos antes de copiar el directorio recuperado al VPS mediante
+   `scp -r CARPETA/catalog USUARIO@VPS:/var/lib/lauril/uploads/`. Comprobar
+   propietario y permisos según el usuario de la aplicación y verificar la
+   visualización de varias imágenes en la tienda. La copia al VPS no se ejecuta
+   como parte de la verificación periódica.
+
+Este procedimiento es manual y no cambia el almacenamiento ni agrega tareas
+programadas. Hasta ejecutar un respaldo real, descargarlo y ensayar al menos
+una extracción, la recuperación de imágenes sigue pendiente de comprobación.
+
 **Un rollback de código no implica restaurar la base de datos.** Una restauración
 de MongoDB es una operación de incidente separada: requiere evaluar los datos
 posteriores al backup, la compatibilidad y el impacto antes de autorizarla.
