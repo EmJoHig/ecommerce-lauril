@@ -690,7 +690,7 @@ model WithdrawalRequest {
   id           String   @id @default(uuid()) @map("_id")
   requestKey   String   @unique @map("request_key")
   code         String   @unique
-  orderNumber  BigInt   @map("order_number")
+  orderNumber  BigInt?  @map("order_number")
   name         String
   email        String
   createdAt    DateTime @default(now()) @map("created_at")

@@ -625,7 +625,7 @@ button { color: inherit; }
 }
 
 .store-shell .announcement span { align-items: center; display: inline-flex; }
-.store-shell .announcement { gap: clamp(.7rem, 3vw, 2rem); }
+.store-shell .announcement { flex-wrap: wrap; gap: clamp(.7rem, 3vw, 2rem); text-align: center; }
 .store-shell .announcement__withdrawal { color: #fff; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
 .store-shell .store-footer .withdrawal-link { color: var(--brand-red); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
 .store-shell .announcement span + span::before { color: var(--brand-red); content: "•"; margin: 0 1.4rem; }

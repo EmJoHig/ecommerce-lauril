@@ -34,6 +34,23 @@ describe("registro idempotente de arrepentimiento", () => {
     expect(mocks.create).toHaveBeenCalledOnce();
   });
 
+  it("persiste sin número de pedido y conserva la idempotencia", async () => {
+    let stored: { code: string; createdAt: Date; orderNumber: bigint | null; name: string; email: string } | null = null;
+    mocks.findUnique.mockImplementation(async () => stored);
+    mocks.create.mockImplementation(async ({ data }) => {
+      stored = { ...data, createdAt: new Date("2026-11-19T00:00:00Z") };
+      return stored;
+    });
+    const service = getRecordWithdrawalRequest();
+    const withoutOrder = { ...input, orderNumber: null };
+    const first = await service.execute(withoutOrder);
+    expect(await service.execute(withoutOrder)).toEqual(first);
+    expect(mocks.create).toHaveBeenCalledOnce();
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ orderNumber: null }),
+    }));
+  });
+
   it("no atribuye una constancia previa a otros datos", async () => {
     mocks.findUnique.mockResolvedValue({
       code: "ARR-EXISTING", createdAt: new Date(), orderNumber: 12345n,

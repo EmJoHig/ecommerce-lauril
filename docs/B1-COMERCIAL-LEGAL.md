@@ -35,8 +35,9 @@ No hay integración automática con ARCA.
 ## Solicitudes de arrepentimiento
 
 La página `/arrepentimiento` no exige sesión. Guarda cada solicitud en
-`withdrawal_requests` con clave de envío única, código `ARR-...`, número de pedido,
-nombre, email y fecha UTC. La constancia aparece de inmediato en la misma página.
+`withdrawal_requests` con clave de envío única, código `ARR-...`, nombre,
+email y fecha UTC; el número de pedido es opcional. La constancia aparece de
+inmediato en la misma página.
 Un reenvío de la misma clave devuelve el código original. No cancela el pedido ni
 solicita refunds. El operador debe revisar la colección al menos dos veces por
 día, verificar identidad y pedido por un medio razonable, registrar la resolución

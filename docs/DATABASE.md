@@ -272,7 +272,8 @@ que webhooks duplicados o concurrentes descuenten físicamente dos veces.
 - MongoDB no utiliza Prisma Migrate ni migraciones SQL. Desarrollo y despliegue
   ejecutan `npm run db:push`.
 - B1 agrega `withdrawal_requests`: registra solicitudes de arrepentimiento con
-  clave de envío y código únicos, fecha UTC y datos mínimos de contacto/pedido.
+  clave de envío y código únicos, fecha UTC, datos de contacto y número de pedido
+  opcional.
 - `db:push` sincroniza el schema Prisma y luego crea de forma idempotente los
   índices parciales que Prisma Schema no puede expresar.
 - El seed crea permisos, rol base, catálogo, inventario, métodos de entrega y

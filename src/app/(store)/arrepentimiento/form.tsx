@@ -9,7 +9,7 @@ export function WithdrawalForm({ requestKey }: Readonly<{ requestKey: string }>)
   const [state, action, pending] = useActionState(submitWithdrawalRequest, initialState);
   return <form action={action} className="legal-form">
     <input name="requestKey" type="hidden" value={requestKey} />
-    <label>Número de pedido<input autoComplete="off" inputMode="numeric" maxLength={18} name="orderNumber" required /></label>
+    <label>Número de pedido (si lo conocés)<input autoComplete="off" inputMode="numeric" maxLength={18} name="orderNumber" /></label>
     <label>Nombre completo<input autoComplete="name" maxLength={100} name="name" required /></label>
     <label>Email usado en la compra<input autoComplete="email" maxLength={160} name="email" required type="email" /></label>
     <input aria-hidden="true" autoComplete="off" className="contact-dialog__honeypot" name="website" tabIndex={-1} />

@@ -3,7 +3,9 @@ import { z } from "zod";
 
 export const withdrawalInputSchema = z.object({
   requestKey: z.uuid(),
-  orderNumber: z.string().trim().regex(/^[1-9][0-9]{0,17}$/, "Ingresá un número de pedido válido."),
+  orderNumber: z.string().trim()
+    .refine((value) => value === "" || /^[1-9][0-9]{0,17}$/.test(value), "Ingresá un número de pedido válido.")
+    .transform((value) => value || null),
   name: z.string().trim().min(2).max(100).regex(/^[^\r\n]+$/),
   email: z.email().max(160).transform((value) => value.toLowerCase()),
   website: z.string().max(0),

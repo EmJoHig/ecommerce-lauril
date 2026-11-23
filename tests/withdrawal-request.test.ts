@@ -47,6 +47,14 @@ describe("solicitud pública de arrepentimiento", () => {
     expect(mocks.assertRateLimit).toHaveBeenCalledOnce();
   });
 
+  it("registra sin número de pedido y entrega el mismo código", async () => {
+    const data = form();
+    data.set("orderNumber", " ");
+    const result = await submitWithdrawalRequest(initial, data);
+    expect(result).toMatchObject({ status: "success", code: "ARR-123" });
+    expect(mocks.execute).toHaveBeenCalledWith(expect.objectContaining({ orderNumber: null }));
+  });
+
   it("rechaza datos inválidos y honeypot sin persistir", async () => {
     const data = form();
     data.set("website", "spam");
