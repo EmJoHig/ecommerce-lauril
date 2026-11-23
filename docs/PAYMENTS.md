@@ -143,8 +143,9 @@ el estado del provider, sin crear otro refund.
 El pedido permanece `CANCELLED`: no hubo venta local, no hay SALE ni cambios de
 `stockOnHand`, y `stockReserved` permanece en cero tras la expiración.
 
-Existe una corrida operativa de reconciliación; su timer productivo está pendiente
-de instalación manual. Los casos ambiguos requieren intervención operativa.
+Existe una corrida operativa de reconciliación; el timer productivo se confirmó
+activo el 17/11/2026 y nuevamente el 23/11/2026. Los casos ambiguos requieren
+intervención operativa.
 
 ## Reconciliación periódica de Mercado Pago
 
@@ -223,8 +224,38 @@ starvation anterior queda corregido, sin cursor manual ni almacenamiento local.
 POST-PAYMENT / REFUND RECONCILIATION: **PENDIENTE**.
 Automatización de REQUIRES_REVIEW: **PENDIENTE; tratamiento MANUAL/webhook**.
 
-Resumen, errores, paginación operativa y propuesta de timer: ver
-[OPERATIONS.md](OPERATIONS.md#reconciliación-de-pagos-propuesta-pendiente-de-instalación).
+### Revisión manual de pagos y reembolsos
+
+Mientras el volumen sea bajo, el operador revisa diariamente en Mercado Pago los
+pagos y refunds posteriores al último control, incluso los de intentos locales
+`APPROVED`: el job no los selecciona si se perdió el webhook. También revisa en
+MongoDB Atlas, con acceso de solo lectura, los `payment_attempts` en
+`REQUIRES_REVIEW`, los `payment_refunds` en `CREATED`, `SUBMITTED` o
+`REQUIRES_REVIEW`, y los logs `payment.requires_review`,
+`payment.refund_requires_review` y resúmenes de reconciliación `partial/error`.
+Registrar hora UTC del control y los IDs de pedido, intento y recurso externo
+en un registro privado de incidentes; no copiar credenciales ni datos personales.
+
+Para cada caso, comparar el recurso y la referencia externa de Mercado Pago con
+el intento y pedido locales, moneda, total, importe efectivamente cobrado y suma
+de refunds. Comprobar también estado del pedido, reserva y movimientos `SALE`:
+un pedido cancelado por pago tardío debe conservar cero ventas; uno `PAID` debe
+tener una sola venta por inventario/pedido. Verificar en Mercado Pago si una
+solicitud de refund `CREATED/SUBMITTED/REQUIRES_REVIEW` ya fue aceptada o
+ejecutada antes de cualquier reintento. Una respuesta de envío ambigua no prueba
+que el provider no haya procesado el refund.
+
+Si los importes o estados no coinciden, suspender el despacho y nuevos reembolsos
+de ese pedido, documentar la evidencia y escalar una corrección puntual tras
+confirmar el estado autoritativo en Mercado Pago. No ejecutar otro refund a ciegas
+ni editar `Order`, `PaymentAttempt`, `PaymentRefund` o inventario manualmente.
+El panel administrativo permite solicitar refunds solamente para pagos locales
+coherentes `PAID/PARTIALLY_REFUNDED`; no muestra ni resuelve por sí solo todos
+los casos `REQUIRES_REVIEW`. Si se confirma un refund remoto sin webhook, el
+desajuste local requiere resolución puntual; la corrida periódica no lo corrige.
+
+Resumen, errores, paginación operativa y configuración del timer: ver
+[OPERATIONS.md](OPERATIONS.md#reconciliación-de-pagos).
 
 ## Validación de F14E
 

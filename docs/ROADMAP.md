@@ -10,6 +10,23 @@ estado histórico original de esas fases. No son instrucciones vigentes: la úni
 persistencia actual es MongoDB Atlas y no se utiliza Prisma Migrate ni migraciones
 SQL.
 
+## Cierre técnico C2 — 23/11/2026
+
+C2.1, auditoría técnica, aprobada: no se encontraron defectos técnicos
+bloqueantes demostrados. C2.2, validación manual en producción, aprobada sobre
+el commit `8caf003`: registro e inicio de sesión, catálogo y carrito, checkout
+autenticado y panel administrativo. La comprobación operativa del VPS del
+23/11/2026 quedó registrada en [OPERATIONS.md](OPERATIONS.md#reconciliación-de-pagos).
+Con estas comprobaciones, C2 queda cerrado técnicamente. No se repitieron las
+pruebas funcionales ni las comprobaciones operativas para este cierre documental.
+
+Antes del lanzamiento comercial permanece pendiente B1, con sus definiciones
+comerciales y legales. Como seguimiento técnico y operativo, permanecen
+pendientes la restauración real de prueba de MongoDB, las 17 alertas de
+`npm audit` registradas en [OPERATIONS.md](OPERATIONS.md#c1-respaldo-manual-de-imágenes-del-catálogo)
+y la revisión manual de pagos o reembolsos que requieran intervención, descrita
+en [PAYMENTS.md](PAYMENTS.md#revisión-manual-de-pagos-y-reembolsos).
+
 ## Fase 1 — Fundación, catálogo e inventario
 
 Estado: completada y aprobada.

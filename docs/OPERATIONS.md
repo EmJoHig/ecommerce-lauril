@@ -201,6 +201,11 @@ systemctl list-timers --all | grep lauril-expire-orders
 La instalación no formó parte del cambio original descrito en esta sección.
 Tras el backup del 17/11/2026, el operador comprobó en el VPS que
 `lauril-reconcile-payments.timer` estaba `active`.
+El 23/11/2026 se confirmó nuevamente que los timers de conciliación y
+expiración estaban activos. Ambos servicios terminaron con `Result=success` y
+`ExecMainStatus=0`: expiración informó `expired=0`; conciliación Mercado Pago
+informó `status=ok`, `failed=0`, ciclo completado y checkpoint avanzado.
+PM2 `lauril-ecommerce` permanecía online y estable durante tres días.
 
 El job concilia la confirmación de pagos pendientes (pending payment settlement).
 El progreso entre corridas se conserva en MongoDB mediante
