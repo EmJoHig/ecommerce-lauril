@@ -414,9 +414,38 @@ No realizar automáticamente:
 - reset;
 - deploy.
 
-Realizarlos solamente cuando sean solicitados explícitamente.
+Realizarlos solamente cuando sean solicitados explícitamente, respetando la
+restricción de acceso al VPS indicada abajo.
 
 No revertir cambios del usuario.
+
+---
+
+## Acceso y administración del VPS
+
+El acceso y la administración del VPS, tanto de producción como de staging,
+están reservados exclusivamente al propietario del proyecto.
+
+Codex no debe conectarse por SSH ni por ningún otro mecanismo remoto, buscar,
+utilizar o solicitar claves privadas SSH, recuperar o configurar acceso remoto
+ni eludir esta restricción mediante herramientas alternativas. No debe ejecutar
+comandos en el VPS, despliegues, cambios de variables, reinicios ni modificaciones
+de Nginx, PM2, systemd, cron u otras configuraciones del servidor.
+
+Codex puede desarrollar y probar localmente, revisar el repositorio, preparar
+scripts y procedimientos, realizar operaciones Git expresamente autorizadas y
+analizar resultados de comandos ejecutados manualmente por el propietario.
+
+Cuando una tarea requiera intervenir en el VPS, entregar al propietario:
+
+1. Objetivo del procedimiento.
+2. Comandos exactos y directorio de ejecución.
+3. Resultado esperado.
+4. Riesgos y condiciones para detenerse.
+5. Procedimiento de reversión, cuando corresponda.
+
+Separar claramente lectura de operaciones que modifican recursos. No interpretar
+una solicitud de análisis o preparación como autorización de cambios productivos.
 
 ---
 

@@ -34,8 +34,13 @@ su tratamiento sigue en el webhook autoritativo y la lógica existente de pago t
 - Servicio systemd: `lauril-expire-orders.service`.
 - Timer systemd: `lauril-expire-orders.timer`.
 
-Los comandos de este runbook se ejecutan en el VPS de producción con permisos
-de root. PM2 administra la aplicación; systemd ejecuta el job de expiración.
+Los comandos dirigidos al VPS de este runbook los ejecuta manualmente y
+exclusivamente el propietario, con los permisos indicados. Codex prepara los
+procedimientos y analiza los resultados; no accede ni administra el servidor.
+La política completa está en [AGENTS.md](../AGENTS.md#acceso-y-administración-del-vps).
+En cada intervención, distinguir comandos de lectura de los que modifican
+recursos y explicitar su autorización; el runbook no autoriza cambios productivos.
+PM2 administra la aplicación; systemd ejecuta el job de expiración.
 Staging no usa este timer de producción: sus validaciones de expiración se
 ejecutan por separado en su propio entorno.
 
