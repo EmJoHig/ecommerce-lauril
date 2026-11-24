@@ -70,6 +70,7 @@ export default async function StoreLayout({ children }: Readonly<{ children: Rea
           {settings.phone ? <a href={`tel:${settings.phone}`}>{settings.phone}</a> : null}
           {settings.whatsapp ? <a href={`https://wa.me/${settings.whatsapp.replace(/\D/g, "")}`}>WhatsApp</a> : null}
           {settings.facebookUrl ? <a href={settings.facebookUrl} rel="noreferrer" target="_blank">Facebook</a> : null}
+          {settings.fiscalDataUrl && settings.fiscalDataLogoUrl ? <a href={settings.fiscalDataUrl} rel="noreferrer" target="_blank"><Image alt="Formulario 960/D — Data Fiscal del titular de Lauril" height={60} src={settings.fiscalDataLogoUrl} unoptimized width={60} /></a> : null}
         </div>
         {settings.instagramUrl ? <a aria-label={`${settings.storeName} en Instagram`} className="footer-instagram" href={settings.instagramUrl} rel="noreferrer" target="_blank"><InstagramIcon /><span>Instagram</span></a> : null}
       </footer>

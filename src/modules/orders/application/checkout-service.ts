@@ -2,7 +2,7 @@ import { z } from "zod";
 import { assertCartLineCanBeSet, currentCartUnitPrice } from "@/modules/cart/domain/cart";
 import type { CustomerAddressInput } from "@/modules/customers/domain/customer";
 import { calculateReservation, calculateReservationRelease } from "@/modules/inventory/domain/inventory";
-import { quoteShippingMethod, type ShippingQuote } from "@/modules/shipping/domain/shipping";
+import { assertLaurilShippingAddress, isLaurilShippingMethod, quoteShippingMethod, type ShippingQuote } from "@/modules/shipping/domain/shipping";
 import type { ShippingProvider } from "@/modules/shipping/application/shipping-provider";
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from "@/shared/domain/errors";
 import { assertOrderTransition, calculateOrderLine, calculateOrderTotals, normalizeBuyerSnapshot, normalizeOrderAddress, validateId } from "../domain/order";
@@ -89,11 +89,12 @@ export class CheckoutService {
             shippingAmountInCents: 0n,
           }).itemsSubtotalInCents;
           const method = await transaction.findShippingMethod(shippingMethodId);
-          const quote = method ? quoteShippingMethod(method, itemsSubtotalInCents) : null;
+          const quote = method && isLaurilShippingMethod(method) ? quoteShippingMethod(method, itemsSubtotalInCents) : null;
           if (!quote) throw new ValidationError("El método de entrega ya no está disponible.");
           const address = quote.requiresAddress
             ? await resolveAddress(transaction, owner, input)
             : null;
+          assertLaurilShippingAddress(quote.code, address);
           const totals = calculateOrderTotals({
             lineSubtotalsInCents: items.map(({ subtotalInCents }) => subtotalInCents),
             shippingAmountInCents: quote.amountInCents,

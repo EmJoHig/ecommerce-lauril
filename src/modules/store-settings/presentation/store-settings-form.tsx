@@ -17,8 +17,19 @@ export function StoreSettingsForm({ settings, canWrite }: Readonly<{ settings: S
         <label className="form-field">Email público<input defaultValue={settings.publicEmail} maxLength={320} name="publicEmail" required type="email" readOnly={!canWrite} /></label>
         <label className="form-field">Teléfono<input defaultValue={settings.phone ?? ""} maxLength={30} name="phone" readOnly={!canWrite} /></label>
         <label className="form-field">WhatsApp<input defaultValue={settings.whatsapp ?? ""} maxLength={30} name="whatsapp" readOnly={!canWrite} /></label>
-        <label className="form-field form-field--wide">Dirección comercial<input defaultValue={settings.businessAddress ?? ""} maxLength={300} name="businessAddress" readOnly={!canWrite} /></label>
+        <label className="form-field form-field--wide">Punto de retiro público<input defaultValue={settings.businessAddress ?? ""} maxLength={300} name="businessAddress" readOnly={!canWrite} /></label>
         <label className="form-field form-field--wide">Descripción pública breve<textarea defaultValue={settings.publicDescription ?? ""} maxLength={500} name="publicDescription" rows={4} readOnly={!canWrite} /></label>
+      </div>
+    </section>
+    <section className="admin-panel form-section">
+      <div className="panel-heading"><div><p className="eyebrow">Identificación del vendedor</p><h2>Datos fiscales del titular de Lauril</h2></div></div>
+      <p>Estos datos se publicarán en la página de información comercial cuando estén completos. No cargues datos de Tecnoclean: solo funciona como punto de retiro.</p>
+      <div className="form-grid form-grid--two">
+        <label className="form-field">Nombre y apellido<input defaultValue={settings.sellerName ?? ""} maxLength={160} name="sellerName" readOnly={!canWrite} /></label>
+        <label className="form-field">CUIT<input defaultValue={settings.sellerCuit ?? ""} inputMode="numeric" maxLength={13} name="sellerCuit" readOnly={!canWrite} /></label>
+        <label className="form-field form-field--wide">Domicilio fiscal<input defaultValue={settings.sellerFiscalAddress ?? ""} maxLength={300} name="sellerFiscalAddress" readOnly={!canWrite} /></label>
+        <label className="form-field form-field--wide">URL oficial del Formulario 960/D<input defaultValue={settings.fiscalDataUrl ?? ""} maxLength={500} name="fiscalDataUrl" readOnly={!canWrite} type="url" /></label>
+        <label className="form-field form-field--wide">URL del logo oficial 960/D<input defaultValue={settings.fiscalDataLogoUrl ?? ""} maxLength={500} name="fiscalDataLogoUrl" readOnly={!canWrite} type="url" /></label>
       </div>
     </section>
     <section className="admin-panel form-section">

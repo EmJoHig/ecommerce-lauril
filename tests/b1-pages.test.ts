@@ -9,6 +9,11 @@ vi.mock("@/modules/store-settings/infrastructure/store-settings-composition", ()
     phone: null,
     whatsapp: null,
     businessAddress: null,
+    sellerName: null,
+    sellerCuit: null,
+    sellerFiscalAddress: null,
+    fiscalDataUrl: null,
+    fiscalDataLogoUrl: null,
     instagramUrl: null,
     facebookUrl: null,
     publicDescription: null,
@@ -36,6 +41,11 @@ describe("páginas informativas B1", () => {
     expect(html).toContain("mailto:hola@example.com");
     expect(html).toContain('href="/arrepentimiento"');
     expect(html).toContain("Entrega local");
-    expect(html).not.toMatch(/CUIT|Tecnoclean|PENDIENTE/);
+    expect(html).toContain("La Plata (ARS 2.500)");
+    expect(html).toContain("Berisso (ARS 3.500)");
+    expect(html).toContain("factura electrónica C");
+    expect(html).toContain("15 días corridos");
+    expect(html).not.toMatch(/CUIT:|PENDIENTE/);
+    expect(html).toContain("Tecnoclean — Punto de retiro Lauril");
   });
 });

@@ -88,6 +88,38 @@ export function quoteShippingMethod(
   };
 }
 
+const laurilMethods = {
+  RETIRO_LOCAL: { type: "PICKUP", costInCents: 0n, requiresAddress: false },
+  ENVIO_LA_PLATA: { type: "LOCAL_DELIVERY", costInCents: 250000n, requiresAddress: true },
+  ENVIO_BERISSO: { type: "LOCAL_DELIVERY", costInCents: 350000n, requiresAddress: true },
+} as const;
+
+export function isLaurilShippingMethod(method: ShippingMethodState): boolean {
+  const expected = laurilMethods[method.code as keyof typeof laurilMethods];
+  return Boolean(expected && method.isActive && method.type === expected.type
+    && method.costInCents === expected.costInCents
+    && method.requiresAddress === expected.requiresAddress
+    && method.minimumSubtotalInCents === null
+    && method.freeShippingFromInCents === null);
+}
+
+export function assertLaurilShippingAddress(
+  code: string,
+  address: Readonly<{ city: string; province: string }> | null,
+): void {
+  if (code === "RETIRO_LOCAL") return;
+  const expectedCity = code === "ENVIO_LA_PLATA" ? "la plata" : "berisso";
+  const normalizedCity = address ? normalizeLocation(address.city) : "";
+  const normalizedProvince = address ? normalizeLocation(address.province) : "";
+  if (normalizedCity !== expectedCity || normalizedProvince !== "buenos aires") {
+    throw new ValidationError("La modalidad de entrega no corresponde a la localidad y provincia indicadas.");
+  }
+}
+
+function normalizeLocation(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 export function assertAddressPolicy(type: ShippingMethodType, requiresAddress: boolean): void {
   if (type === "PICKUP" && requiresAddress) {
     throw new ValidationError("El retiro en local no requiere dirección.");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { quoteShippingMethod, validateShippingMethodDraft, type ShippingMethodState } from "@/modules/shipping/domain/shipping";
+import { assertLaurilShippingAddress, isLaurilShippingMethod, quoteShippingMethod, validateShippingMethodDraft, type ShippingMethodState } from "@/modules/shipping/domain/shipping";
 import { ValidationError } from "@/shared/domain/errors";
 
 const method: ShippingMethodState = {
@@ -30,5 +30,16 @@ describe("métodos de entrega", () => {
   it("rechaza políticas de dirección inconsistentes", () => {
     expect(() => validateShippingMethodDraft({ ...method, type: "PICKUP", requiresAddress: true })).toThrow(ValidationError);
     expect(() => validateShippingMethodDraft({ ...method, type: "LOCAL_DELIVERY", requiresAddress: false })).toThrow(ValidationError);
+  });
+
+  it("acepta solo tarifas Lauril y la localidad correspondiente", () => {
+    const laPlata = { ...method, code: "ENVIO_LA_PLATA", type: "LOCAL_DELIVERY" as const, costInCents: 250000n, freeShippingFromInCents: null };
+    const berisso = { ...laPlata, code: "ENVIO_BERISSO", costInCents: 350000n };
+    expect(isLaurilShippingMethod(laPlata)).toBe(true);
+    expect(isLaurilShippingMethod(berisso)).toBe(true);
+    expect(isLaurilShippingMethod(method)).toBe(false);
+    expect(isLaurilShippingMethod({ ...laPlata, costInCents: 300000n })).toBe(false);
+    expect(() => assertLaurilShippingAddress(laPlata.code, { city: "La Plata", province: "Buenos Aires" })).not.toThrow();
+    expect(() => assertLaurilShippingAddress(berisso.code, { city: "La Plata", province: "Buenos Aires" })).toThrow(ValidationError);
   });
 });

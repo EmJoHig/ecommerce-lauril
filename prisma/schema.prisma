@@ -677,6 +677,11 @@ model StoreSettings {
   phone             String?
   whatsapp          String?
   businessAddress   String?  @map("business_address")
+  sellerName        String?  @map("seller_name")
+  sellerCuit        String?  @map("seller_cuit")
+  sellerFiscalAddress String? @map("seller_fiscal_address")
+  fiscalDataUrl     String?  @map("fiscal_data_url")
+  fiscalDataLogoUrl String?  @map("fiscal_data_logo_url")
   instagramUrl      String?  @map("instagram_url")
   facebookUrl       String?  @map("facebook_url")
   publicDescription String?  @map("public_description")

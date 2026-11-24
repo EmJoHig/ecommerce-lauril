@@ -12,6 +12,11 @@ function setup() {
     phone: null,
     whatsapp: null,
     businessAddress: "Buenos Aires, Argentina",
+    sellerName: null,
+    sellerCuit: null,
+    sellerFiscalAddress: null,
+    fiscalDataUrl: null,
+    fiscalDataLogoUrl: null,
     instagramUrl: null,
     facebookUrl: null,
     publicDescription: "Objetos elegidos para acompañar tus rituales cotidianos.",
@@ -31,6 +36,11 @@ describe("StoreSettingsService", () => {
       phone: "+54 11 4444-5555",
       whatsapp: "+54 9 11 4444-5555",
       businessAddress: "  Palermo, Buenos Aires ",
+      sellerName: "  Ana Pérez  ",
+      sellerCuit: "20-12345678-6",
+      sellerFiscalAddress: "  La Plata, Buenos Aires  ",
+      fiscalDataUrl: "https://www.arca.gob.ar/960/",
+      fiscalDataLogoUrl: "https://www.arca.gob.ar/logo.png",
       instagramUrl: "https://instagram.com/lauril",
       facebookUrl: "",
       publicDescription: "  Objetos para todos los días. ",
@@ -42,6 +52,11 @@ describe("StoreSettingsService", () => {
       phone: "+54 11 4444-5555",
       whatsapp: "+54 9 11 4444-5555",
       businessAddress: "Palermo, Buenos Aires",
+      sellerName: "Ana Pérez",
+      sellerCuit: "20123456786",
+      sellerFiscalAddress: "La Plata, Buenos Aires",
+      fiscalDataUrl: "https://www.arca.gob.ar/960/",
+      fiscalDataLogoUrl: "https://www.arca.gob.ar/logo.png",
       instagramUrl: "https://instagram.com/lauril",
       facebookUrl: null,
       publicDescription: "Objetos para todos los días.",
@@ -56,6 +71,11 @@ describe("StoreSettingsService", () => {
       phone: "",
       whatsapp: "",
       businessAddress: "",
+      sellerName: "",
+      sellerCuit: "",
+      sellerFiscalAddress: "",
+      fiscalDataUrl: "",
+      fiscalDataLogoUrl: "",
       instagramUrl: "",
       facebookUrl: "",
       publicDescription: "",
@@ -63,5 +83,8 @@ describe("StoreSettingsService", () => {
     expect(() => service.update({ ...base, publicEmail: "email-invalido" }, actorUserId)).toThrow("email público");
     expect(() => service.update({ ...base, phone: "abc" }, actorUserId)).toThrow("teléfono");
     expect(() => service.update({ ...base, instagramUrl: "instagram.com/lauril" }, actorUserId)).toThrow("Instagram");
+    expect(() => service.update({ ...base, sellerCuit: "123" }, actorUserId)).toThrow("CUIT");
+    expect(() => service.update({ ...base, fiscalDataUrl: "http://example.com" }, actorUserId)).toThrow("HTTPS");
+    expect(() => service.update({ ...base, fiscalDataUrl: "https://example.com" }, actorUserId)).toThrow("ARCA");
   });
 });

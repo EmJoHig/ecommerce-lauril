@@ -274,6 +274,8 @@ que webhooks duplicados o concurrentes descuenten físicamente dos veces.
 - B1 agrega `withdrawal_requests`: registra solicitudes de arrepentimiento con
   clave de envío y código únicos, fecha UTC, datos de contacto y número de pedido
   opcional.
+- B1 agrega campos fiscales opcionales a `StoreSettings` para identificar al
+  vendedor real y enlazar el Formulario 960/D; no guarda claves fiscales.
 - `db:push` sincroniza el schema Prisma y luego crea de forma idempotente los
   índices parciales que Prisma Schema no puede expresar.
 - El seed crea permisos, rol base, catálogo, inventario, métodos de entrega y
