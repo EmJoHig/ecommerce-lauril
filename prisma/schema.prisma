@@ -139,6 +139,7 @@ model User {
   orderNotes          OrderNote[]          @relation("OrderNoteActor")
   customerNotes       CustomerNote[]       @relation("CustomerNoteActor")
   customer            Customer?
+  withdrawalActivities WithdrawalActivity[]
 
   @@index([status])
   @@map("users")
@@ -699,9 +700,31 @@ model WithdrawalRequest {
   name         String
   email        String
   createdAt    DateTime @default(now()) @map("created_at")
+  status       String? @default("PENDING")
+  version      Int? @default(0)
+  resolution   String?
+  resolvedAt   DateTime? @map("resolved_at")
+  activities   WithdrawalActivity[]
 
   @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([orderNumber])
   @@map("withdrawal_requests")
+}
+
+model WithdrawalActivity {
+  id String @id @default(uuid()) @map("_id")
+  requestId String @map("request_id")
+  actorUserId String @map("actor_user_id")
+  content String
+  fromStatus String @map("from_status")
+  toStatus String @map("to_status")
+  createdAt DateTime @default(now()) @map("created_at")
+  request WithdrawalRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([requestId, createdAt])
+  @@map("withdrawal_activities")
 }
 
 model Sequence {

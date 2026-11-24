@@ -7,7 +7,7 @@ const sections = [
   { label: "Inicio", items: [{ name: "Resumen", href: "/admin", permission: "admin.access" }] },
   { label: "Catálogo", items: [{ name: "Productos", href: "/admin/productos", permission: "catalog.read" }, { name: "Categorías", href: "/admin/categorias", permission: "catalog.read" }] },
   { label: "Inventario", items: [{ name: "Stock", href: "/admin/stock", permission: "inventory.read" }, { name: "Movimientos", href: "/admin/stock/movimientos", permission: "inventory.read" }] },
-  { label: "Ventas", items: [{ name: "Pedidos", href: "/admin/pedidos", permission: "orders.read" }] },
+  { label: "Ventas", items: [{ name: "Pedidos", href: "/admin/pedidos", permission: "orders.read" }, { name: "Arrepentimientos", href: "/admin/arrepentimientos", permission: "withdrawals.read" }] },
   { label: "Clientes", items: [{ name: "Clientes", href: "/admin/clientes", permission: "customers.read" }] },
   { label: "Envíos", items: [{ name: "Métodos de entrega", href: "/admin/envios", permission: "shipping.read" }] },
   { label: "Administración", items: [{ name: "Configuración", href: "/admin/configuracion", permission: "settings.read" }, { name: "Administradores", href: "/admin/administradores", permission: "users.read" }, { name: "Roles y permisos", href: "/admin/roles", permission: "roles.read" }, { name: "Auditoría", href: "/admin/auditoria", permission: "audit.read" }] },

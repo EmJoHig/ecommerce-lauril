@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getAdminOverviewService } from "@/modules/admin/infrastructure/admin-overview-composition";
 import { requireAdmin } from "@/modules/auth/presentation/session";
 
@@ -12,7 +13,8 @@ const shortcuts = [
 ] as const;
 
 export default async function AdminDashboardPage() {
-  await requireAdmin("admin.access");
+  const actor = await requireAdmin("admin.access");
+  if (actor.permissions.includes("withdrawals.read") && !actor.permissions.some((permission) => ["orders.read", "catalog.read", "inventory.read", "customers.read"].includes(permission))) redirect("/admin/arrepentimientos");
   const overview = await getAdminOverviewService().getOverview();
   return <>
     <div className="admin-heading"><div><p className="eyebrow">Inicio</p><h1>Operación de la tienda</h1><p>Accesos y contadores esenciales del backoffice.</p></div></div>

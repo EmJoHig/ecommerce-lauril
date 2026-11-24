@@ -45,6 +45,17 @@ RBAC usa permisos de capacidad (`admin.access`, `catalog.write`, etc.). Las ruta
 administrativas validan sesión y permiso en el servidor. Ocultar un botón no es
 autorización. Toda acción relevante registra actor en `AuditLog`.
 
+Arrepentimientos: listado y detalle exigen `admin.access` y `withdrawals.read`;
+la acción de gestión comprueba además `withdrawals.write` en servidor. El
+operador proviene de la sesión. `npm run db:sync:withdrawal-permissions` crea
+idempotentemente los permisos para ADMIN y el rol limitado WITHDRAWAL_OPERATOR
+con admin.access y withdrawals.read/write; rechaza un rol operativo existente
+con permisos adicionales, sin limpiarlo silenciosamente. No asigna cuentas ni
+concede orders.read/write. Asignar individualmente responsable y suplente en
+la administración existente con un administrador autorizado; no compartir
+credenciales ni otorgar acceso a Atlas. El historial es interno y append-only
+desde la interfaz; no incluir documentos, datos bancarios ni secretos.
+
 `/admin/configuracion` exige `settings.read`; la Server Action que modifica
 `StoreSettings` exige `settings.write` nuevamente en el servidor. Un rol con solo
 `settings.read` puede consultar la configuración sin guardar cambios.

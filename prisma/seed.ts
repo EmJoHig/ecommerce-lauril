@@ -4,6 +4,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/modules/auth/domain/password";
 import { RecordInventoryMovement } from "../src/modules/inventory/application/record-inventory-movement";
 import { PrismaInventoryUnitOfWork } from "../src/modules/inventory/infrastructure/prisma-inventory-unit-of-work";
+import { syncWithdrawalPermissions } from "../src/modules/auth/infrastructure/sync-withdrawal-permissions";
 
 const mongodbUri = process.env.MONGODB_URI;
 if (!mongodbUri) {
@@ -312,6 +313,7 @@ async function seedStoreSettings(): Promise<void> {
 
 async function main(): Promise<void> {
   const adminUserId = await seedAuthorization();
+  await syncWithdrawalPermissions(prisma);
   await seedCatalog(adminUserId);
   await seedShipping();
   await seedStoreSettings();

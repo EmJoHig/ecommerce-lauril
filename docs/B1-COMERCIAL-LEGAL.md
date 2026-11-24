@@ -140,22 +140,52 @@ ser razonable y limitarse a seguridad. No se envía constancia automática por
 Resend: el email ingresado es público y no está verificado, por lo que podría
 usarse para enviar correos a terceros.
 
-Antes de publicar, el titular debe designar una persona y suplente con acceso
-de lectura limitado a `withdrawal_requests` en MongoDB Atlas. No existe panel
-ni aviso automático. Procedimiento mínimo:
+Antes de publicar, confirmar responsable, suplente y guardia de revisión.
+Ambos usarán cuentas administrativas individuales y el rol
+`WITHDRAWAL_OPERATOR`, sin acceso directo a Atlas. Un administrador autorizado
+ejecutará `npm run db:sync:withdrawal-permissions` después de sincronizar el
+esquema y asignará el rol en `/admin/administradores`. No ejecutar el seed
+completo para actualizar una instalación existente. El rol concede solamente
+`admin.access`, `withdrawals.read` y `withdrawals.write`; no concede lectura
+de pedidos ni capacidad de reembolso.
 
-1. Revisar al menos dos veces al día solicitudes ordenadas por `created_at`.
-   Comparar cada código con un registro privado para detectar las pendientes.
-2. Registrar código, fecha UTC, responsable y estado operativo. Verificar
+La sección `/admin/arrepentimientos` muestra contadores, filtros, búsqueda
+exacta por código ARR completo o número de pedido y prioridad para no resueltas,
+de más antiguas a más recientes. El detalle muestra contacto e historial.
+No hay avisos automáticos. Procedimiento mínimo:
+
+1. Revisar pendientes y en gestión al menos dos veces al día, incluyendo
+   domingos, feriados y días sin atención comercial. Confirmar por escrito
+   quién cubre cada revisión y su reemplazo; el contador requiere abrir o
+   refrescar la página. La antigüedad usa tiempo calendario, no días hábiles.
+2. Abrir la solicitud y registrar una actuación al comenzar la gestión. Verificar
    identidad y compra por email o WhatsApp; solicitar número de pedido solo
    cuando sea necesario para localizarla. La falta de número no anula la
    recepción.
 3. Contactar al consumidor, coordinar devolución y conservar constancia de
    fechas, comunicaciones y decisión. Para pagos Mercado Pago, comprobar si
    ya hubo reembolso y seguir el procedimiento seguro existente.
-4. Registrar resolución, importe, medio, identificador de reembolso y nota de
-   crédito si corresponde. No editar manualmente pedido, pago ni stock, ni
-   ejecutar devoluciones duplicadas.
+4. Registrar la resolución obligatoria y referencia de la devolución ya
+   efectuada o nota de crédito cuando corresponda. No incluir documentos de
+   identidad, datos bancarios, credenciales ni secretos. Las actuaciones
+   conservan operador y fecha y no se editan ni borran desde la interfaz.
+   Resolver no modifica pedidos, stock, pagos ni reembolsos.
+
+Transiciones: PENDING permite actuaciones sin cambio, IN_PROGRESS o RESOLVED;
+IN_PROGRESS permite actuaciones o RESOLVED. RESOLVED es final. La versión
+impide sobrescrituras: ante conflicto, recargar y revisar el historial.
+Solicitudes antiguas sin estado o versión se interpretan como PENDING y 0.
+Cambios, actuaciones y AuditLog se guardan atómicamente; AuditLog contiene
+solo identificadores, estados y versión, sin copiar el contenido personal.
+
+Validación local de la gestión: diez tests dirigidos aprobados, typecheck,
+build y Prisma validate. En MongoDB temporal independiente se comprobaron
+db:push, compatibilidad de registros antiguos, búsqueda/filtros/contadores,
+concurrencia y rollback de estado/actuación ante fallo provocado en AuditLog.
+La sincronización repetida conservó exactamente los tres permisos del rol.
+En navegador se verificaron acceso anónimo denegado, cuenta operativa limitada,
+actuaciones, cierre y revisión de escritorio/celular. No se usó Atlas ni VPS.
+La prueba no sustituye la asignación real de cuentas y confirmación de guardia.
 
 Sincronizar el esquema con `npm run db:push` solo en el entorno autorizado y
 comprobar una solicitud de prueba sin afectar pagos.

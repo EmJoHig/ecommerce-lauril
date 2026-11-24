@@ -276,6 +276,11 @@ que webhooks duplicados o concurrentes descuenten físicamente dos veces.
   opcional.
 - B1 agrega campos fiscales opcionales a `StoreSettings` para identificar al
   vendedor real y enlazar el Formulario 960/D; no guarda claves fiscales.
+- La gestión B1 agrega estado/versión opcionales (ausentes equivalen a PENDING/0),
+  resolución/fecha y `withdrawal_activities`, con índices por estado/recepción,
+  número de pedido y solicitud/fecha. Conserva códigos, claves y recepción.
+  Las actualizaciones usan compare-and-set y una transacción para estado,
+  actuación y AuditLog. Sincronizar esquema y permisos antes de habilitar UI.
 - `db:push` sincroniza el schema Prisma y luego crea de forma idempotente los
   índices parciales que Prisma Schema no puede expresar.
 - El seed crea permisos, rol base, catálogo, inventario, métodos de entrega y
