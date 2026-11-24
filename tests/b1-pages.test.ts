@@ -43,6 +43,11 @@ describe("páginas informativas B1", () => {
     expect(html).toContain("Entrega local");
     expect(html).toContain("La Plata (ARS 2.500)");
     expect(html).toContain("Berisso (ARS 3.500)");
+    expect(html).toContain("hasta 2 días hábiles");
+    expect(html).toContain("hasta 1 día hábil adicional");
+    expect(html).toContain("domingos y feriados");
+    expect(html).not.toContain("48 horas hábiles");
+    expect(html).not.toContain("24 horas hábiles");
     expect(html).toContain("factura electrónica C");
     expect(html).toContain("15 días corridos");
     expect(html).not.toMatch(/CUIT:|PENDIENTE/);

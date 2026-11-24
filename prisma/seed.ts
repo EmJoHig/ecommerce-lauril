@@ -33,10 +33,9 @@ const permissions = [
 ] as const;
 
 const shippingMethods = [
-  { code: "RETIRO_LOCAL", name: "Retiro en local", description: "Retirá tu compra sin costo cuando esté preparada.", type: "PICKUP" as const, costInCents: 0n, requiresAddress: false, minimumSubtotalInCents: null, freeShippingFromInCents: null, isActive: true, sortOrder: 1 },
-  { code: "ENVIO_FIJO", name: "Envío a domicilio", description: "Tarifa fija para entregas nacionales.", type: "FLAT_RATE" as const, costInCents: 450000n, requiresAddress: true, minimumSubtotalInCents: null, freeShippingFromInCents: 8000000n, isActive: true, sortOrder: 2 },
-  { code: "ENTREGA_LOCAL", name: "Entrega local", description: "Entrega coordinada dentro de la zona local.", type: "LOCAL_DELIVERY" as const, costInCents: 300000n, requiresAddress: true, minimumSubtotalInCents: null, freeShippingFromInCents: 6000000n, isActive: true, sortOrder: 3 },
-  { code: "A_COORDINAR", name: "Envío a coordinar", description: "Coordinaremos la entrega después de confirmar el pago.", type: "TO_COORDINATE" as const, costInCents: 0n, requiresAddress: false, minimumSubtotalInCents: null, freeShippingFromInCents: null, isActive: true, sortOrder: 4 },
+  { code: "RETIRO_LOCAL", name: "Retiro en Tecnoclean", description: "Retiro gratuito cuando recibas el aviso de disponibilidad.", type: "PICKUP" as const, costInCents: 0n, requiresAddress: false, minimumSubtotalInCents: null, freeShippingFromInCents: null, isActive: true, sortOrder: 1 },
+  { code: "ENVIO_LA_PLATA", name: "Entrega en La Plata", description: "Entrega a domicilio en La Plata, Buenos Aires.", type: "LOCAL_DELIVERY" as const, costInCents: 250000n, requiresAddress: true, minimumSubtotalInCents: null, freeShippingFromInCents: null, isActive: true, sortOrder: 2 },
+  { code: "ENVIO_BERISSO", name: "Entrega en Berisso", description: "Entrega a domicilio en Berisso, Buenos Aires.", type: "LOCAL_DELIVERY" as const, costInCents: 350000n, requiresAddress: true, minimumSubtotalInCents: null, freeShippingFromInCents: null, isActive: true, sortOrder: 3 },
 ] as const;
 
 const categories = [
@@ -304,9 +303,9 @@ async function seedStoreSettings(): Promise<void> {
     create: {
       id: 1,
       storeName: "Lauril",
-      publicEmail: "hola@lauril.com.ar",
-      businessAddress: "Buenos Aires, Argentina",
-      publicDescription: "Objetos elegidos para acompañar tus rituales cotidianos.",
+      publicEmail: "lauril.quimica66@gmail.com",
+      whatsapp: "+5492216901425",
+      businessAddress: "Tecnoclean — Punto de retiro Lauril, Calle 68 N.º 1261, entre 20 y 21, La Plata, Buenos Aires, Argentina",
     },
   });
 }

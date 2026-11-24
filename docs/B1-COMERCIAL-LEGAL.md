@@ -15,9 +15,11 @@ indicadas abajo. Tecnoclean es solamente el punto de retiro.
 - Retiro gratuito: Tecnoclean — Punto de retiro Lauril, Calle 68 N.º 1261,
   entre 20 y 21, La Plata. Retirar solo después del aviso de pedido listo.
 - Entrega a domicilio exclusivamente en La Plata (ARS 2.500) y Berisso
-  (ARS 3.500). Preparación desde la confirmación del pago: hasta 48 horas
-  hábiles. Retiro o entrega: dentro de las 24 horas hábiles posteriores al
-  aviso de pedido listo. Revisar el cómputo de horas y feriados con asesor legal.
+  (ARS 3.500). Para Mercado Pago, preparar hasta 2 días hábiles desde la
+  acreditación del pago. Desde que el pedido está listo, entregar a domicilio
+  hasta 1 día hábil adicional o disponer el retiro hasta 1 día hábil adicional.
+  Atención lunes a sábado, 9:00–19:00; domingos y feriados sin actividad.
+  Revisar el cómputo exacto de días y feriados con asesor legal.
 - Pago en checkout: Mercado Pago Checkout Pro. Efectivo al retirar sigue
   pendiente como desarrollo separado.
 - Factura electrónica C manual mediante ARCA — Comprobantes en Línea, PDF
@@ -31,7 +33,11 @@ indicadas abajo. Tecnoclean es solamente el punto de retiro.
 En `/admin/configuracion`, quien tenga `settings.write` debe cargar el email,
 WhatsApp y dirección del punto de retiro confirmados en `StoreSettings`. El
 campo `businessAddress` representa el punto de retiro, no el domicilio fiscal.
-El seed conserva datos anteriores y no actualiza registros existentes.
+El seed ahora crea instalaciones nuevas con contacto, punto de retiro y tres
+tarifas aprobadas. Sus `upsert` usan `update: {}`: no corrige registros ya
+existentes. Revisar y actualizar manualmente el email anterior
+`hola@lauril.com.ar`, el domicilio genérico `Buenos Aires, Argentina`, la
+descripción comercial antigua y los métodos heredados si están presentes.
 
 El titular debe proporcionar por canal privado nombre y apellido, CUIT,
 domicilio fiscal, datos complementarios que correspondan y los enlaces
@@ -44,7 +50,7 @@ Confirmar con el asesor legal/contable la presentación exacta antes de publicar
 En `/admin/envios` deben estar activos exclusivamente `RETIRO_LOCAL`
 (`PICKUP`, ARS 0), `ENVIO_LA_PLATA` (`LOCAL_DELIVERY`, ARS 2.500) y
 `ENVIO_BERISSO` (`LOCAL_DELIVERY`, ARS 3.500), sin mínimos ni umbrales de
-gratuidad. Crear los dos métodos locales y desactivar `ENVIO_FIJO`,
+gratuidad. Crear los dos métodos locales si faltan y desactivar `ENVIO_FIJO`,
 `ENTREGA_LOCAL`, `A_COORDINAR` y otros métodos antiguos. El checkout B1
 oculta y rechaza métodos incompatibles; valida ciudad y provincia antes de
 reservar stock. Configurar los métodos antes de publicar: de otro modo solo
@@ -52,10 +58,11 @@ estará disponible el retiro.
 
 ### Checklist de métodos de entrega
 
-El seed crea `RETIRO_LOCAL` y los tres métodos antiguos, pero no crea
-`ENVIO_LA_PLATA` ni `ENVIO_BERISSO`. Verificar su existencia real en cada
-entorno antes de crear registros; no ejecutar el seed en producción para
-actualizar tarifas.
+El seed actualizado crea los tres métodos aprobados en instalaciones nuevas.
+Las bases existentes pueden conservar los métodos antiguos y carecer de los
+dos métodos locales. Verificar su existencia real antes de crearlos; no
+ejecutar el seed en producción para actualizar tarifas, porque no modifica
+registros existentes.
 
 | Código | Acción en `/admin/envios` | Tipo | Costo | Dirección | Mínimo / envío gratis |
 | --- | --- | --- | --- | --- | --- |
@@ -77,6 +84,14 @@ El esquema B1 agrega `withdrawal_requests` (claves `request_key` y `code`
 `fiscal_data_logo_url`. No se cambian pedidos, pagos, reservas ni inventario.
 `npm run db:push` ejecuta `prisma db push` y después el script idempotente de
 índices parciales; no hay Prisma Migrate ni migraciones SQL.
+
+La prueba aislada de B1 se completó sobre un replicaset MongoDB temporal en
+`127.0.0.1`: `db:push` creó la colección y los índices esperados; una segunda
+ejecución quedó sincronizada. Prisma leyó un registro `StoreSettings` anterior
+sin campos fiscales y persistió los cinco campos nuevos sin alterar su email
+preexistente. No se observaron operaciones destructivas. La instancia de
+prueba se detuvo y eliminó; esta comprobación no sustituye la revisión del
+plan de sincronización en el entorno de publicación.
 
 1. Completar y aprobar identificación fiscal, Data Fiscal y decisiones legales
    y de privacidad. Verificar respaldo restaurable y URI de la base correcta.
@@ -162,8 +177,9 @@ si hay herramientas ajenas al repositorio. No iniciar marketing por defecto.
 
 ## Desarrollo independiente pendiente: efectivo al retirar
 
-No implementarlo ni anunciarlo como disponible en B1. El futuro flujo se
-limitará a retiro presencial: pedido sin pago online, reserva segura, aviso
+No implementarlo ni anunciarlo como disponible en B1. En ese futuro flujo,
+los 2 días hábiles de preparación comenzarán desde la confirmación del pedido.
+Se limitará a retiro presencial: pedido sin pago online, reserva segura, aviso
 de pedido listo, tres días hábiles desde ese aviso, prórroga administrativa
 registrada, cancelación manual supervisada, liberación de reserva, registro
 manual del cobro y avisos por email/WhatsApp. Definir el cómputo de días y
